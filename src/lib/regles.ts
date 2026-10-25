@@ -7,6 +7,21 @@ import { ecartJours } from "./dates";
 
 export type ResultatRegle = { code: string; ok: boolean; libelle: string };
 
+/** Formulation courte du problème quand une règle n'est pas respectée. */
+export const PROBLEMES: Record<string, string> = {
+  duree: "durée hebdomadaire hors limites",
+  nuit: "horaires de nuit",
+  dimanche: "stage le dimanche",
+  repos: "repos consécutifs insuffisants",
+  structure: "structure non privée",
+  dominante: "hors de la dominante",
+  convention: "convention incomplète",
+};
+
+export function problemes(res: ResultatRegle[], avecConvention = false): string {
+  return res.filter((r) => !r.ok && (avecConvention || r.code !== "convention")).map((r) => PROBLEMES[r.code] ?? r.libelle).join(", ");
+}
+
 export const SIGNATAIRES: { cle: Signataire; libelle: string }[] = [
   { cle: "eleve", libelle: "Élève" },
   { cle: "parent", libelle: "Responsable légal" },

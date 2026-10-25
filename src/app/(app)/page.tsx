@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { contexte } from "@/lib/auth";
 import { a, estGestionnaire } from "@/lib/acces";
 import { elevesSuivis, classesAvecPeriodes, texteperiode, periodeDeReference } from "@/lib/requetes";
-import { STATUTS, type Statut } from "@/lib/regles";
+import { STATUTS, problemes, type Statut } from "@/lib/regles";
 import { aujourdhui, dateLongue } from "@/lib/dates";
 import { Pastille } from "@/components/ui";
 
@@ -99,7 +99,7 @@ export default async function Accueil() {
                 <div className="meta">
                   {l.statut === "sans_stage" && `Aucun lieu de stage · ${texteperiode(l.periode)}`}
                   {l.statut !== "sans_stage" && l.entreprise?.nom}
-                  {l.stage && !l.conforme && ` · ${l.regles.filter((r) => !r.ok && r.code !== "convention").map((r) => r.libelle.split(" :")[0].split(" (")[0]).join(" · ")}`}
+                  {l.stage && !l.conforme && <span style={{ color: "var(--bad)", fontWeight: 700 }}> · Hors règles : {problemes(l.regles)}</span>}
                 </div>
               </div>
               {l.statut && <Pastille statut={l.statut} />}

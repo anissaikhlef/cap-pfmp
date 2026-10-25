@@ -1,6 +1,7 @@
 node_modules
 .next
 .env
+!.env.example
 uploads
 *.tsbuildinfo
 next-env.d.ts
