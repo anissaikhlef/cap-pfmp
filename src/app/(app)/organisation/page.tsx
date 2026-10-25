@@ -1,0 +1,108 @@
+import { asc, eq } from "drizzle-orm";
+import { db, schema } from "@/db";
+import { contexte } from "@/lib/auth";
+import { Formulaire } from "@/components/Formulaire";
+import { ajouterDominante, enregistrerOrganisation, supprimerDominante } from "./actions";
+
+export const metadata = { title: "Organisation" };
+
+function Choix({ nom, valeur, options }: { nom: string; valeur: string; options: [string, string, string?][] }) {
+  return (
+    <div className="choices" role="radiogroup">
+      {options.map(([v, l, aide]) => (
+        <label key={v} className="choice">
+          <input type="radio" name={nom} value={v} defaultChecked={valeur === v} />
+          <span><b>{l}</b>{aide && <><br /><span className="sub">{aide}</span></>}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+export default async function Organisation() {
+  const ctx = await contexte({ roles: ["direction", "gestionnaire"] });
+  const r = ctx.etab.reglages;
+  const dominantes = await db.select().from(schema.dominantes).where(eq(schema.dominantes.etablissementId, ctx.etab.id)).orderBy(asc(schema.dominantes.libelle));
+  const on = (b: boolean) => (b ? "oui" : "non");
+  return (
+    <>
+      <div>
+        <h1>Organisation du lycée</h1>
+        <p className="sub">Chaque lycée s&apos;organise à sa façon. Ces réglages adaptent les rôles, les validations et les étapes de toute l&apos;application.</p>
+      </div>
+      <Formulaire action={enregistrerOrganisation} bouton="Enregistrer l'organisation">
+        <div className="panel pad section">
+          <h2>Établissement</h2>
+          <div className="grid2">
+            <label className="f" htmlFor="nom">Nom du lycée<input id="nom" name="nom" defaultValue={ctx.etab.nom} required /></label>
+            <label className="f" htmlFor="anneeScolaire">Année scolaire en cours<input id="anneeScolaire" name="anneeScolaire" defaultValue={ctx.etab.anneeScolaire} pattern="\d{4}-\d{4}" required /></label>
+          </div>
+        </div>
+        <div className="panel pad section">
+          <h2>Qui organise et suit les PFMP ?</h2>
+          <p className="sub">Cette personne valide les documents déposés, relance les familles et les entreprises, et voit le tableau de bord de ses classes.</p>
+          <Choix nom="gestion" valeur={r.gestion} options={[
+            ["referent", "Le professeur référent de chaque classe", "Chaque référent gère sa classe. La direction voit tout."],
+            ["bde", "Le bureau des entreprises", "Les comptes « Gestion des PFMP » gèrent toutes les classes."],
+            ["ddfpt", "Le DDFPT", "Les comptes « Gestion des PFMP » gèrent toutes les classes."],
+          ]} />
+        </div>
+        <div className="panel pad section">
+          <h2>Qui fait les visites de stage ?</h2>
+          <Choix nom="visiteurs" valeur={r.visiteurs} options={[
+            ["pro", "Les professeurs de l'enseignement professionnel"],
+            ["equipe", "Toute l'équipe pédagogique", "Professeurs d'enseignement général compris."],
+          ]} />
+        </div>
+        <div className="panel pad section">
+          <h2>Comment la convention est-elle signée ?</h2>
+          <Choix nom="signature" valeur={r.signature} options={[
+            ["papier", "Sur papier, puis déposée", "L'élève ou sa famille dépose le scan signé par tous."],
+            ["enligne", "En ligne", "Chaque partie signe dans l'application (prestataire de signature à brancher)."],
+            ["les2", "Les deux possibles"],
+          ]} />
+        </div>
+        <div className="panel pad section">
+          <h2>Visites</h2>
+          <div className="grid2">
+            <div className="section"><b>Ordre de mission avant chaque visite</b>
+              <Choix nom="ordreMission" valeur={on(r.ordreMission)} options={[["oui", "Oui, signé par la direction"], ["non", "Non"]]} /></div>
+            <div className="section"><b>Compte rendu après chaque visite</b>
+              <Choix nom="compteRendu" valeur={on(r.compteRendu)} options={[["oui", "Oui, rangé dans le dossier"], ["non", "Non"]]} /></div>
+          </div>
+        </div>
+        <div className="panel pad section">
+          <h2>Règles de stage</h2>
+          <p className="sub">Vérifiées automatiquement pour chaque stage. La règle de structure (privé ou dominante) se règle par classe.</p>
+          <div className="grid3">
+            <label className="f" htmlFor="heuresMin">Heures par semaine, minimum<input id="heuresMin" name="heuresMin" type="number" min={0} max={48} step={0.5} defaultValue={r.regles.heuresMin} /></label>
+            <label className="f" htmlFor="heuresMax">Heures par semaine, maximum<input id="heuresMax" name="heuresMax" type="number" min={1} max={48} step={0.5} defaultValue={r.regles.heuresMax} /></label>
+            <label className="f" htmlFor="joursReposConsecutifs">Jours de repos consécutifs<input id="joursReposConsecutifs" name="joursReposConsecutifs" type="number" min={0} max={3} defaultValue={r.regles.joursReposConsecutifs} /></label>
+            <label className="f" htmlFor="nuitDebut">Nuit interdite à partir de<input id="nuitDebut" name="nuitDebut" type="time" defaultValue={r.regles.nuitDebut} /></label>
+            <label className="f" htmlFor="nuitFin">jusqu&apos;à<input id="nuitFin" name="nuitFin" type="time" defaultValue={r.regles.nuitFin} /></label>
+            <label className="f" htmlFor="dimancheInterdit">Stage le dimanche
+              <select id="dimancheInterdit" name="dimancheInterdit" defaultValue={on(r.regles.dimancheInterdit)}><option value="oui">Interdit</option><option value="non">Autorisé</option></select>
+            </label>
+          </div>
+        </div>
+      </Formulaire>
+
+      <div className="panel pad section">
+        <h2>Dominantes</h2>
+        <p className="sub">Utilisées pour vérifier qu&apos;un stage de 1re ou de terminale se déroule dans la dominante de l&apos;élève.</p>
+        <div className="rows panel">
+          {dominantes.length === 0 && <div className="empty">Aucune dominante.</div>}
+          {dominantes.map((d) => (
+            <div key={d.id} className="row">
+              <div className="main">{d.libelle}</div>
+              <form action={supprimerDominante}><input type="hidden" name="id" value={d.id} /><button className="btn small danger">Retirer</button></form>
+            </div>
+          ))}
+        </div>
+        <Formulaire action={ajouterDominante} className="actions" bouton="Ajouter" boutonClasse="btn">
+          <label className="f" htmlFor="libelle" style={{ flex: 1 }}>Nouvelle dominante<input id="libelle" name="libelle" placeholder="Ex. Sécurité incendie" /></label>
+        </Formulaire>
+      </div>
+    </>
+  );
+}
