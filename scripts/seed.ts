@@ -5,9 +5,12 @@
  *   npm run db:seed
  */
 import { drizzle } from "drizzle-orm/node-postgres";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
+import { mkdir, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import path from "node:path";
 import * as schema from "../src/db/schema";
 import { REGLAGES_PAR_DEFAUT, type Horaires, type Signatures, type Role } from "../src/db/schema";
 
@@ -18,6 +21,26 @@ const DOMAINE = "demo.cap-pfmp.example";
 const STD: Horaires = [["08:00", "15:00"], ["08:00", "15:00"], ["08:00", "15:00"], ["08:00", "15:00"], ["08:00", "12:00"], null, null];
 const NUIT: Horaires = [["14:00", "22:30"], ["14:00", "22:30"], ["14:00", "22:30"], ["14:00", "22:30"], null, null, null];
 const WEEKEND: Horaires = [null, null, ["09:00", "16:00"], ["09:00", "16:00"], ["09:00", "16:00"], ["10:00", "17:00"], ["10:00", "16:00"]];
+
+/** Petit PDF valide d'une page, pour illustrer les documents déposés. */
+function fauxPdf(texte: string): Buffer {
+  const t = texte.replace(/[()\\]/g, " ").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const flux = `BT /F1 16 Tf 60 760 Td (${t}) Tj 0 -24 Td /F1 11 Tf (Document fictif de demonstration - Cap PFMP) Tj ET`;
+  const objets = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    `<< /Length ${flux.length} >>\nstream\n${flux}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  let pdf = "%PDF-1.4\n";
+  const pos: number[] = [];
+  objets.forEach((o, i) => { pos.push(pdf.length); pdf += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objets.length + 1}\n0000000000 65535 f \n` + pos.map((p) => `${String(p).padStart(10, "0")} 00000 n \n`).join("");
+  pdf += `trailer\n<< /Size ${objets.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(pdf, "latin1");
+}
 
 const sig = (...qui: (keyof Signatures)[]): Signatures =>
   Object.fromEntries(qui.map((k) => [k, { le: "2026-10-01T10:00:00.000Z", par: null, mode: "papier" as const }]));
@@ -89,7 +112,7 @@ async function main() {
   ].map((x) => ({ ...x, etablissementId: E }))).returning();
   const ent = (n: string) => ents.find((x) => x.nom.startsWith(n))!.id;
 
-  await compte("Karim", "FERHAT", "k.ferhat", ["entreprise"], { entrepriseId: ent("Atlas") });
+  const tuteurAtlas = await compte("Karim", "FERHAT", "k.ferhat", ["entreprise"], { entrepriseId: ent("Atlas") });
 
   type L = { prenom: string; nom: string; k: typeof cap; naissance?: string; dom?: string; stage?: [string, Horaires, Signatures] };
   const eleves: L[] = [
@@ -131,6 +154,39 @@ async function main() {
       const u = await compte("Fatou", "TRAORÉ", "f.traore", ["parent"], { telephone: "06 39 98 20 15" });
       await db.insert(schema.responsables).values({ eleveId: e.id, userId: u.id });
     }
+  }
+
+  // Documents : fin de stage des 1re (période terminée) et historique de l'année précédente pour les terminales
+  const RACINE = path.resolve(process.env.UPLOAD_DIR ?? "./uploads");
+  await mkdir(path.join(RACINE, E), { recursive: true });
+  async function doc(eleveNom: string, type: schema.TypeDocument, statut: "valide" | "a_verifier", annee = "2026-2027", classeLibelle?: string, stageId?: string) {
+    const [el] = await db.select().from(schema.eleves).where(and(eq(schema.eleves.nom, eleveNom), eq(schema.eleves.etablissementId, E))).limit(1);
+    const [st] = stageId ? [{ id: stageId }] : await db.select({ id: schema.stages.id }).from(schema.stages).where(eq(schema.stages.eleveId, el.id)).limit(1);
+    const cle = `${E}/${randomUUID()}.pdf`;
+    const b = fauxPdf(`${type} - ${el.prenom} ${el.nom}`);
+    await writeFile(path.join(RACINE, cle), b);
+    const [cl] = await db.select().from(schema.classes).where(eq(schema.classes.id, el.classeId!)).limit(1);
+    await db.insert(schema.documents).values({
+      etablissementId: E, eleveId: el.id, stageId: st?.id ?? null, anneeScolaire: annee, classeLibelle: classeLibelle ?? cl.libelle, type,
+      nomFichier: `${type}_${el.nom.toLowerCase()}.pdf`, cleStockage: cle, typeMime: "application/pdf", taille: b.length, statut,
+      deposeParId: tuteurAtlas.id, valideLe: statut === "valide" ? new Date() : null,
+    });
+  }
+  await doc("BOUZID", "attestation", "valide"); await doc("BOUZID", "livret", "valide");
+  await doc("KONÉ", "livret", "valide");
+  await doc("NGUYEN", "attestation", "a_verifier");
+  for (const n of ["LAURENT", "CISSÉ", "FONTAINE", "MANSOURI", "BOUZID", "KONÉ", "NGUYEN", "RAHMANI"]) await doc(n, "convention", "valide");
+
+  // Année précédente : les terminales étaient en 1re, avec leur stage et leurs documents
+  const [ancienne] = await db.insert(schema.classes).values({
+    etablissementId: E, libelle: "1re MS", niveau: "1RE", anneeScolaire: "2025-2026", referentId: benali.id,
+    filiere: "Bac Pro Métiers de la sécurité", regleStructure: "dominante",
+  }).returning();
+  const [pAncienne] = await db.insert(schema.periodes).values({ classeId: ancienne.id, libelle: "PFMP 1", debut: "2025-11-17", fin: "2025-12-12" }).returning();
+  const terminales = await db.select().from(schema.eleves).where(eq(schema.eleves.classeId, ter.c.id));
+  for (const [i, t] of terminales.entries()) {
+    const [st] = await db.insert(schema.stages).values({ eleveId: t.id, periodeId: pAncienne.id, entrepriseId: ents[(i + 2) % ents.length].id, horaires: STD, signatures: TOUS }).returning();
+    for (const ty of ["convention", "attestation", "livret"] as const) await doc(t.nom, ty, "valide", "2025-2026", "1re MS", st.id);
   }
 
   console.log(`Lycée de démonstration créé. Mot de passe de tous les comptes : ${MOT_DE_PASSE_DEMO}`);

@@ -22,6 +22,14 @@ export function problemes(res: ResultatRegle[], avecConvention = false): string 
   return res.filter((r) => !r.ok && (avecConvention || r.code !== "convention")).map((r) => PROBLEMES[r.code] ?? r.libelle).join(", ");
 }
 
+export const VERBE_SIGNATURE: Record<Signataire, string> = {
+  eleve: "Je signe en tant qu'élève",
+  parent: "Je signe en tant que responsable légal",
+  professeur: "Je signe en tant que professeur référent",
+  entreprise: "Je signe pour l'entreprise",
+  direction: "Je signe pour la direction",
+};
+
 export const SIGNATAIRES: { cle: Signataire; libelle: string }[] = [
   { cle: "eleve", libelle: "Élève" },
   { cle: "parent", libelle: "Responsable légal" },

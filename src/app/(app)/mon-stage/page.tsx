@@ -4,6 +4,7 @@ import { contexte } from "@/lib/auth";
 import { dossierStage, suggestions, demarchesDe, entreprisesDuLycee } from "@/lib/stages";
 import { ResumeStage, statutDossier } from "@/components/ResumeStage";
 import { Demarches } from "@/components/Demarches";
+import { BlocConvention, BlocFinDeStage, DossierEleve } from "@/components/convention";
 import { contacterSuggestion } from "../eleves/stage-actions";
 
 export const metadata = { title: "Mon stage" };
@@ -23,6 +24,8 @@ export default async function MonStage() {
     <>
       <div><h1>Bonjour {e.prenom}</h1><p className="sub">Votre stage, étape par étape.</p></div>
       <ResumeStage d={d} statut={statut} />
+      {d.stage && <BlocConvention ctx={ctx} stageId={d.stage.id} />}
+      {d.stage && <BlocFinDeStage ctx={ctx} stageId={d.stage.id} />}
       {!d.stage && d.periode && (
         <>
           <div className="section">
@@ -47,6 +50,7 @@ export default async function MonStage() {
           </div>
         </>
       )}
+      <div className="section"><h2>Mes documents</h2><DossierEleve eleveId={e.id} /></div>
     </>
   );
 }

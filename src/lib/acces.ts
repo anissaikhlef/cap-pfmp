@@ -19,13 +19,14 @@ export function gereToutLEtablissement(ctx: Contexte): boolean {
 
 /** Identifiants des classes que l'utilisateur gère (organise et suit). */
 export async function classesGerees(ctx: Contexte): Promise<string[]> {
-  const toutes = db.select({ id: schema.classes.id }).from(schema.classes).where(eq(schema.classes.etablissementId, ctx.etab.id));
+  const toutes = db.select({ id: schema.classes.id }).from(schema.classes)
+    .where(and(eq(schema.classes.etablissementId, ctx.etab.id), eq(schema.classes.anneeScolaire, ctx.etab.anneeScolaire)));
   if (gereToutLEtablissement(ctx)) return (await toutes).map((c) => c.id);
   if (ctx.etab.reglages.gestion === "referent" && a(ctx, "professeur")) {
     const rows = await db
       .select({ id: schema.classes.id })
       .from(schema.classes)
-      .where(and(eq(schema.classes.etablissementId, ctx.etab.id), eq(schema.classes.referentId, ctx.user.id)));
+      .where(and(eq(schema.classes.etablissementId, ctx.etab.id), eq(schema.classes.referentId, ctx.user.id), eq(schema.classes.anneeScolaire, ctx.etab.anneeScolaire)));
     return rows.map((c) => c.id);
   }
   return [];
@@ -105,4 +106,18 @@ export async function idsElevesGeres(ctx: Contexte): Promise<string[]> {
   const rows = await db.select({ id: schema.eleves.id }).from(schema.eleves)
     .where(and(eq(schema.eleves.etablissementId, ctx.etab.id), inArray(schema.eleves.classeId, cl)));
   return rows.map((r) => r.id);
+}
+
+/** Un document est visible par ceux qui voient l'élève ; une entreprise ne voit que les documents de ses propres stages. */
+export async function peutVoirDocument(ctx: Contexte, d: typeof schema.documents.$inferSelect): Promise<boolean> {
+  if (d.etablissementId !== ctx.etab.id) return false;
+  const [e] = await db.select().from(schema.eleves).where(eq(schema.eleves.id, d.eleveId)).limit(1);
+  if (!e) return false;
+  const seulementEntreprise = a(ctx, "entreprise") && !a(ctx, "direction", "gestionnaire", "professeur", "parent", "eleve");
+  if (seulementEntreprise) {
+    if (!d.stageId || !ctx.user.entrepriseId) return false;
+    const [s] = await db.select({ ent: schema.stages.entrepriseId }).from(schema.stages).where(eq(schema.stages.id, d.stageId)).limit(1);
+    return s?.ent === ctx.user.entrepriseId;
+  }
+  return peutVoirEleve(ctx, e);
 }

@@ -9,6 +9,7 @@ import { ageAu, aujourdhui, dateCourte } from "@/lib/dates";
 import { dossierStage, entreprisesDuLycee, demarchesDe } from "@/lib/stages";
 import { ChampsHoraires, ListeRegles, TableHoraires } from "@/components/stage";
 import { Demarches } from "@/components/Demarches";
+import { BlocConvention, BlocFinDeStage, DossierEleve } from "@/components/convention";
 import { enregistrerStage, supprimerStage } from "../stage-actions";
 import { Formulaire } from "@/components/Formulaire";
 import { Pastille } from "@/components/ui";
@@ -94,6 +95,9 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
         )}
       </div>
 
+      {d.stage && <BlocConvention ctx={ctx} stageId={d.stage.id} />}
+      {d.stage && <BlocFinDeStage ctx={ctx} stageId={d.stage.id} />}
+
       <div className="panel pad section">
         <h2>Démarches de l&apos;élève</h2>
         <Demarches eleveId={e.id} demarches={dem} entreprises={entreprises} />
@@ -140,6 +144,12 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
             </Formulaire>
           </details>
         </div>
+      </div>
+
+      <div className="panel pad section" id="dossier">
+        <h2>Dossier de l&apos;élève</h2>
+        <p className="sub" style={{ margin: 0 }}>Tous les documents validés et en attente, année par année, de la première à la dernière année de formation.</p>
+        <DossierEleve eleveId={e.id} />
       </div>
 
       <div className="panel pad section">

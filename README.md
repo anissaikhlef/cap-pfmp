@@ -10,7 +10,7 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | --- | --- | --- |
 | 1 | Comptes, rôles, paramétrage du lycée, classes et périodes, élèves (saisie et import CSV) | Fait |
 | 2 | Entreprises, recherche de stage, horaires et règles | Fait |
-| 3 | Conventions, boîte de dépôt, dossiers par année | À faire |
+| 3 | Conventions, boîte de dépôt, dossiers par année | Fait |
 | 4 | Visites, ordre de mission, compte rendu | À faire |
 | 5 | Tableau de bord complet, relances, campagne de rentrée | À faire |
 
@@ -51,6 +51,7 @@ npm run lint        # contrôle des types
 npm test            # tests du moteur de règles et de l'import
 node e2e/etape1.mjs # parcours dans un navigateur (application lancée sur le port 3100)
 node e2e/etape2.mjs
+node e2e/etape3.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
 ```
 
 ## Organisation du code

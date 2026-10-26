@@ -3,6 +3,7 @@ import { entrepriseDuLycee, stagiairesEntreprise } from "@/lib/stages";
 import { aujourdhui, dateCourte } from "@/lib/dates";
 import { TableHoraires } from "@/components/stage";
 import { Pill } from "@/components/ui";
+import { BlocConvention, BlocFinDeStage } from "@/components/convention";
 
 export const metadata = { title: "Mes stagiaires" };
 
@@ -25,7 +26,9 @@ export default async function Stagiaires() {
               <Pill ton={ton}>{etat}</Pill>
             </div>
             <p className="sub" style={{ margin: 0 }}>Du {dateCourte(p.debut)} au {dateCourte(p.fin)}</p>
-            <TableHoraires h={s.horaires} />
+            <details><summary className="btn small">Horaires</summary><TableHoraires h={s.horaires} /></details>
+            <BlocConvention ctx={ctx} stageId={s.id} />
+            <BlocFinDeStage ctx={ctx} stageId={s.id} />
           </div>
         );
       })}

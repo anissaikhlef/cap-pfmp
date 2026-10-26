@@ -3,6 +3,8 @@ import { contexte } from "@/lib/auth";
 import { liensPour } from "@/lib/navigation";
 import { Nav } from "@/components/Nav";
 import { seDeconnecter } from "./actions";
+import { Suspense } from "react";
+import { Bandeau } from "@/components/Bandeau";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await contexte();
@@ -22,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Nav liens={liens} />
         </div>
       </header>
-      <main><div className="wrap">{children}</div></main>
+      <main><div className="wrap"><Suspense fallback={null}><Bandeau /></Suspense>{children}</div></main>
     </>
   );
 }
