@@ -36,11 +36,14 @@ Deux comptes gratuits : **Neon** héberge la base de données, **Vercel** fait t
 5. Vercel affiche l'adresse du site, du type `https://cap-pfmp-xxxx.vercel.app`. Ouvrez-la et connectez-vous avec un compte de démonstration (mot de passe `Demo-pfmp-2026`) :
    - `direction@demo.cap-pfmp.example`
    - `p.martin@demo.cap-pfmp.example` (professeur référent de 2nde)
+   - `s.benali@demo.cap-pfmp.example` (professeure référente de 1re)
+   - `m.garnier@demo.cap-pfmp.example` (professeure d'enseignement général)
+   - `vie.scolaire@demo.cap-pfmp.example` (vie scolaire)
    - `ines.haddad@demo.cap-pfmp.example` (élève)
-   - `f.traore@demo.cap-pfmp.example` (parent)
+   - `f.traore@demo.cap-pfmp.example` et `l.rahmani@demo.cap-pfmp.example` (parents)
    - `k.ferhat@demo.cap-pfmp.example` (tuteur en entreprise)
 
-À chaque nouvel envoi de code sur GitHub, Vercel met le site à jour tout seul.
+À chaque nouvel envoi de code sur GitHub, Vercel met le site à jour tout seul. Quand les données de démonstration changent (nouvelle version dans `scripts/version-demo.ts`), elles sont rechargées automatiquement : ce que vous aviez modifié sur le site de démonstration est alors effacé.
 
 **Limites de la démonstration** : pas de vrais mails ni SMS (ils sont seulement enregistrés dans « Messages ») ; fichiers déposés limités à 4 Mo ; serveurs Vercel hors de l'Union européenne pour une partie du traitement. **Aucune donnée réelle d'élève.**
 

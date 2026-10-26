@@ -10,7 +10,7 @@ export const metadata = { title: "Équipe" };
 export default async function Equipe() {
   const ctx = await contexte({ roles: ["direction", "gestionnaire"] });
   const tous = await equipe(ctx);
-  const personnels = tous.filter((u) => u.roles.some((r) => r === "direction" || r === "gestionnaire" || r === "professeur"));
+  const personnels = tous.filter((u) => u.roles.some((r) => r === "direction" || r === "gestionnaire" || r === "professeur" || r === "vie_scolaire"));
   const estDirection = ctx.user.roles.includes("direction");
   return (
     <>
@@ -26,7 +26,7 @@ export default async function Equipe() {
               <div className="meta">
                 {u.roles.map((r) => LIBELLES_ROLES[r]).join(", ")}
                 {u.discipline && ` · ${u.discipline}`}
-                {u.enseignementPro ? " · enseignement professionnel" : " · enseignement général"}
+                {u.roles.includes("professeur") && (u.enseignementPro ? " · enseignement professionnel" : " · enseignement général")}
                 {` · ${u.email}`}
               </div>
             </div>
@@ -55,8 +55,8 @@ export default async function Equipe() {
             <label className="f" htmlFor="m-nom">Nom<input id="m-nom" name="nom" required /></label>
             <label className="f" htmlFor="m-email">Adresse e-mail professionnelle<input id="m-email" name="email" type="email" required /></label>
             <label className="f" htmlFor="m-tel">Mobile (facultatif)<input id="m-tel" name="telephone" /></label>
-            <label className="f" htmlFor="m-disc">Discipline<input id="m-disc" name="discipline" placeholder="Ex. Métiers de la sécurité" /></label>
-            <label className="f" htmlFor="m-pro">Enseignement
+            <label className="f" htmlFor="m-disc">Discipline (professeurs)<input id="m-disc" name="discipline" placeholder="Ex. Métiers de la sécurité" /></label>
+            <label className="f" htmlFor="m-pro">Enseignement (professeurs)
               <select id="m-pro" name="enseignementPro" defaultValue="oui"><option value="oui">Professionnel</option><option value="non">Général</option></select>
             </label>
           </div>
@@ -64,6 +64,7 @@ export default async function Equipe() {
             <legend className="sub" style={{ marginBottom: 6 }}>Rôles</legend>
             <label className="check"><input type="checkbox" name="roles" value="professeur" defaultChecked /> Professeur (référent, visiteur)</label>
             <label className="check"><input type="checkbox" name="roles" value="gestionnaire" /> Gestion des PFMP pour tout le lycée (BDE, DDFPT)</label>
+            <label className="check"><input type="checkbox" name="roles" value="vie_scolaire" /> Vie scolaire (CPE, assistants d&apos;éducation) : élèves en stage, rattrapages, absences</label>
             {estDirection && <label className="check"><input type="checkbox" name="roles" value="direction" /> Direction</label>}
           </fieldset>
         </Formulaire>

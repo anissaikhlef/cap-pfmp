@@ -6,12 +6,14 @@ import { elevesSuivis, classesAvecPeriodes } from "@/lib/requetes";
 import { classesGerees } from "@/lib/acces";
 import { STATUTS, problemes, type Statut } from "@/lib/regles";
 import { Pastille } from "@/components/ui";
+import { dateCourte } from "@/lib/dates";
 
 export const metadata = { title: "Élèves" };
 
 const FILTRES: [string, string][] = [
   ["", "Tous"], ["sans_stage", "Sans lieu de stage"], ["convention", "Convention incomplète"],
-  ["documents", "Documents à rendre"], ["hors_regles", "Hors règles"],
+  ["documents", "Documents à rendre"], ["hors_regles", "Hors règles"], ["rattrapages", "Rattrapages"],
+  ["absences", "Absences non justifiées"],
 ];
 
 export default async function Eleves({ searchParams }: { searchParams: Promise<{ classe?: string; statut?: string; q?: string }> }) {
@@ -24,6 +26,8 @@ export default async function Eleves({ searchParams }: { searchParams: Promise<{
   const q = (sp.q ?? "").trim().toLowerCase();
   if (q) lignes = lignes.filter((l) => `${l.eleve.prenom} ${l.eleve.nom}`.toLowerCase().includes(q));
   if (sp.statut === "hors_regles") lignes = lignes.filter((l) => l.stage && !l.conforme);
+  else if (sp.statut === "rattrapages") lignes = lignes.filter((l) => l.rattrapages.length > 0);
+  else if (sp.statut === "absences") lignes = lignes.filter((l) => l.absencesNonJustifiees > 0);
   else if (sp.statut === "convention") lignes = lignes.filter((l) => l.statut === "convention" || l.statut === "en_stage_sans_convention");
   else if (sp.statut && sp.statut in STATUTS) lignes = lignes.filter((l) => l.statut === (sp.statut as Statut));
   const lien = (o: { classe?: string; statut?: string }) => {
@@ -63,6 +67,8 @@ export default async function Eleves({ searchParams }: { searchParams: Promise<{
               <div className="meta">
                 {l.entreprise ? l.entreprise.nom : "Aucune entreprise"}
                 {l.stage && !l.conforme && <span style={{ color: "var(--bad)", fontWeight: 700 }}> · hors règles : {problemes(l.regles)}</span>}
+                {l.rattrapages.length > 0 && ` · rattrapage du ${dateCourte(l.rattrapages[0].debut)} au ${dateCourte(l.rattrapages[0].fin)}`}
+                {l.absencesNonJustifiees > 0 && <span style={{ color: "var(--bad)", fontWeight: 700 }}> · {l.absencesNonJustifiees} absence(s) non justifiée(s)</span>}
                 {l.referent && ` · référent ${l.referent}`}
               </div>
             </div>

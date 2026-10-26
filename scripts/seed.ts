@@ -5,13 +5,14 @@
  *   npm run db:seed
  */
 import { drizzle } from "drizzle-orm/node-postgres";
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import * as schema from "../src/db/schema";
 import { ecrireOctets } from "../src/lib/stockage-brut";
 import { REGLAGES_PAR_DEFAUT, type Horaires, type Signatures, type Role } from "../src/db/schema";
+import { VERSION_DONNEES_DEMO } from "./version-demo";
 
 const NOM_LYCEE = "Lycée professionnel de démonstration";
 export const MOT_DE_PASSE_DEMO = "Demo-pfmp-2026";
@@ -60,8 +61,9 @@ async function main() {
     await db.delete(schema.etablissements).where(eq(schema.etablissements.id, a.id));
   }
 
+  // Le lycée pilote répartit les visites selon les heures de face à face.
   const [etab] = await db.insert(schema.etablissements).values({
-    nom: NOM_LYCEE, ville: "Ville-démo", anneeScolaire: "2026-2027", reglages: REGLAGES_PAR_DEFAUT,
+    nom: NOM_LYCEE, ville: "Ville-démo", anneeScolaire: "2026-2027", reglages: { ...REGLAGES_PAR_DEFAUT, repartition: "heures" },
   }).returning();
   const E = etab.id;
   const hash = await bcrypt.hash(MOT_DE_PASSE_DEMO, 12);
@@ -78,8 +80,9 @@ async function main() {
   const benali = await compte("Samia", "BENALI", "s.benali", ["professeur"], { discipline: "Métiers de la sécurité", enseignementPro: true });
   const diallo = await compte("Awa", "DIALLO", "a.diallo", ["professeur"], { discipline: "Métiers de la sécurité", enseignementPro: true });
   const leroy = await compte("Hugo", "LEROY", "h.leroy", ["professeur"], { discipline: "Prévention santé environnement", enseignementPro: true });
-  await compte("Marie", "GARNIER", "m.garnier", ["professeur"], { discipline: "Lettres-histoire", enseignementPro: false });
-  await compte("Karim", "HADDOU", "k.haddou", ["professeur"], { discipline: "Mathématiques", enseignementPro: false });
+  const garnier = await compte("Marie", "GARNIER", "m.garnier", ["professeur"], { discipline: "Lettres-histoire", enseignementPro: false });
+  const haddou = await compte("Karim", "HADDOU", "k.haddou", ["professeur"], { discipline: "Mathématiques", enseignementPro: false });
+  await compte("Nadia", "BERRADA", "vie.scolaire", ["vie_scolaire"]);
 
   const doms = await db.insert(schema.dominantes).values(
     ["Sûreté / gardiennage", "Sécurité incendie", "Sécurité publique"].map((libelle) => ({ etablissementId: E, libelle })),
@@ -113,6 +116,15 @@ async function main() {
   const ent = (n: string) => ents.find((x) => x.nom.startsWith(n))!.id;
 
   const tuteurAtlas = await compte("Karim", "FERHAT", "k.ferhat", ["entreprise"], { entrepriseId: ent("Atlas") });
+
+  // Heures de face à face par semaine : servent à proposer le nombre de visites de chaque professeur
+  const services: [typeof martin, typeof cap, number][] = [
+    [martin, sec, 8], [benali, sec, 4], [garnier, sec, 3], [haddou, sec, 2],
+    [benali, pre, 8], [diallo, pre, 4], [garnier, pre, 3], [haddou, pre, 2],
+    [diallo, ter, 8], [martin, ter, 4], [garnier, ter, 3], [haddou, ter, 2], [leroy, ter, 2],
+    [leroy, cap, 6], [benali, cap, 4], [garnier, cap, 3],
+  ];
+  await db.insert(schema.heuresClasses).values(services.map(([u, k, heures]) => ({ etablissementId: E, professeurId: u.id, classeId: k.c.id, heures })));
 
   type L = { prenom: string; nom: string; k: typeof cap; naissance?: string; dom?: string; stage?: [string, Horaires, Signatures] };
   const eleves: L[] = [
@@ -154,10 +166,32 @@ async function main() {
       const u = await compte("Fatou", "TRAORÉ", "f.traore", ["parent"], { telephone: "06 39 98 20 15" });
       await db.insert(schema.responsables).values({ eleveId: e.id, userId: u.id });
     }
+    if (l.prenom === "Mehdi") {
+      const u = await compte("Leïla", "RAHMANI", "l.rahmani", ["parent"], { telephone: "06 39 98 20 16" });
+      await db.insert(schema.responsables).values({ eleveId: e.id, userId: u.id });
+    }
+  }
+
+  // Absences en stage, signalées par le tuteur et pas encore justifiées
+  async function absence(nom: string, debut: string, fin: string, commentaire: string) {
+    const [el] = await db.select().from(schema.eleves).where(and(eq(schema.eleves.nom, nom), eq(schema.eleves.etablissementId, E))).limit(1);
+    const [st] = await db.select().from(schema.stages).where(eq(schema.stages.eleveId, el.id)).limit(1);
+    await db.insert(schema.absences).values({ etablissementId: E, stageId: st.id, eleveId: el.id, debut, fin, origine: "entreprise", commentaire });
+  }
+  await absence("RAHMANI", "2026-10-12", "2026-10-16", "Malade toute la semaine, la famille a prévenu par téléphone");
+  await absence("LAURENT", "2026-10-22", "2026-10-22", "Ne s'est pas présentée, sans nouvelles");
+
+  // Rattrapage : Mehdi refait une semaine de stage, hors de la période de sa classe
+  {
+    const [mehdi] = await db.select().from(schema.eleves).where(and(eq(schema.eleves.nom, "RAHMANI"), eq(schema.eleves.etablissementId, E))).limit(1);
+    const [r] = await db.insert(schema.periodes).values({
+      classeId: pre.c.id, eleveId: mehdi.id, libelle: "Rattrapage PFMP 1", debut: "2026-10-26", fin: "2026-10-30", rattrapeId: pre.p.id,
+      motif: "absence pour maladie du 12 au 16 octobre pendant la PFMP 1", creeParId: benali.id,
+    }).returning();
+    await db.insert(schema.stages).values({ eleveId: mehdi.id, periodeId: r.id, entrepriseId: ent("Police"), horaires: STD, signatures: TOUS });
   }
 
   // Visites déjà organisées pour les terminales en stage
-  const garnier = (await db.select().from(schema.users).where(eq(schema.users.email, `m.garnier@${DOMAINE}`)))[0];
   async function visite(nom: string, visiteurId: string, date: string, ordreMission: "aucun" | "a_signer" | "signe", heure: string | null = null) {
     const [el] = await db.select().from(schema.eleves).where(and(eq(schema.eleves.nom, nom), eq(schema.eleves.etablissementId, E))).limit(1);
     const [st] = await db.select().from(schema.stages).where(eq(schema.stages.eleveId, el.id)).limit(1);
@@ -170,7 +204,7 @@ async function main() {
   // Documents : fin de stage des 1re (période terminée) et historique de l'année précédente pour les terminales
   async function doc(eleveNom: string, type: schema.TypeDocument, statut: "valide" | "a_verifier", annee = "2026-2027", classeLibelle?: string, stageId?: string) {
     const [el] = await db.select().from(schema.eleves).where(and(eq(schema.eleves.nom, eleveNom), eq(schema.eleves.etablissementId, E))).limit(1);
-    const [st] = stageId ? [{ id: stageId }] : await db.select({ id: schema.stages.id }).from(schema.stages).where(eq(schema.stages.eleveId, el.id)).limit(1);
+    const [st] = stageId ? [{ id: stageId }] : await db.select({ id: schema.stages.id }).from(schema.stages).where(eq(schema.stages.eleveId, el.id)).orderBy(asc(schema.stages.createdAt)).limit(1);
     const cle = `${E}/${randomUUID()}.pdf`;
     const b = fauxPdf(`${type} - ${el.prenom} ${el.nom}`);
     await ecrireOctets(db, cle, b);
@@ -198,8 +232,11 @@ async function main() {
     for (const ty of ["convention", "attestation", "livret"] as const) await doc(t.nom, ty, "valide", "2025-2026", "1re MS", st.id);
   }
 
+  // Repère pour scripts/preparer.ts : ces données de démonstration sont à jour.
+  await db.insert(schema.journal).values({ etablissementId: E, action: "donnees_demo", entite: "etablissement", entiteId: E, details: { version: VERSION_DONNEES_DEMO } });
+
   console.log(`Lycée de démonstration créé. Mot de passe de tous les comptes : ${MOT_DE_PASSE_DEMO}`);
-  console.log(`Comptes : direction@${DOMAINE}, p.martin@${DOMAINE} (référent 2nde), ines.haddad@${DOMAINE} (élève), f.traore@${DOMAINE} (parent), k.ferhat@${DOMAINE} (entreprise)`);
+  console.log(`Comptes : direction@${DOMAINE}, p.martin@${DOMAINE} (référent 2nde), ines.haddad@${DOMAINE} (élève), f.traore@${DOMAINE} et l.rahmani@${DOMAINE} (parents), k.ferhat@${DOMAINE} (entreprise), vie.scolaire@${DOMAINE} (vie scolaire)`);
   await pool.end();
 }
 

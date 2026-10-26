@@ -14,7 +14,7 @@ import type { TypeDocument } from "@/db/schema";
 
 const LIBELLES_DOC: Record<TypeDocument, string> = {
   convention: "Convention signée", attestation: "Attestation de stage", livret: "Livret de compétences",
-  ordre_mission: "Ordre de mission", compte_rendu: "Compte rendu de visite", autre: "Autre document",
+  ordre_mission: "Ordre de mission", compte_rendu: "Compte rendu de visite", justificatif: "Justificatif d'absence", autre: "Autre document",
 };
 export { LIBELLES_DOC };
 

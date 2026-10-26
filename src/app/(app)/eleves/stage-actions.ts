@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
@@ -9,12 +9,17 @@ import { peutGererEleve, eleveVisible } from "@/lib/acces";
 import { journaliser } from "@/lib/journal";
 import { lireHoraires, placesOccupees, entrepriseDuLycee } from "@/lib/stages";
 import { aujourdhui } from "@/lib/dates";
+import { alerterRattrapage } from "@/lib/rattrapages";
 import type { Etat } from "@/components/Formulaire";
 
+/** Une période de la classe de l'élève, ou l'un de ses propres rattrapages. */
 async function eleveEtPeriode(ctx: Awaited<ReturnType<typeof contexte>>, eleveId: string, periodeId: string) {
   const [e] = await db.select().from(schema.eleves).where(and(eq(schema.eleves.id, eleveId), eq(schema.eleves.etablissementId, ctx.etab.id))).limit(1);
   if (!e || !e.classeId) return null;
-  const [p] = await db.select().from(schema.periodes).where(and(eq(schema.periodes.id, periodeId), eq(schema.periodes.classeId, e.classeId))).limit(1);
+  const [p] = await db.select().from(schema.periodes).where(and(
+    eq(schema.periodes.id, periodeId), eq(schema.periodes.classeId, e.classeId),
+    or(isNull(schema.periodes.eleveId), eq(schema.periodes.eleveId, e.id)),
+  )).limit(1);
   if (!p) return null;
   return { e, p };
 }
@@ -40,6 +45,7 @@ export async function enregistrerStage(_: Etat, fd: FormData): Promise<Etat> {
     const change = existant.entrepriseId !== ent.id || JSON.stringify(existant.horaires) !== JSON.stringify(h);
     await db.update(schema.stages).set({ entrepriseId: ent.id, horaires: h, ...(change ? { signatures: {} } : {}) }).where(eq(schema.stages.id, existant.id));
     await journaliser(ctx, "stage_modifie", "eleve", eleveId, { entreprise: ent.nom, signaturesEffacees: change });
+    if (x.p.eleveId && existant.entrepriseId !== ent.id) await alerterRattrapage(ctx, x.e, x.p, "lieu", ent);
     revalidatePath(`/eleves/${eleveId}`);
     const msg = (change && Object.keys(existant.signatures).length ? "Stage modifié. Les signatures déjà recueillies ont été effacées : la convention doit être signée de nouveau." : "Stage enregistré.") + avertissement;
     redirect(`/eleves/${eleveId}?periode=${x.p.id}&msg=${encodeURIComponent(msg)}`);
@@ -48,6 +54,8 @@ export async function enregistrerStage(_: Etat, fd: FormData): Promise<Etat> {
   // La démarche correspondante passe en « accord »
   await db.update(schema.demarches).set({ reponse: "accord" }).where(and(eq(schema.demarches.eleveId, eleveId), eq(schema.demarches.entrepriseId, ent.id)));
   await journaliser(ctx, "stage_cree", "eleve", eleveId, { entreprise: ent.nom });
+  // Rattrapage : la vie scolaire apprend où se trouve l'élève.
+  if (x.p.eleveId) await alerterRattrapage(ctx, x.e, x.p, "lieu", ent);
   revalidatePath(`/eleves/${eleveId}`);
   redirect(`/eleves/${eleveId}?periode=${x.p.id}&msg=${encodeURIComponent("Stage enregistré. Vérifiez les règles avant de lancer la convention." + avertissement)}`);
 }

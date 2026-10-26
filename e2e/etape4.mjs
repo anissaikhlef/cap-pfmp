@@ -1,6 +1,13 @@
 // Étape 4 : visites, répartition, créneaux par SMS, ordre de mission, compte rendu.
 import { BASE, OUT, ok, visible, session, fin } from "./outils.mjs";
 
+// Le lycée de démonstration répartit selon les heures de face à face (voir e2e/lot1.mjs) : ce parcours teste la répartition automatique.
+const dir = await session("direction");
+await dir.goto(BASE + "/organisation");
+await dir.check("input[name=repartition][value=auto]");
+await dir.click("button:has-text(\"Enregistrer l'organisation\")");
+ok(await visible(dir.getByText("Organisation enregistrée")), "la direction choisit la répartition automatique");
+
 // Référente de terminale : répartition automatique
 const diallo = await session("a.diallo");
 await diallo.goto(BASE + "/visites");
@@ -33,7 +40,6 @@ await diallo.click("button:has-text(\"Créer l'ordre de mission\")");
 ok(await visible(diallo.getByText("transmis à la direction")), "transmet l'ordre de mission à la direction");
 
 // Direction : signe l'ordre de mission
-const dir = await session("direction");
 await dir.goto(BASE + "/a-signer");
 t = await dir.textContent("main");
 ok(t.includes("visite de Adam CISSÉ") && t.includes("visite de Léa FONTAINE"), "la direction voit les ordres de mission à signer");

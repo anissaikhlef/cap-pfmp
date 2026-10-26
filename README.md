@@ -13,6 +13,9 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | 3 | Conventions, boîte de dépôt, dossiers par année | Fait |
 | 4 | Visites, ordre de mission, compte rendu | Fait |
 | 5 | Tableau de bord complet, relances, campagne de rentrée, double authentification, année suivante | Fait |
+| Lot 1 | Vie scolaire, rattrapages hors des périodes prévues, absences en stage (signalées, justifiées, déduites des jours effectués), heures de face à face et choix des visites par les professeurs | Fait |
+
+Les décisions de conception d'Anissa Ikhlef sont consignées, avec leur date, dans [JOURNAL_DE_CONCEPTION.md](JOURNAL_DE_CONCEPTION.md).
 
 ## Technique
 
@@ -44,8 +47,12 @@ Comptes de démonstration (mot de passe `Demo-pfmp-2026`) :
 | --- | --- |
 | `direction@demo.cap-pfmp.example` | Direction : voit tout, paramètre l'organisation |
 | `p.martin@demo.cap-pfmp.example` | Professeur référent de la 2nde |
+| `s.benali@demo.cap-pfmp.example` | Professeure référente de la 1re (rattrapage de Mehdi) |
+| `m.garnier@demo.cap-pfmp.example` | Professeure d'enseignement général (visites à choisir) |
+| `vie.scolaire@demo.cap-pfmp.example` | Vie scolaire : élèves en stage, rattrapages, absences |
 | `ines.haddad@demo.cap-pfmp.example` | Élève |
-| `f.traore@demo.cap-pfmp.example` | Responsable légal |
+| `f.traore@demo.cap-pfmp.example` | Responsable légal (CAP) |
+| `l.rahmani@demo.cap-pfmp.example` | Responsable légale de Mehdi (absence à justifier) |
 | `k.ferhat@demo.cap-pfmp.example` | Tuteur en entreprise |
 
 ## Vérifier
@@ -59,8 +66,11 @@ node e2e/etape3.mjs
 node e2e/etape4.mjs
 node e2e/etape5.mjs
 node e2e/organisations.mjs
+node e2e/lot1.mjs
 node e2e/mobile.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
 ```
+
+Les parcours sont écrits pour le 26 octobre 2026 : lancez l'application avec `CAP_PFMP_DATE_DU_JOUR=2026-10-26` (par exemple `CAP_PFMP_DATE_DU_JOUR=2026-10-26 npx next start -p 3100`).
 
 ## Réglages (fichier `.env`)
 
@@ -75,11 +85,13 @@ node e2e/mobile.mjs   # chaque parcours suppose des données de démo fraîches 
 ## Organisation du code
 
 - `src/db/schema.ts` : toutes les tables
-- `src/lib/regles.ts` : règles de stage et statuts (fonctions pures, testées)
+- `src/lib/regles.ts` : règles de stage, statuts et jours effectués (fonctions pures, testées)
+- `src/lib/periodes.ts` : période de référence d'une classe ou d'un élève en rattrapage (fonctions pures, testées)
+- `src/lib/repartition.ts` : répartition des visites et nombre de visites selon les heures de face à face (fonctions pures, testées)
 - `src/lib/acces.ts` : qui peut voir et faire quoi ; **toute** lecture ou écriture passe par ces fonctions
 - `src/lib/auth.ts` : connexion, sessions, mots de passe
 - `src/app/(app)/` : les écrans, chacun avec ses actions serveur
-- `scripts/` : migrations et données de démonstration
+- `scripts/` : migrations et données de démonstration (`version-demo.ts` : à augmenter quand les données de démonstration changent)
 
 ## Avant une mise en production
 

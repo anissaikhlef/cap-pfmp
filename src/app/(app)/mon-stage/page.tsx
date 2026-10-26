@@ -5,6 +5,7 @@ import { dossierStage, suggestions, demarchesDe, entreprisesDuLycee } from "@/li
 import { ResumeStage, statutDossier } from "@/components/ResumeStage";
 import { Demarches } from "@/components/Demarches";
 import { BlocConvention, BlocFinDeStage, DossierEleve } from "@/components/convention";
+import { BlocPresenceEleve } from "@/components/absences";
 import { contacterSuggestion } from "../eleves/stage-actions";
 
 export const metadata = { title: "Mon stage" };
@@ -26,6 +27,7 @@ export default async function MonStage() {
       <ResumeStage d={d} statut={statut} />
       {d.stage && <BlocConvention ctx={ctx} stageId={d.stage.id} />}
       {d.stage && <BlocFinDeStage ctx={ctx} stageId={d.stage.id} />}
+      <BlocPresenceEleve ctx={ctx} eleve={e} />
       {!d.stage && d.periode && (
         <>
           <div className="section">

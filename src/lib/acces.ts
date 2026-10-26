@@ -112,13 +112,19 @@ export async function idsElevesGeres(ctx: Contexte): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
-/** Un document est visible par ceux qui voient l'élève ; une entreprise ne voit que les documents de ses propres stages. */
+/**
+ * Un document est visible par ceux qui voient l'élève ; une entreprise ne voit que les documents de ses propres stages,
+ * jamais les justificatifs d'absence. La vie scolaire ne voit que les justificatifs d'absence.
+ */
 export async function peutVoirDocument(ctx: Contexte, d: typeof schema.documents.$inferSelect): Promise<boolean> {
   if (d.etablissementId !== ctx.etab.id) return false;
   const [e] = await db.select().from(schema.eleves).where(eq(schema.eleves.id, d.eleveId)).limit(1);
   if (!e) return false;
-  const seulementEntreprise = a(ctx, "entreprise") && !a(ctx, "direction", "gestionnaire", "professeur", "parent", "eleve");
+  const autresRoles = a(ctx, "direction", "gestionnaire", "professeur", "parent", "eleve");
+  if (a(ctx, "vie_scolaire") && !autresRoles && !a(ctx, "entreprise")) return d.type === "justificatif";
+  const seulementEntreprise = a(ctx, "entreprise") && !autresRoles;
   if (seulementEntreprise) {
+    if (d.type === "justificatif") return false;
     if (!d.stageId || !ctx.user.entrepriseId) return false;
     const [s] = await db.select({ ent: schema.stages.entrepriseId }).from(schema.stages).where(eq(schema.stages.id, d.stageId)).limit(1);
     return s?.ent === ctx.user.entrepriseId;
@@ -133,4 +139,31 @@ export async function idsElevesReferent(ctx: Contexte): Promise<string[]> {
     .from(schema.eleves).innerJoin(schema.classes, eq(schema.classes.id, schema.eleves.classeId))
     .where(and(eq(schema.eleves.etablissementId, ctx.etab.id), eq(schema.eleves.archive, false), eq(schema.classes.anneeScolaire, ctx.etab.anneeScolaire)));
   return rows.filter((r) => r.refE === ctx.user.id || (!r.refE && r.refC === ctx.user.id)).map((r) => r.id);
+}
+
+/** Comptes qui voient tous les élèves de l'établissement : vie scolaire, direction, gestion des PFMP. */
+export function voitToutLEtablissement(ctx: Contexte): boolean {
+  return a(ctx, "vie_scolaire", "direction", "gestionnaire");
+}
+
+/** Vrai si l'utilisateur est le professeur référent de l'élève (désigné pour l'élève, ou à défaut pour sa classe). */
+export async function estReferentDe(ctx: Contexte, e: { referentId: string | null; classeId: string | null }): Promise<boolean> {
+  if (!a(ctx, "professeur")) return false;
+  if (e.referentId) return e.referentId === ctx.user.id;
+  if (!e.classeId) return false;
+  const [c] = await db.select({ ref: schema.classes.referentId }).from(schema.classes).where(eq(schema.classes.id, e.classeId)).limit(1);
+  return c?.ref === ctx.user.id;
+}
+
+/** Programmer ou modifier un rattrapage : la gestion des PFMP de l'élève, ou son professeur référent. */
+export async function peutGererRattrapage(ctx: Contexte, e: typeof schema.eleves.$inferSelect): Promise<boolean> {
+  if (e.etablissementId !== ctx.etab.id) return false;
+  return (await peutGererEleve(ctx, e)) || (await estReferentDe(ctx, e));
+}
+
+/** Notes de suivi : vie scolaire, direction, gestion et référent. Jamais l'élève, sa famille ni l'entreprise. */
+export async function peutVoirNotes(ctx: Contexte, e: typeof schema.eleves.$inferSelect): Promise<boolean> {
+  if (e.etablissementId !== ctx.etab.id) return false;
+  if (voitToutLEtablissement(ctx)) return true;
+  return (await peutGererEleve(ctx, e)) || (await estReferentDe(ctx, e));
 }

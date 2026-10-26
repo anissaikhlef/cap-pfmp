@@ -38,3 +38,27 @@ export function dateProposee(debut: string, fin: string, jour: string): string {
   while (jourSemaine(d) >= 5) d = ajouterJours(d, 1);
   return d;
 }
+
+/**
+ * Nombre de visites de chaque professeur, en proportion de ses heures de face à face dans la classe.
+ * Méthode du plus fort reste : la somme est toujours égale au nombre de visites. À reste égal, le professeur
+ * qui a le plus d'heures passe d'abord.
+ */
+export function quotasVisites(nombre: number, heures: { id: string; heures: number }[]): Map<string, number> {
+  const res = new Map(heures.map((x) => [x.id, 0]));
+  const avecHeures = heures.filter((x) => x.heures > 0);
+  const total = avecHeures.reduce((t, x) => t + x.heures, 0);
+  if (nombre <= 0 || total <= 0) return res;
+  const parts = avecHeures.map((x) => {
+    const exact = (nombre * x.heures) / total;
+    return { id: x.id, heures: x.heures, n: Math.floor(exact + 1e-9), reste: exact - Math.floor(exact + 1e-9) };
+  });
+  let restant = nombre - parts.reduce((t, p) => t + p.n, 0);
+  for (const p of [...parts].sort((a, b) => b.reste - a.reste || b.heures - a.heures || a.id.localeCompare(b.id))) {
+    if (restant <= 0) break;
+    p.n++;
+    restant--;
+  }
+  for (const p of parts) res.set(p.id, p.n);
+  return res;
+}

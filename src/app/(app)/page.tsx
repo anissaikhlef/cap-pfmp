@@ -24,6 +24,7 @@ const ORDRE: Statut[] = ["sans_stage", "convention", "pret", "en_stage", "en_sta
 export default async function Accueil() {
   const ctx = await contexte();
   if (!(await estGestionnaire(ctx))) {
+    if (a(ctx, "vie_scolaire")) redirect("/vie-scolaire");
     if (a(ctx, "eleve")) redirect("/mon-stage");
     if (a(ctx, "parent")) redirect("/mon-enfant");
     if (a(ctx, "entreprise")) redirect("/stagiaires");
@@ -52,8 +53,10 @@ export default async function Accueil() {
   const crAFaire = ctx.etab.reglages.compteRendu ? visites.filter((v) => v.v?.visiteurId && v.v.date && v.v.date < aujourdhui() && !v.v.compteRendu).length : 0;
   const direction = a(ctx, "direction");
   const ordres = direction && ctx.etab.reglages.ordreMission ? (await listeOrdresASigner(ctx)).length : 0;
+  const absencesNonJustifiees = lignes.reduce((t, l) => t + l.absencesNonJustifiees, 0);
   const aFaire: [number, string, string][] = ([
     [aVerifier, "document(s) déposé(s) à vérifier", "/documents"],
+    [absencesNonJustifiees, "absence(s) en stage non justifiée(s)", "/eleves?statut=absences"],
     [sansVisiteur, "élève(s) en stage ou sur le départ sans visiteur", "/visites"],
     [crAFaire, "compte(s) rendu(s) de visite non rédigé(s)", "/visites"],
     [ordres, "ordre(s) de mission à signer", "/a-signer"],

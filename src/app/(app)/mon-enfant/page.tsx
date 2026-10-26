@@ -5,6 +5,7 @@ import { elevesDuParent } from "@/lib/acces";
 import { dossierStage } from "@/lib/stages";
 import { ResumeStage, statutDossier } from "@/components/ResumeStage";
 import { BlocConvention, BlocFinDeStage, DossierEleve } from "@/components/convention";
+import { BlocPresenceEleve } from "@/components/absences";
 
 export const metadata = { title: "Mon enfant" };
 
@@ -29,6 +30,7 @@ export default async function MonEnfant() {
           <ResumeStage d={d} statut={statut} />
           {d.stage && <BlocConvention ctx={ctx} stageId={d.stage.id} />}
           {d.stage && <BlocFinDeStage ctx={ctx} stageId={d.stage.id} />}
+          <BlocPresenceEleve ctx={ctx} eleve={e} />
           <h3>Documents</h3>
           <DossierEleve eleveId={e.id} />
           {!d.stage && d.periode && <p className="note">{e.prenom} n&apos;a pas encore de lieu de stage. Vous pouvez l&apos;aider en sollicitant votre entourage professionnel.</p>}

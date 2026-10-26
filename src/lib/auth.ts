@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { and, eq, gt, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
-import type { Role } from "@/db/schema";
+import { completerReglages, type Role } from "@/db/schema";
 
 const COOKIE = "cap_session";
 const DUREE_SESSION_MS = 1000 * 60 * 60 * 12; // 12 h
@@ -61,10 +61,13 @@ export async function verifierIdentifiants(emailBrut: string, mdp: string) {
   return { user: u };
 }
 
-/** Double authentification obligatoire pour la direction et la gestion (désactivable pour une démonstration). */
+/**
+ * Double authentification obligatoire pour les comptes qui voient tout l'établissement : direction, gestion
+ * et vie scolaire (désactivable pour une démonstration).
+ */
 export function doubleAuthRequise(u: { roles: Role[] }): boolean {
   if (process.env.DOUBLE_AUTH_OBLIGATOIRE === "false") return false;
-  return u.roles.some((r) => r === "direction" || r === "gestionnaire" || r === "admin");
+  return u.roles.some((r) => r === "direction" || r === "gestionnaire" || r === "vie_scolaire" || r === "admin");
 }
 
 /** verifiee = false : le mot de passe est bon mais le code de double authentification reste à saisir. */
@@ -108,7 +111,7 @@ export async function contexteOptionnel(opts: { nonVerifiee?: boolean } = {}): P
   if (!r || r.expiresAt < new Date() || !r.user.actif) return null;
   if (!r.verifiee && !opts.nonVerifiee) return null;
   if (r.verifiee && opts.nonVerifiee) return null;
-  return { user: r.user, etab: r.etab };
+  return { user: r.user, etab: { ...r.etab, reglages: completerReglages(r.etab.reglages) } };
 }
 
 /** Termine la double authentification : la session devient pleinement valide. */

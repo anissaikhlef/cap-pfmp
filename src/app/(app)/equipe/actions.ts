@@ -8,7 +8,7 @@ import { journaliser } from "@/lib/journal";
 import type { Etat } from "@/components/Formulaire";
 import type { Role } from "@/db/schema";
 
-const ROLES_PERSONNEL = ["direction", "gestionnaire", "professeur"] as const;
+const ROLES_PERSONNEL = ["direction", "gestionnaire", "professeur", "vie_scolaire"] as const;
 
 const Nouveau = z.object({
   prenom: z.string().trim().min(1).max(60),

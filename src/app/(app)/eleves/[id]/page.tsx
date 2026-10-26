@@ -2,8 +2,12 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
-import { a, peutGererEleve, peutVoirEleve } from "@/lib/acces";
+import { a, estReferentDe, peutGererEleve, peutVoirEleve } from "@/lib/acces";
 import { ResumeStage, statutDossier } from "@/components/ResumeStage";
+import { BlocPresenceEleve } from "@/components/absences";
+import { BlocRattrapages } from "@/components/rattrapages";
+import { NotesEleve } from "@/components/notes";
+import type { Periode } from "@/lib/requetes";
 import { optionsEleve } from "@/lib/options";
 import { elevesSuivis, texteperiode } from "@/lib/requetes";
 import { ageAu, aujourdhui, dateCourte } from "@/lib/dates";
@@ -17,9 +21,9 @@ import { Pastille } from "@/components/ui";
 import { ChampsEleve } from "../ChampsEleve";
 import { ajouterResponsable, archiverEleve, creerCompteEleve, modifierEleve, reinitialiserCompteFamille, retirerResponsable } from "../actions";
 
-export default async function FicheEleve({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ periode?: string; msg?: string }> }) {
+export default async function FicheEleve({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ periode?: string }> }) {
   const { id } = await params;
-  const { periode: periodeId, msg } = await searchParams;
+  const { periode: periodeId } = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const ctx = await contexte();
   const [e] = await db.select().from(schema.eleves).where(eq(schema.eleves.id, id)).limit(1);
@@ -31,9 +35,13 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
     return (
       <>
         <div><h1>{e.prenom} {e.nom}</h1><p className="sub">Consultation · la gestion du stage est assurée par {ctx.etab.reglages.gestion === "bde" ? "le bureau des entreprises" : "le DDFPT"}.</p></div>
+        <ChoixPeriode eleveId={e.id} periodes={dl.periodes} active={dl.periode?.id} />
         <ResumeStage d={dl} statut={statutDossier(dl, [])} />
         {dl.stage && <BlocConvention ctx={ctx} stageId={dl.stage.id} />}
         {dl.stage && <BlocFinDeStage ctx={ctx} stageId={dl.stage.id} />}
+        <BlocPresenceEleve ctx={ctx} eleve={e} />
+        <BlocRattrapages eleveId={e.id} periodes={dl.periodes} peutGerer={await estReferentDe(ctx, e)} />
+        <NotesEleve ctx={ctx} eleve={e} />
         <div className="panel pad section" id="dossier"><h2>Dossier de l&apos;élève</h2><DossierEleve eleveId={e.id} /></div>
       </>
     );
@@ -64,12 +72,7 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
         {statut && <Pastille statut={statut} />}
       </div>
 
-      {msg && <p className="msg ok" role="status">{msg.slice(0, 300)}</p>}
-      {d.periodes.length > 1 && (
-        <div className="chips" aria-label="Périodes">
-          {d.periodes.map((p) => <a key={p.id} className="chip" href={`/eleves/${e.id}?periode=${p.id}`} aria-current={p.id === d.periode?.id ? "true" : undefined}>{p.libelle} · {dateCourte(p.debut)}</a>)}
-        </div>
-      )}
+      <ChoixPeriode eleveId={e.id} periodes={d.periodes} active={d.periode?.id} />
 
       <div className="panel pad section">
         <h2>Lieu de stage{d.periode ? ` · ${d.periode.libelle}, du ${dateCourte(d.periode.debut)} au ${dateCourte(d.periode.fin)}` : ""}</h2>
@@ -112,6 +115,9 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
 
       {d.stage && <BlocConvention ctx={ctx} stageId={d.stage.id} />}
       {d.stage && <BlocFinDeStage ctx={ctx} stageId={d.stage.id} />}
+      <BlocPresenceEleve ctx={ctx} eleve={e} />
+      <BlocRattrapages eleveId={e.id} periodes={d.periodes} peutGerer />
+      <NotesEleve ctx={ctx} eleve={e} />
 
       <div className="panel pad section">
         <h2>Démarches de l&apos;élève</h2>
@@ -191,5 +197,15 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
         <button className="btn danger">{e.archive ? "Remettre dans la liste" : "Archiver l'élève (départ, abandon)"}</button>
       </form>
     </>
+  );
+}
+
+/** Passer d'une période à l'autre : périodes de la classe et rattrapages de l'élève. */
+function ChoixPeriode({ eleveId, periodes, active }: { eleveId: string; periodes: Periode[]; active?: string }) {
+  if (periodes.length < 2) return null;
+  return (
+    <div className="chips" aria-label="Périodes">
+      {periodes.map((p) => <a key={p.id} className="chip" href={`/eleves/${eleveId}?periode=${p.id}`} aria-current={p.id === active ? "true" : undefined}>{p.libelle} · {dateCourte(p.debut)}</a>)}
+    </div>
   );
 }

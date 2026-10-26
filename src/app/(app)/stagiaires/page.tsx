@@ -7,6 +7,7 @@ import { aujourdhui, dateCourte } from "@/lib/dates";
 import { TableHoraires } from "@/components/stage";
 import { Pill } from "@/components/ui";
 import { BlocConvention, BlocFinDeStage } from "@/components/convention";
+import { BlocAbsences } from "@/components/absences";
 
 export const metadata = { title: "Mes stagiaires" };
 
@@ -34,6 +35,7 @@ export default async function Stagiaires() {
             <ChoixCreneauTuteur visite={visites.find((v) => v.stageId === s.id) ?? null} />
             <BlocConvention ctx={ctx} stageId={s.id} />
             <BlocFinDeStage ctx={ctx} stageId={s.id} />
+            <BlocAbsences ctx={ctx} stageId={s.id} />
           </div>
         );
       })}

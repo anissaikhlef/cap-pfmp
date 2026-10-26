@@ -1,10 +1,10 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
-import { a, peutGererEleve } from "@/lib/acces";
+import { a, peutGererClasse, peutGererEleve } from "@/lib/acces";
 import { journaliser } from "@/lib/journal";
 import { envoyer } from "@/lib/messages";
 import { revenirAvec } from "@/lib/retour";
@@ -191,4 +191,98 @@ export async function enregistrerCompteRendu(_: Etat, fd: FormData): Promise<Eta
   rafraichir();
   revalidatePath(`/eleves/${l.e.id}`);
   revenirAvec(fd, p.data.suite === "alerte" ? "Compte rendu enregistré. L'alerte a été transmise." : "Compte rendu enregistré dans le dossier de l'élève.");
+}
+
+/* ------------------- Répartition selon les heures de face à face ------------------- */
+
+/** La gestion valide le nombre de visites de chaque professeur pour une période (champs q_<professeur>). */
+export async function validerQuotas(_: Etat, fd: FormData): Promise<Etat> {
+  const ctx = await contexte();
+  const periodeId = z.string().uuid().parse(fd.get("periodeId"));
+  const [r] = await db.select({ p: schema.periodes, c: schema.classes }).from(schema.periodes)
+    .innerJoin(schema.classes, eq(schema.classes.id, schema.periodes.classeId))
+    .where(and(eq(schema.periodes.id, periodeId), eq(schema.classes.etablissementId, ctx.etab.id))).limit(1);
+  if (!r || r.p.eleveId || !(await peutGererClasse(ctx, r.c.id))) return { erreur: "Vous ne gérez pas cette période." };
+  const pool = await visiteursPossibles(ctx);
+  const nouveaux = new Map<string, number>();
+  for (const [k, v] of fd.entries()) {
+    const m = k.match(/^q_([0-9a-f-]{36})$/);
+    if (!m || !pool.some((u) => u.id === m[1])) continue;
+    const n = Number(String(v).trim() || "0");
+    if (!Number.isInteger(n) || n < 0 || n > 200) return { erreur: "Chaque nombre de visites doit être un nombre entier, 0 ou plus." };
+    nouveaux.set(m[1], n);
+  }
+  const anciens = await db.select().from(schema.quotasVisites).where(eq(schema.quotasVisites.periodeId, periodeId));
+  await db.transaction(async (tx) => {
+    await tx.delete(schema.quotasVisites).where(eq(schema.quotasVisites.periodeId, periodeId));
+    const lignes = [...nouveaux].filter(([, n]) => n > 0).map(([professeurId, nombre]) => ({ periodeId, professeurId, nombre, valideParId: ctx.user.id }));
+    if (lignes.length) await tx.insert(schema.quotasVisites).values(lignes);
+  });
+  // Chaque professeur dont le nombre de visites change est prévenu.
+  const stages = (await visitesAOrganiser(ctx, { periodeIds: [periodeId] })).length;
+  let prevenus = 0;
+  for (const [id, n] of nouveaux) {
+    const avant = anciens.find((q) => q.professeurId === id)?.nombre ?? 0;
+    const u = pool.find((x) => x.id === id);
+    if (!u || n === avant || n === 0) continue;
+    await envoyer(ctx, {
+      canal: "mail", destinataire: u.email, sujet: `Visites de stage à choisir : ${r.c.libelle}, ${r.p.libelle}`,
+      corps: `Bonjour ${u.prenom},\n\nPour la ${r.p.libelle} de la classe ${r.c.libelle} (du ${dateLongue(r.p.debut)} au ${dateLongue(r.p.fin)}), ${n} visite${n > 1 ? "s" : ""} de stage vous ${n > 1 ? "sont confiées" : "est confiée"}, en proportion de vos heures de cours dans la classe.\nChoisissez vos lieux de stage dans Cap PFMP, rubrique « Mes visites ».\n\n${ctx.etab.nom}`,
+    });
+    prevenus++;
+  }
+  const total = [...nouveaux.values()].reduce((t, n) => t + n, 0);
+  await journaliser(ctx, "quotas_visites_valides", "periode", periodeId, Object.fromEntries(nouveaux));
+  rafraichir();
+  const ecart = total !== stages ? ` Attention : ${total} visite(s) validée(s) pour ${stages} stage(s) à visiter.` : "";
+  return { ok: `Nombres de visites validés.${prevenus ? ` ${prevenus} professeur(s) prévenu(s) : ils peuvent maintenant choisir leurs lieux de stage.` : ""}${ecart}` };
+}
+
+/** Le professeur choisit un lieu de stage à visiter, dans la limite du nombre de visites qui lui est confié. */
+export async function prendreVisite(fd: FormData) {
+  const ctx = await contexte({ roles: ["professeur"] });
+  const stageId = z.string().uuid().parse(fd.get("stageId"));
+  const [l] = await db.select({ s: schema.stages, p: schema.periodes, c: schema.classes }).from(schema.stages)
+    .innerJoin(schema.periodes, eq(schema.periodes.id, schema.stages.periodeId))
+    .innerJoin(schema.classes, eq(schema.classes.id, schema.periodes.classeId))
+    .where(and(eq(schema.stages.id, stageId), eq(schema.classes.etablissementId, ctx.etab.id))).limit(1);
+  if (!l || ctx.etab.reglages.repartition !== "heures") return;
+  const resultat = await db.transaction(async (tx) => {
+    const [q] = await tx.select().from(schema.quotasVisites)
+      .where(and(eq(schema.quotasVisites.periodeId, l.p.id), eq(schema.quotasVisites.professeurId, ctx.user.id))).for("update");
+    if (!q) return "Aucune visite ne vous est confiée pour cette période.";
+    const [{ n }] = await tx.select({ n: sql<number>`count(*)::int` }).from(schema.visites)
+      .innerJoin(schema.stages, eq(schema.stages.id, schema.visites.stageId))
+      .where(and(eq(schema.stages.periodeId, l.p.id), eq(schema.visites.visiteurId, ctx.user.id)));
+    if (n >= q.nombre) return `Vous avez déjà choisi vos ${q.nombre} visite(s) pour cette période.`;
+    // Les élèves d'une même entreprise sont visités le même jour.
+    const [voisine] = await tx.select({ date: schema.visites.date }).from(schema.visites)
+      .innerJoin(schema.stages, eq(schema.stages.id, schema.visites.stageId))
+      .where(and(eq(schema.stages.periodeId, l.p.id), eq(schema.stages.entrepriseId, l.s.entrepriseId), eq(schema.visites.visiteurId, ctx.user.id))).limit(1);
+    const date = voisine?.date ?? dateProposee(l.p.debut, l.p.fin, aujourdhui());
+    const pris = await tx.insert(schema.visites).values({ stageId, visiteurId: ctx.user.id, date })
+      .onConflictDoUpdate({ target: schema.visites.stageId, set: { visiteurId: ctx.user.id, date }, setWhere: isNull(schema.visites.visiteurId) })
+      .returning({ id: schema.visites.id });
+    return pris.length ? null : "Un collègue vient de choisir cette visite.";
+  });
+  if (resultat) revenirAvec(fd, resultat, "err");
+  await journaliser(ctx, "visite_choisie", "stage", stageId);
+  rafraichir();
+  revenirAvec(fd, "Visite ajoutée à vos visites. Proposez un créneau au tuteur depuis le détail de la visite.");
+}
+
+/** Le professeur rend une visite qu'il avait choisie (tant que l'ordre de mission n'est pas signé et sans compte rendu). */
+export async function rendreVisite(fd: FormData) {
+  const ctx = await contexte({ roles: ["professeur"] });
+  const visiteId = z.string().uuid().parse(fd.get("visiteId"));
+  const l = await chargerVisite(ctx, visiteId);
+  if (!l?.v || l.v.visiteurId !== ctx.user.id) return;
+  if (l.v.compteRendu || l.v.ordreMission === "signe") revenirAvec(fd, "Cette visite a déjà un ordre de mission signé ou un compte rendu : demandez à la gestion des stages de la réattribuer.", "err");
+  await db.update(schema.visites).set({
+    visiteurId: null, date: null, heure: null, creneauxProposes: null, propositionEnvoyeeLe: null,
+    ordreMission: "aucun", ordreMissionSigneParId: null, ordreMissionSigneLe: null,
+  }).where(eq(schema.visites.id, visiteId));
+  await journaliser(ctx, "visite_rendue", "visite", visiteId);
+  rafraichir();
+  revenirAvec(fd, "Visite rendue : un collègue peut maintenant la choisir.");
 }

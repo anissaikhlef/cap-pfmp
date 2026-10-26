@@ -22,6 +22,13 @@
       "when": 1792974482829,
       "tag": "0002_fichiers_en_base",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793056987427,
+      "tag": "0003_lot1_vie_scolaire_rattrapages_absences",
+      "breakpoints": true
     }
   ]
 }

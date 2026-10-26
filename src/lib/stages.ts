@@ -1,9 +1,9 @@
 import "server-only";
-import { and, asc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { Contexte } from "./auth";
 import type { Horaires } from "@/db/schema";
-import { periodeDeReference, signatairesRequis } from "./requetes";
+import { periodeDeReferenceEleve, rattrapagesDe, signatairesRequis } from "./requetes";
 import { verifierStage, type ResultatRegle } from "./regles";
 
 export type Entreprise = typeof schema.entreprises.$inferSelect;
@@ -53,11 +53,18 @@ export async function historiqueAccueil(ctx: Contexte): Promise<Map<string, numb
   return new Map(rows.map((r) => [r.id, r.n]));
 }
 
-/** Tout ce qu'il faut pour afficher le stage d'un élève sur sa période de référence. */
+/**
+ * Tout ce qu'il faut pour afficher le stage d'un élève sur sa période de référence.
+ * Ses périodes : celles de sa classe, plus ses rattrapages.
+ */
 export async function dossierStage(ctx: Contexte, eleve: typeof schema.eleves.$inferSelect, periodeId?: string) {
   const [classe] = eleve.classeId ? await db.select().from(schema.classes).where(eq(schema.classes.id, eleve.classeId)).limit(1) : [];
-  const periodes = classe ? await db.select().from(schema.periodes).where(eq(schema.periodes.classeId, classe.id)).orderBy(asc(schema.periodes.debut)) : [];
-  const periode = periodes.find((p) => p.id === periodeId) ?? periodeDeReference(periodes);
+  const deLaClasse = classe
+    ? await db.select().from(schema.periodes).where(and(eq(schema.periodes.classeId, classe.id), isNull(schema.periodes.eleveId))).orderBy(asc(schema.periodes.debut))
+    : [];
+  const rattrapages = classe ? (await rattrapagesDe([eleve.id])).filter((r) => r.classeId === classe.id) : [];
+  const periodes = [...deLaClasse, ...rattrapages].sort((x, y) => x.debut.localeCompare(y.debut));
+  const periode = periodes.find((p) => p.id === periodeId) ?? periodeDeReferenceEleve(periodes);
   const [dom] = eleve.dominanteId ? await db.select().from(schema.dominantes).where(eq(schema.dominantes.id, eleve.dominanteId)).limit(1) : [];
   const [st] = periode
     ? await db.select({ s: schema.stages, e: schema.entreprises }).from(schema.stages)

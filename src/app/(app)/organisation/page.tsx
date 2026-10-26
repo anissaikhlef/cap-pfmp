@@ -55,6 +55,13 @@ export default async function Organisation() {
           ]} />
         </div>
         <div className="panel pad section">
+          <h2>Comment les visites sont-elles réparties ?</h2>
+          <Choix nom="repartition" valeur={r.repartition} options={[
+            ["heures", "Selon les heures de face à face", "Le nombre de visites de chaque professeur est proposé en proportion de ses heures dans la classe. La gestion le valide, puis chaque professeur choisit lui-même ses lieux de stage."],
+            ["auto", "Automatiquement", "L'application attribue chaque visite : elle privilégie le référent, équilibre la charge et regroupe les élèves d'une même entreprise."],
+          ]} />
+        </div>
+        <div className="panel pad section">
           <h2>Comment la convention est-elle signée ?</h2>
           <Choix nom="signature" valeur={r.signature} options={[
             ["papier", "Sur papier, puis déposée", "L'élève ou sa famille dépose le scan signé par tous."],

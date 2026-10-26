@@ -1,7 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
@@ -88,7 +88,7 @@ export async function modifierPeriode(_: Etat, fd: FormData): Promise<Etat> {
   if (!(await peutGererClasse(ctx, p.data.classeId))) return { erreur: "Vous ne gérez pas cette classe." };
   if (p.data.fin < p.data.debut) return { erreur: "La fin de la période est avant son début." };
   await db.update(schema.periodes).set({ libelle: p.data.libelle, debut: p.data.debut, fin: p.data.fin })
-    .where(and(eq(schema.periodes.id, id), eq(schema.periodes.classeId, p.data.classeId)));
+    .where(and(eq(schema.periodes.id, id), eq(schema.periodes.classeId, p.data.classeId), isNull(schema.periodes.eleveId)));
   await journaliser(ctx, "periode_modifiee", "classe", p.data.classeId, p.data);
   revalidatePath(`/classes/${p.data.classeId}`);
   return { ok: "Période mise à jour." };
@@ -101,7 +101,8 @@ export async function supprimerPeriode(fd: FormData) {
   if (!(await peutGererClasse(ctx, classeId))) return;
   const [st] = await db.select({ id: schema.stages.id }).from(schema.stages).where(eq(schema.stages.periodeId, id)).limit(1);
   if (st) return; // une période avec des stages ne peut pas être supprimée
-  await db.delete(schema.periodes).where(and(eq(schema.periodes.id, id), eq(schema.periodes.classeId, classeId)));
+  // Seulement une période de la classe : un rattrapage se gère depuis la fiche de l'élève.
+  await db.delete(schema.periodes).where(and(eq(schema.periodes.id, id), eq(schema.periodes.classeId, classeId), isNull(schema.periodes.eleveId)));
   await journaliser(ctx, "periode_supprimee", "classe", classeId);
   revalidatePath(`/classes/${classeId}`);
 }

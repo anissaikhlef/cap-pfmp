@@ -33,3 +33,20 @@ export function lireDate(s: string): string | null {
   if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
   return null;
 }
+
+/** Heures hebdomadaires : « 6 », « 6,5 », « 6.5 », « 6h », « 6h30 », « 6 h 30 », « 06:30 ». Entre 0 et 40, sinon null. */
+export function lireHeures(s: string): number | null {
+  const t = s.trim().toLowerCase().replace(/\s+/g, "");
+  if (!t) return null;
+  let m = t.match(/^(\d{1,2})(?:[.,](\d+))?h?$/);
+  let h: number | null = null;
+  if (m) h = Number(`${m[1]}.${m[2] ?? "0"}`);
+  else if ((m = t.match(/^(\d{1,2})[h:](\d{2})$/))) h = Number(m[1]) + Number(m[2]) / 60;
+  if (h === null || !Number.isFinite(h) || h < 0 || h > 40) return null;
+  return Math.round(h * 100) / 100;
+}
+
+/** Comparaison de noms sans accents, sans casse, sans ponctuation. */
+export function cleNom(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}

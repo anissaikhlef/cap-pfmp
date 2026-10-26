@@ -3,7 +3,7 @@
  * Fonctions pures, sans accès à la base : faciles à tester et réutilisées partout.
  */
 import type { Horaires, Reglages, Signataire, Signatures } from "@/db/schema";
-import { ecartJours } from "./dates";
+import { ajouterJours, ecartJours, jourSemaine } from "./dates";
 
 export type ResultatRegle = { code: string; ok: boolean; libelle: string };
 
@@ -178,4 +178,43 @@ export function statutEleve(p: {
   if (ecartJours(p.aujourdhui, p.debut) > 0) return p.conventionComplete ? "pret" : "convention";
   if (ecartJours(p.fin, p.aujourdhui) <= 0) return p.conventionComplete ? "en_stage" : "en_stage_sans_convention";
   return p.attestationValidee && p.livretValide ? "termine" : "documents";
+}
+
+/* ------------------------------------------------------------------ */
+/* Jours effectués (absences déduites)                                  */
+/* ------------------------------------------------------------------ */
+
+/** Jours de stage prévus : chaque jour de la période où l'élève a des horaires. */
+export function joursPrevus(h: Horaires, debut: string, fin: string): string[] {
+  const jours: string[] = [];
+  for (let d = debut; d <= fin; d = ajouterJours(d, 1)) if (h[jourSemaine(d)]) jours.push(d);
+  return jours;
+}
+
+export type Semaine = { lundi: string; prevus: number; absences: number; effectues: number; aVenir: number };
+export type BilanJours = { semaines: Semaine[]; prevus: number; absences: number; effectues: number; aVenir: number };
+
+/**
+ * Jours effectués, semaine par semaine : les jours prévus, moins les jours d'absence.
+ * Un jour prévu après `jusquAu` (en général aujourd'hui) n'est pas encore effectué : il est « à venir ».
+ */
+export function joursEffectues(h: Horaires, debut: string, fin: string, absences: { debut: string; fin: string }[], jusquAu: string): BilanJours {
+  const semaines = new Map<string, Semaine>();
+  for (const d of joursPrevus(h, debut, fin)) {
+    const lundi = ajouterJours(d, -jourSemaine(d));
+    const s = semaines.get(lundi) ?? { lundi, prevus: 0, absences: 0, effectues: 0, aVenir: 0 };
+    s.prevus++;
+    if (absences.some((a) => a.debut <= d && d <= a.fin)) s.absences++;
+    else if (d <= jusquAu) s.effectues++;
+    else s.aVenir++;
+    semaines.set(lundi, s);
+  }
+  const liste = [...semaines.values()].sort((x, y) => x.lundi.localeCompare(y.lundi));
+  const somme = (k: "prevus" | "absences" | "effectues" | "aVenir") => liste.reduce((t, s) => t + s[k], 0);
+  return { semaines: liste, prevus: somme("prevus"), absences: somme("absences"), effectues: somme("effectues"), aVenir: somme("aVenir") };
+}
+
+/** Jours d'absence comptés pour une absence : les jours prévus du stage compris entre ses deux dates. */
+export function joursDAbsence(h: Horaires, absence: { debut: string; fin: string }): number {
+  return joursPrevus(h, absence.debut, absence.fin).length;
 }

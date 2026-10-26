@@ -2,11 +2,13 @@
 import { BASE, ok, session, fin } from "./outils.mjs";
 const V = { width: 390, height: 844 };
 const parcours = {
-  direction: ["/", "/eleves", "/entreprises", "/documents", "/visites", "/campagne", "/a-signer", "/classes", "/messages", "/equipe", "/organisation", "/classes/annee-suivante"],
+  direction: ["/", "/eleves", "/entreprises", "/documents", "/visites", "/visites/heures", "/campagne", "/a-signer", "/classes", "/messages", "/equipe", "/organisation", "/classes/annee-suivante"],
   "ines.haddad": ["/mon-stage"],
   "f.traore": ["/mon-enfant"],
+  "l.rahmani": ["/mon-enfant"],
   "k.ferhat": ["/stagiaires"],
   "m.garnier": ["/mes-visites"],
+  "vie.scolaire": ["/vie-scolaire", "/vie-scolaire?jour=2026-10-14"],
 };
 for (const [compte, pages] of Object.entries(parcours)) {
   const p = await session(compte, V);
@@ -23,6 +25,12 @@ for (const [compte, pages] of Object.entries(parcours)) {
     }
     await p.goto(BASE + "/visites"); await p.click("a:has-text('Détails') >> nth=0"); await p.waitForURL(/\/visites\/[0-9a-f-]{36}/);
     ok((await p.evaluate(() => document.documentElement.scrollWidth)) <= 390, "direction détail visite");
+    await p.goto(BASE + "/eleves?q=rahmani"); await p.click("a.row:has-text('RAHMANI')"); await p.waitForURL(/\/eleves\/[0-9a-f-]{36}/);
+    ok((await p.evaluate(() => document.documentElement.scrollWidth)) <= 390, "direction fiche d'un élève en rattrapage");
+  }
+  if (compte === "vie.scolaire") {
+    await p.goto(BASE + "/vie-scolaire"); await p.click("a.row:has-text('RAHMANI') >> nth=0"); await p.waitForURL(/\/vie-scolaire\/eleves\/[0-9a-f-]{36}/);
+    ok((await p.evaluate(() => document.documentElement.scrollWidth)) <= 390, "vie scolaire fiche élève");
   }
 }
 await fin();

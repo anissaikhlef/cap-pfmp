@@ -1,18 +1,23 @@
 import {
-  customType,
-  pgTable, uuid, text, timestamp, date, boolean, integer, jsonb, primaryKey, uniqueIndex, index, bigserial,
+  customType, type AnyPgColumn,
+  pgTable, uuid, text, timestamp, date, boolean, integer, real, jsonb, primaryKey, uniqueIndex, index, bigserial,
 } from "drizzle-orm/pg-core";
 
 /* ------------------------------------------------------------------ */
 /* Types partagés                                                       */
 /* ------------------------------------------------------------------ */
 
-export type Role = "admin" | "direction" | "gestionnaire" | "professeur" | "eleve" | "parent" | "entreprise";
+export type Role = "admin" | "direction" | "gestionnaire" | "professeur" | "vie_scolaire" | "eleve" | "parent" | "entreprise";
 
 /** Organisation propre à chaque lycée (cahier des charges, section 3). */
 export type Reglages = {
   gestion: "referent" | "bde" | "ddfpt";
   visiteurs: "pro" | "equipe";
+  /**
+   * auto : l'application attribue chaque visite (référent, charge équilibrée) ·
+   * heures : nombre de visites de chaque professeur en proportion de ses heures de face à face, puis chacun choisit ses lieux de stage.
+   */
+  repartition: "auto" | "heures";
   signature: "enligne" | "papier" | "les2";
   ordreMission: boolean;
   compteRendu: boolean;
@@ -29,11 +34,17 @@ export type Reglages = {
 export const REGLAGES_PAR_DEFAUT: Reglages = {
   gestion: "referent",
   visiteurs: "equipe",
+  repartition: "auto",
   signature: "les2",
   ordreMission: true,
   compteRendu: true,
   regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2 },
 };
+
+/** Réglages enregistrés complétés par les valeurs par défaut : un lycée créé avant l'ajout d'un réglage le reçoit ainsi. */
+export function completerReglages(r: Partial<Reglages> | null | undefined): Reglages {
+  return { ...REGLAGES_PAR_DEFAUT, ...(r ?? {}), regles: { ...REGLAGES_PAR_DEFAUT.regles, ...(r?.regles ?? {}) } };
+}
 
 /** Une plage par jour, du lundi (0) au dimanche (6). null = repos. */
 export type Horaires = ([string, string] | null)[];
@@ -140,13 +151,23 @@ export const classes = pgTable("classes", {
   referentId: uuid("referent_id").references(() => users.id, { onDelete: "set null" }),
 }, (t) => [index("classes_etab_idx").on(t.etablissementId)]);
 
+/**
+ * Périodes de PFMP. Une période de classe concerne tous ses élèves (eleveId vide).
+ * Un rattrapage est une période propre à un seul élève (eleveId renseigné), en dehors des périodes de la classe.
+ */
 export const periodes = pgTable("periodes", {
   id: uuid("id").primaryKey().defaultRandom(),
   classeId: uuid("classe_id").notNull().references(() => classes.id, { onDelete: "cascade" }),
   libelle: text("libelle").notNull(),
   debut: date("debut").notNull(),
   fin: date("fin").notNull(),
-}, (t) => [index("periodes_classe_idx").on(t.classeId)]);
+  eleveId: uuid("eleve_id").references((): AnyPgColumn => eleves.id, { onDelete: "cascade" }),
+  /** Rattrapage : la période de la classe qui est rattrapée, et pourquoi. */
+  rattrapeId: uuid("rattrape_id").references((): AnyPgColumn => periodes.id, { onDelete: "set null" }),
+  motif: text("motif"),
+  creeParId: uuid("cree_par_id").references(() => users.id, { onDelete: "set null" }),
+  creeLe: timestamp("cree_le", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("periodes_classe_idx").on(t.classeId), index("periodes_eleve_idx").on(t.eleveId)]);
 
 export const eleves = pgTable("eleves", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -192,7 +213,7 @@ export const stages = pgTable("stages", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("stages_eleve_periode_idx").on(t.eleveId, t.periodeId), index("stages_entreprise_idx").on(t.entrepriseId)]);
 
-export type TypeDocument = "convention" | "attestation" | "livret" | "ordre_mission" | "compte_rendu" | "autre";
+export type TypeDocument = "convention" | "attestation" | "livret" | "ordre_mission" | "compte_rendu" | "justificatif" | "autre";
 
 export const documents = pgTable("documents", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -229,6 +250,55 @@ export const visites = pgTable("visites", {
   compteRendu: jsonb("compte_rendu").$type<CompteRendu>(),
   compteRenduLe: timestamp("compte_rendu_le", { withTimezone: true }),
 }, (t) => [uniqueIndex("visites_stage_idx").on(t.stageId)]);
+
+/** Heures de face à face hebdomadaires d'un professeur dans une classe : servent à répartir les visites. */
+export const heuresClasses = pgTable("heures_classes", {
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  professeurId: uuid("professeur_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  classeId: uuid("classe_id").notNull().references(() => classes.id, { onDelete: "cascade" }),
+  heures: real("heures").notNull(),
+}, (t) => [primaryKey({ columns: [t.professeurId, t.classeId] }), index("heures_classes_etab_idx").on(t.etablissementId)]);
+
+/** Nombre de visites confié à chaque professeur pour une période, validé par la gestion ; le professeur choisit ensuite ses lieux de stage. */
+export const quotasVisites = pgTable("quotas_visites", {
+  periodeId: uuid("periode_id").notNull().references(() => periodes.id, { onDelete: "cascade" }),
+  professeurId: uuid("professeur_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  nombre: integer("nombre").notNull(),
+  valideLe: timestamp("valide_le", { withTimezone: true }).notNull().defaultNow(),
+  valideParId: uuid("valide_par_id").references(() => users.id, { onDelete: "set null" }),
+}, (t) => [primaryKey({ columns: [t.periodeId, t.professeurId] })]);
+
+/**
+ * Absences pendant un stage. Signalées par le tuteur, la famille ou le lycée ; justifiées par la famille.
+ * origine : entreprise (tuteur) · famille (parent, ou l'élève majeur) · lycee (gestion des PFMP).
+ */
+export const absences = pgTable("absences", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  stageId: uuid("stage_id").notNull().references(() => stages.id, { onDelete: "cascade" }),
+  eleveId: uuid("eleve_id").notNull().references(() => eleves.id, { onDelete: "cascade" }),
+  debut: date("debut").notNull(),
+  fin: date("fin").notNull(),
+  origine: text("origine").$type<"entreprise" | "famille" | "lycee">().notNull(),
+  signaleParId: uuid("signale_par_id").references(() => users.id, { onDelete: "set null" }),
+  commentaire: text("commentaire"),
+  motif: text("motif"),
+  justification: text("justification"),
+  justifieeLe: timestamp("justifiee_le", { withTimezone: true }),
+  justifieeParId: uuid("justifiee_par_id").references(() => users.id, { onDelete: "set null" }),
+  documentId: uuid("document_id").references(() => documents.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("absences_etab_idx").on(t.etablissementId, t.debut), index("absences_stage_idx").on(t.stageId)]);
+
+/** Notes de suivi sur un élève (vie scolaire, gestion, référent), jamais visibles par l'élève, sa famille ou l'entreprise. */
+export const notesEleves = pgTable("notes_eleves", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  eleveId: uuid("eleve_id").notNull().references(() => eleves.id, { onDelete: "cascade" }),
+  auteurId: uuid("auteur_id").references(() => users.id, { onDelete: "set null" }),
+  texte: text("texte").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("notes_eleves_eleve_idx").on(t.eleveId, t.createdAt)]);
 
 /* ------------------------------------------------------------------ */
 /* Campagne de rentrée et messages sortants                             */

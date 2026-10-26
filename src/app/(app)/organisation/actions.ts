@@ -14,6 +14,7 @@ const Schema = z.object({
   anneeScolaire: z.string().regex(/^\d{4}-\d{4}$/, "Année scolaire au format 2026-2027"),
   gestion: z.enum(["referent", "bde", "ddfpt"]),
   visiteurs: z.enum(["pro", "equipe"]),
+  repartition: z.enum(["auto", "heures"]),
   signature: z.enum(["enligne", "papier", "les2"]),
   ordreMission: z.enum(["oui", "non"]),
   compteRendu: z.enum(["oui", "non"]),
@@ -32,7 +33,7 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
   const v = p.data;
   if (v.heuresMin > v.heuresMax) return { erreur: "La durée minimale dépasse la durée maximale." };
   const reglages: Reglages = {
-    gestion: v.gestion, visiteurs: v.visiteurs, signature: v.signature,
+    gestion: v.gestion, visiteurs: v.visiteurs, repartition: v.repartition, signature: v.signature,
     ordreMission: v.ordreMission === "oui", compteRendu: v.compteRendu === "oui",
     regles: {
       heuresMin: v.heuresMin, heuresMax: v.heuresMax, nuitDebut: v.nuitDebut, nuitFin: v.nuitFin,
