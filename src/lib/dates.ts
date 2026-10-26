@@ -7,7 +7,7 @@ export function aujourdhui(): string {
 }
 
 export function versJour(iso: string): number {
-  return Math.round(Date.parse(iso + "T12:00:00Z") / 86_400_000);
+  return Math.floor(Date.parse(iso + "T00:00:00Z") / 86_400_000);
 }
 
 export function depuisJour(n: number): string {

@@ -156,6 +156,17 @@ async function main() {
     }
   }
 
+  // Visites déjà organisées pour les terminales en stage
+  const garnier = (await db.select().from(schema.users).where(eq(schema.users.email, `m.garnier@${DOMAINE}`)))[0];
+  async function visite(nom: string, visiteurId: string, date: string, ordreMission: "aucun" | "a_signer" | "signe", heure: string | null = null) {
+    const [el] = await db.select().from(schema.eleves).where(and(eq(schema.eleves.nom, nom), eq(schema.eleves.etablissementId, E))).limit(1);
+    const [st] = await db.select().from(schema.stages).where(eq(schema.stages.eleveId, el.id)).limit(1);
+    await db.insert(schema.visites).values({ stageId: st.id, visiteurId, date, heure, ordreMission, ordreMissionSigneParId: ordreMission === "signe" ? direction.id : null, ordreMissionSigneLe: ordreMission === "signe" ? new Date() : null });
+  }
+  await visite("LAURENT", leroy.id, "2026-10-28", "signe", "10:00");
+  await visite("FONTAINE", garnier.id, "2026-11-03", "a_signer");
+  await visite("MANSOURI", diallo.id, "2026-10-22", "signe", "14:00");
+
   // Documents : fin de stage des 1re (période terminée) et historique de l'année précédente pour les terminales
   const RACINE = path.resolve(process.env.UPLOAD_DIR ?? "./uploads");
   await mkdir(path.join(RACINE, E), { recursive: true });
@@ -191,7 +202,6 @@ async function main() {
 
   console.log(`Lycée de démonstration créé. Mot de passe de tous les comptes : ${MOT_DE_PASSE_DEMO}`);
   console.log(`Comptes : direction@${DOMAINE}, p.martin@${DOMAINE} (référent 2nde), ines.haddad@${DOMAINE} (élève), f.traore@${DOMAINE} (parent), k.ferhat@${DOMAINE} (entreprise)`);
-  void direction;
   await pool.end();
 }
 

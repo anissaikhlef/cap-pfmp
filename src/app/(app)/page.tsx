@@ -21,6 +21,7 @@ export default async function Accueil() {
     if (a(ctx, "eleve")) redirect("/mon-stage");
     if (a(ctx, "parent")) redirect("/mon-enfant");
     if (a(ctx, "entreprise")) redirect("/stagiaires");
+    if (a(ctx, "professeur")) redirect("/mes-visites");
     return (
       <div className="section">
         <h1>Bonjour {ctx.user.prenom}</h1>

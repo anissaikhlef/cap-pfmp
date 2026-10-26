@@ -12,9 +12,11 @@ export async function liensPour(ctx: Contexte): Promise<Lien[]> {
     l.push({ href: "/", libelle: "Tableau de bord" });
     l.push({ href: "/eleves", libelle: "Élèves" });
     l.push({ href: "/documents", libelle: "Documents" });
+    l.push({ href: "/visites", libelle: "Visites" });
     l.push({ href: "/classes", libelle: "Classes" });
   }
   if (a(ctx, "direction")) l.push({ href: "/a-signer", libelle: "À signer" });
+  if (a(ctx, "professeur")) l.push({ href: "/mes-visites", libelle: "Mes visites" });
   if (gestion || a(ctx, "professeur", "direction")) l.push({ href: "/entreprises", libelle: "Entreprises" });
   if (peutAdministrer(ctx)) {
     l.push({ href: "/equipe", libelle: "Équipe" });

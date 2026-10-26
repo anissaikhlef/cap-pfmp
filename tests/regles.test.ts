@@ -59,3 +59,11 @@ describe("statut", () => {
   it("alerte si en stage sans convention", () => expect(statutEleve({ ...base, aujourdhui: "2026-11-20", conventionComplete: false })).toBe("en_stage_sans_convention"));
   it("terminé quand tout est validé", () => expect(statutEleve({ ...base, aujourdhui: "2026-12-20", attestationValidee: true, livretValide: true })).toBe("termine"));
 });
+
+import { ajouterJours, ecartJours, jourSemaine } from "@/lib/dates";
+describe("dates", () => {
+  it("ajouter 0 jour ne change rien", () => expect(ajouterJours("2026-11-15", 0)).toBe("2026-11-15"));
+  it("traverse un changement de mois", () => expect(ajouterJours("2026-10-30", 3)).toBe("2026-11-02"));
+  it("compte les jours d'écart", () => expect(ecartJours("2026-10-26", "2026-11-16")).toBe(21));
+  it("lundi = 0, dimanche = 6", () => { expect(jourSemaine("2026-10-26")).toBe(0); expect(jourSemaine("2026-11-01")).toBe(6); });
+});

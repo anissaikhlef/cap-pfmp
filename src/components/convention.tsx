@@ -8,6 +8,7 @@ import { SIGNATAIRES, VERBE_SIGNATURE } from "@/lib/regles";
 import { aujourdhui, dateCourte } from "@/lib/dates";
 import { Formulaire } from "./Formulaire";
 import { Pill } from "./ui";
+import { VisitesDuDossier } from "./visites";
 import { deposer, relancer, signer } from "@/app/(app)/documents/actions";
 import type { TypeDocument } from "@/db/schema";
 
@@ -145,9 +146,10 @@ export async function DossierEleve({ eleveId }: { eleveId: string }) {
     .leftJoin(schema.entreprises, eq(schema.entreprises.id, schema.stages.entrepriseId))
     .where(eq(schema.documents.eleveId, eleveId)).orderBy(desc(schema.documents.anneeScolaire), desc(schema.documents.deposeLe));
   const annees = [...new Set(docs.map((x) => x.d.anneeScolaire))];
-  if (!annees.length) return <p className="sub">Aucun document pour l&apos;instant.</p>;
+  if (!annees.length) return <><p className="sub">Aucun document pour l&apos;instant.</p><VisitesDuDossier eleveId={eleveId} /></>;
   return (
     <div className="section">
+      <VisitesDuDossier eleveId={eleveId} />
       {annees.map((an) => {
         const liste = docs.filter((x) => x.d.anneeScolaire === an);
         return (

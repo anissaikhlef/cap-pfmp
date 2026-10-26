@@ -1,4 +1,7 @@
+import { inArray } from "drizzle-orm";
+import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
+import { ChoixCreneauTuteur } from "@/components/visites";
 import { entrepriseDuLycee, stagiairesEntreprise } from "@/lib/stages";
 import { aujourdhui, dateCourte } from "@/lib/dates";
 import { TableHoraires } from "@/components/stage";
@@ -12,6 +15,7 @@ export default async function Stagiaires() {
   const ent = ctx.user.entrepriseId ? await entrepriseDuLycee(ctx, ctx.user.entrepriseId) : null;
   const liste = await stagiairesEntreprise(ctx);
   const jour = aujourdhui();
+  const visites = liste.length ? await db.select().from(schema.visites).where(inArray(schema.visites.stageId, liste.map((x) => x.s.id))) : [];
   return (
     <>
       <div><h1>{ent?.nom ?? "Mes stagiaires"}</h1><p className="sub">Bonjour {ctx.user.prenom}. Vos stagiaires pour l&apos;année {ctx.etab.anneeScolaire}.</p></div>
@@ -27,6 +31,7 @@ export default async function Stagiaires() {
             </div>
             <p className="sub" style={{ margin: 0 }}>Du {dateCourte(p.debut)} au {dateCourte(p.fin)}</p>
             <details><summary className="btn small">Horaires</summary><TableHoraires h={s.horaires} /></details>
+            <ChoixCreneauTuteur visite={visites.find((v) => v.stageId === s.id) ?? null} />
             <BlocConvention ctx={ctx} stageId={s.id} />
             <BlocFinDeStage ctx={ctx} stageId={s.id} />
           </div>
