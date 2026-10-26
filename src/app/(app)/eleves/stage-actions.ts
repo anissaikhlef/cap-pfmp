@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { redirect } from "next/navigation";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
@@ -40,14 +41,15 @@ export async function enregistrerStage(_: Etat, fd: FormData): Promise<Etat> {
     await db.update(schema.stages).set({ entrepriseId: ent.id, horaires: h, ...(change ? { signatures: {} } : {}) }).where(eq(schema.stages.id, existant.id));
     await journaliser(ctx, "stage_modifie", "eleve", eleveId, { entreprise: ent.nom, signaturesEffacees: change });
     revalidatePath(`/eleves/${eleveId}`);
-    return { ok: (change && Object.keys(existant.signatures).length ? "Stage modifié. Les signatures déjà recueillies ont été effacées : la convention doit être signée de nouveau." : "Stage enregistré.") + avertissement };
+    const msg = (change && Object.keys(existant.signatures).length ? "Stage modifié. Les signatures déjà recueillies ont été effacées : la convention doit être signée de nouveau." : "Stage enregistré.") + avertissement;
+    redirect(`/eleves/${eleveId}?periode=${x.p.id}&msg=${encodeURIComponent(msg)}`);
   }
   await db.insert(schema.stages).values({ eleveId, periodeId: x.p.id, entrepriseId: ent.id, horaires: h, signatures: {} });
   // La démarche correspondante passe en « accord »
   await db.update(schema.demarches).set({ reponse: "accord" }).where(and(eq(schema.demarches.eleveId, eleveId), eq(schema.demarches.entrepriseId, ent.id)));
   await journaliser(ctx, "stage_cree", "eleve", eleveId, { entreprise: ent.nom });
   revalidatePath(`/eleves/${eleveId}`);
-  return { ok: "Stage enregistré. Vérifiez les règles ci-dessus avant de lancer la convention." + avertissement };
+  redirect(`/eleves/${eleveId}?periode=${x.p.id}&msg=${encodeURIComponent("Stage enregistré. Vérifiez les règles avant de lancer la convention." + avertissement)}`);
 }
 
 export async function supprimerStage(fd: FormData) {
@@ -89,6 +91,12 @@ export async function ajouterDemarche(_: Etat, fd: FormData): Promise<Etat> {
   if (p.data.date > aujourdhui()) return { erreur: "La date ne peut pas être dans le futur." };
   let entrepriseId: string | null = null;
   if (p.data.entrepriseId) entrepriseId = (await entrepriseDuLycee(ctx, p.data.entrepriseId))?.id ?? null;
+  else {
+    // Rattache la démarche à une entreprise de l'annuaire si le nom correspond
+    const [m] = await db.select({ id: schema.entreprises.id }).from(schema.entreprises)
+      .where(and(eq(schema.entreprises.etablissementId, ctx.etab.id), sql`lower(${schema.entreprises.nom}) = lower(${p.data.entrepriseNom})`)).limit(1);
+    entrepriseId = m?.id ?? null;
+  }
   await db.insert(schema.demarches).values({ eleveId, entrepriseNom: p.data.entrepriseNom, entrepriseId, date: p.data.date, reponse: p.data.reponse });
   await journaliser(ctx, "demarche_ajoutee", "eleve", eleveId);
   revalidatePath("/mon-stage"); revalidatePath(`/eleves/${eleveId}`);

@@ -9,7 +9,7 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | Étape | Contenu | État |
 | --- | --- | --- |
 | 1 | Comptes, rôles, paramétrage du lycée, classes et périodes, élèves (saisie et import CSV) | Fait |
-| 2 | Entreprises, recherche de stage, horaires et règles | À faire |
+| 2 | Entreprises, recherche de stage, horaires et règles | Fait |
 | 3 | Conventions, boîte de dépôt, dossiers par année | À faire |
 | 4 | Visites, ordre de mission, compte rendu | À faire |
 | 5 | Tableau de bord complet, relances, campagne de rentrée | À faire |
@@ -49,7 +49,8 @@ Comptes de démonstration (mot de passe `Demo-pfmp-2026`) :
 ```bash
 npm run lint        # contrôle des types
 npm test            # tests du moteur de règles et de l'import
-node e2e/etape1.mjs # parcours complet dans un navigateur (application lancée sur le port 3100)
+node e2e/etape1.mjs # parcours dans un navigateur (application lancée sur le port 3100)
+node e2e/etape2.mjs
 ```
 
 ## Organisation du code

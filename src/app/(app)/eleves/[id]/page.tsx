@@ -5,14 +5,19 @@ import { contexte } from "@/lib/auth";
 import { peutGererEleve } from "@/lib/acces";
 import { optionsEleve } from "@/lib/options";
 import { elevesSuivis, texteperiode } from "@/lib/requetes";
-import { ageAu, aujourdhui } from "@/lib/dates";
+import { ageAu, aujourdhui, dateCourte } from "@/lib/dates";
+import { dossierStage, entreprisesDuLycee, demarchesDe } from "@/lib/stages";
+import { ChampsHoraires, ListeRegles, TableHoraires } from "@/components/stage";
+import { Demarches } from "@/components/Demarches";
+import { enregistrerStage, supprimerStage } from "../stage-actions";
 import { Formulaire } from "@/components/Formulaire";
 import { Pastille } from "@/components/ui";
 import { ChampsEleve } from "../ChampsEleve";
 import { ajouterResponsable, archiverEleve, creerCompteEleve, modifierEleve, retirerResponsable } from "../actions";
 
-export default async function FicheEleve({ params }: { params: Promise<{ id: string }> }) {
+export default async function FicheEleve({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ periode?: string; msg?: string }> }) {
   const { id } = await params;
+  const { periode: periodeId, msg } = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const ctx = await contexte();
   const [e] = await db.select().from(schema.eleves).where(eq(schema.eleves.id, id)).limit(1);
@@ -25,6 +30,10 @@ export default async function FicheEleve({ params }: { params: Promise<{ id: str
     .where(eq(schema.responsables.eleveId, id));
   const [compte] = e.userId ? await db.select().from(schema.users).where(eq(schema.users.id, e.userId)).limit(1) : [];
   const age = ageAu(e.dateNaissance, aujourdhui());
+  const d = await dossierStage(ctx, e, periodeId);
+  const entreprises = await entreprisesDuLycee(ctx);
+  const dem = await demarchesDe(e.id);
+  const statut = d.periode && d.periode.id !== ligne?.periode?.id ? null : ligne?.statut;
 
   return (
     <>
@@ -32,25 +41,62 @@ export default async function FicheEleve({ params }: { params: Promise<{ id: str
         <div>
           <h1>{e.prenom} {e.nom}</h1>
           <p className="sub">
-            {ligne?.classe.libelle ?? "Sans classe"} · {texteperiode(ligne?.periode ?? null)}
+            {ligne?.classe.libelle ?? "Sans classe"} · {texteperiode(d.periode)}
             {age !== null && ` · ${age} ans${age >= 18 ? " (majeur : signe seul)" : ""}`}
           </p>
         </div>
-        {ligne?.statut && <Pastille statut={ligne.statut} />}
+        {statut && <Pastille statut={statut} />}
+      </div>
+
+      {msg && <p className="msg ok" role="status">{msg.slice(0, 300)}</p>}
+      {d.periodes.length > 1 && (
+        <div className="chips" aria-label="Périodes">
+          {d.periodes.map((p) => <a key={p.id} className="chip" href={`/eleves/${e.id}?periode=${p.id}`} aria-current={p.id === d.periode?.id ? "true" : undefined}>{p.libelle} · {dateCourte(p.debut)}</a>)}
+        </div>
+      )}
+
+      <div className="panel pad section">
+        <h2>Lieu de stage{d.periode ? ` · ${d.periode.libelle}, du ${dateCourte(d.periode.debut)} au ${dateCourte(d.periode.fin)}` : ""}</h2>
+        {!d.periode && <p className="sub">Aucune période n&apos;est définie pour la classe. <a href={`/classes/${d.classe?.id ?? ""}`}>Ajoutez les dates de PFMP</a>.</p>}
+        {d.stage && d.entreprise && (
+          <div className="grid2">
+            <div className="section">
+              <p style={{ margin: 0 }}><a href={`/entreprises/${d.entreprise.id}`}><b>{d.entreprise.nom}</b></a> · {d.entreprise.secteur === "prive" ? "privé" : "public"}{d.entreprise.domaine ? ` · ${d.entreprise.domaine}` : ""}</p>
+              <p className="sub" style={{ margin: 0 }}>Tuteur : {d.entreprise.tuteurNom ?? "—"} · {d.entreprise.telephone ?? "pas de mobile"}</p>
+              <ListeRegles regles={d.regles} />
+            </div>
+            <TableHoraires h={d.stage.horaires} />
+          </div>
+        )}
+        {d.periode && (
+          <details open={!d.stage}>
+            <summary className="btn small">{d.stage ? "Modifier le lieu ou les horaires" : "Enregistrer le lieu de stage"}</summary>
+            <Formulaire action={enregistrerStage} bouton="Enregistrer le stage">
+              <input type="hidden" name="eleveId" value={e.id} />
+              <input type="hidden" name="periodeId" value={d.periode.id} />
+              <label className="f" htmlFor="s-ent">Entreprise
+                <select id="s-ent" name="entrepriseId" defaultValue={d.entreprise?.id ?? ""} required>
+                  <option value="" disabled>— Choisir dans l&apos;annuaire —</option>
+                  {entreprises.map((x) => <option key={x.id} value={x.id}>{x.nom}{x.ville ? ` (${x.ville})` : ""}</option>)}
+                </select>
+              </label>
+              <p className="sub" style={{ margin: 0 }}>L&apos;entreprise n&apos;est pas dans la liste ? <a href="/entreprises/nouvelle">Ajoutez-la à l&apos;annuaire</a>.</p>
+              <ChampsHoraires h={d.stage?.horaires} />
+              {d.stage && Object.keys(d.stage.signatures).length > 0 && <p className="note">Changer d&apos;entreprise ou d&apos;horaires efface les signatures déjà recueillies.</p>}
+            </Formulaire>
+            {d.stage && (
+              <form action={supprimerStage} className="actions" style={{ marginTop: 10 }}>
+                <input type="hidden" name="eleveId" value={e.id} /><input type="hidden" name="stageId" value={d.stage.id} />
+                <button className="btn small danger">Retirer ce lieu de stage</button>
+              </form>
+            )}
+          </details>
+        )}
       </div>
 
       <div className="panel pad section">
-        <h2>Stage</h2>
-        {ligne?.entreprise ? (
-          <>
-            <p><b>{ligne.entreprise.nom}</b> · {ligne.entreprise.ville}</p>
-            <ul className="sub" style={{ margin: 0, paddingLeft: 18 }}>
-              {ligne.regles.map((r) => <li key={r.code} style={{ color: r.ok ? "var(--ok)" : "var(--bad)" }}>{r.ok ? "✓" : "✕"} {r.libelle}</li>)}
-            </ul>
-          </>
-        ) : (
-          <p className="sub">Pas encore de lieu de stage pour cette période. La saisie du stage, des horaires et de la convention arrive à l&apos;étape 2.</p>
-        )}
+        <h2>Démarches de l&apos;élève</h2>
+        <Demarches eleveId={e.id} demarches={dem} entreprises={entreprises} />
       </div>
 
       <div className="grid2">

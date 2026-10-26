@@ -13,6 +13,7 @@ export async function liensPour(ctx: Contexte): Promise<Lien[]> {
     l.push({ href: "/eleves", libelle: "Élèves" });
     l.push({ href: "/classes", libelle: "Classes" });
   }
+  if (gestion || a(ctx, "professeur", "direction")) l.push({ href: "/entreprises", libelle: "Entreprises" });
   if (peutAdministrer(ctx)) {
     l.push({ href: "/equipe", libelle: "Équipe" });
     l.push({ href: "/organisation", libelle: "Organisation" });
