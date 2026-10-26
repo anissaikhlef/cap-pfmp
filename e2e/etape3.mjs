@@ -80,11 +80,11 @@ const dir = await session("direction");
 await dir.goto(BASE + "/a-signer");
 t = await dir.textContent("main");
 ok(t.includes("PETIT") && t.includes("ne respecte pas toutes les règles"), "la direction ne peut pas signer un stage hors règles");
-const lea = dir.locator(".row", { hasText: "FONTAINE" });
+const lea = dir.locator(".row", { hasText: "FONTAINE" }).filter({ hasText: "prête à signer" });
 await lea.locator("button:has-text('Signer')").click();
 await dir.waitForTimeout(1500);
 await dir.reload();
-ok(!(await dir.locator(".row", { hasText: "FONTAINE" }).count()), "la direction signe la convention de Léa");
+ok(!(await dir.locator(".row", { hasText: "FONTAINE" }).filter({ hasText: "prête à signer" }).count()), "la direction signe la convention de Léa");
 await dir.screenshot({ path: `${OUT}/e3-a-signer.png`, fullPage: true });
 
 // Dossier sur plusieurs années
