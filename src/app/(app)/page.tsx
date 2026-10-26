@@ -6,6 +6,12 @@ import { elevesSuivis, classesAvecPeriodes, texteperiode, periodeDeReference } f
 import { STATUTS, problemes, type Statut } from "@/lib/regles";
 import { aujourdhui, dateLongue } from "@/lib/dates";
 import { Pastille } from "@/components/ui";
+import { ChampRetour } from "@/components/ChampRetour";
+import { listeOrdresASigner } from "@/components/visites";
+import { visitesAOrganiser } from "@/lib/visites";
+import { db, schema } from "@/db";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { envoyerRelancesDuJour } from "./actions";
 
 export const metadata = { title: "Tableau de bord" };
 
@@ -38,6 +44,21 @@ export default async function Accueil() {
   const docs = n((l) => l.statut === "documents");
   const horsRegles = n((l) => !!l.stage && !l.conforme);
 
+  const ids = lignes.map((l) => l.eleve.id);
+  const [{ aVerifier }] = ids.length ? await db.select({ aVerifier: sql<number>`count(*)::int` }).from(schema.documents)
+    .where(and(inArray(schema.documents.eleveId, ids), eq(schema.documents.statut, "a_verifier"))) : [{ aVerifier: 0 }];
+  const visites = await visitesAOrganiser(ctx, { gerees: true });
+  const sansVisiteur = visites.filter((v) => !v.v?.visiteurId && v.p.fin >= aujourdhui()).length;
+  const crAFaire = ctx.etab.reglages.compteRendu ? visites.filter((v) => v.v?.visiteurId && v.v.date && v.v.date < aujourdhui() && !v.v.compteRendu).length : 0;
+  const direction = a(ctx, "direction");
+  const ordres = direction && ctx.etab.reglages.ordreMission ? (await listeOrdresASigner(ctx)).length : 0;
+  const aFaire: [number, string, string][] = ([
+    [aVerifier, "document(s) déposé(s) à vérifier", "/documents"],
+    [sansVisiteur, "élève(s) en stage ou sur le départ sans visiteur", "/visites"],
+    [crAFaire, "compte(s) rendu(s) de visite non rédigé(s)", "/visites"],
+    [ordres, "ordre(s) de mission à signer", "/a-signer"],
+  ] as [number, string, string][]).filter(([n]) => n > 0);
+
   const priorites = lignes
     .filter((l) => l.statut === "sans_stage" || l.statut === "en_stage_sans_convention" || (l.stage && !l.conforme) || l.statut === "documents")
     .sort((x, y) => (x.periode?.debut ?? "").localeCompare(y.periode?.debut ?? ""))
@@ -54,6 +75,18 @@ export default async function Accueil() {
         <Link href="/eleves?statut=convention" className="kpi warn"><b>{convIncomplete}</b><span>conventions incomplètes</span></Link>
         <Link href="/eleves?statut=documents" className="kpi warn"><b>{docs}</b><span>attestations ou livrets attendus</span></Link>
         <Link href="/eleves?statut=hors_regles" className="kpi bad"><b>{horsRegles}</b><span>stages hors règles</span></Link>
+      </div>
+
+      <div className="panel pad section">
+        <div className="actions" style={{ justifyContent: "space-between" }}>
+          <h2>À faire</h2>
+          <form action={envoyerRelancesDuJour}><ChampRetour /><button className="btn small">Envoyer les relances du jour</button></form>
+        </div>
+        {aFaire.length === 0 ? <p className="sub" style={{ margin: 0 }}>Rien en attente.</p> : (
+          <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>
+            {aFaire.map(([n, l, href]) => <li key={l}><Link href={href}><b className="num">{n}</b> {l}</Link></li>)}
+          </ul>
+        )}
       </div>
 
       <div className="section">

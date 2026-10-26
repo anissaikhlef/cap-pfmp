@@ -37,6 +37,9 @@ export default async function Classes() {
         ))}
       </div>
       {peutAdministrer(ctx) && (
+        <div className="actions"><Link className="btn" href="/classes/annee-suivante">Préparer l&apos;année suivante</Link></div>
+      )}
+      {peutAdministrer(ctx) && (
         <div className="panel pad section">
           <h2>Nouvelle classe</h2>
           <Formulaire action={creerClasse} bouton="Créer la classe">

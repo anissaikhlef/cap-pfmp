@@ -1,13 +1,11 @@
 import "server-only";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import path from "node:path";
+import { db } from "@/db";
+import { ecrireOctets, lireOctets } from "./stockage-brut";
 
 /**
- * Stockage des fichiers déposés. En local : un dossier sur le disque (UPLOAD_DIR).
- * En production, remplacer par un stockage objet hébergé en France ou dans l'UE, chiffré, avec antivirus.
+ * Stockage des fichiers déposés : contrôle du type réel et de la taille, puis écriture (voir stockage-brut.ts).
  */
-const RACINE = path.resolve(process.env.UPLOAD_DIR ?? "./uploads");
 export const TAILLE_MAX = 10 * 1024 * 1024;
 
 const SIGNATURES: { mime: string; ext: string; test: (b: Buffer) => boolean }[] = [
@@ -37,13 +35,12 @@ export async function enregistrerFichier(etabId: string, f: File): Promise<Fichi
   if (!t) return "Format non accepté. Déposez un PDF ou une photo (JPG, PNG, HEIC).";
   if (!/^[0-9a-f-]{36}$/.test(etabId)) return "Établissement invalide.";
   const cle = `${etabId}/${randomUUID()}.${t.ext}`;
-  await mkdir(path.join(RACINE, etabId), { recursive: true });
-  await writeFile(path.join(RACINE, cle), b, { flag: "wx" });
+  await ecrireOctets(db, cle, b);
   const nom = nomPropre(f.name.replace(/\.[^.]+$/, "")) + "." + t.ext;
   return { cle, mime: t.mime, taille: b.length, nom };
 }
 
 export async function lireFichier(cle: string): Promise<Buffer> {
   if (!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(pdf|jpg|png|heic)$/.test(cle)) throw new Error("Clé invalide");
-  return readFile(path.join(RACINE, cle));
+  return lireOctets(db, cle);
 }

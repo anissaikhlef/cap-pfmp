@@ -1,4 +1,5 @@
 import {
+  customType,
   pgTable, uuid, text, timestamp, date, boolean, integer, jsonb, primaryKey, uniqueIndex, index, bigserial,
 } from "drizzle-orm/pg-core";
 
@@ -94,6 +95,9 @@ export const users = pgTable("users", {
   telephone: text("telephone"),
   actif: boolean("actif").notNull().default(true),
   doitChangerMotDePasse: boolean("doit_changer_mot_de_passe").notNull().default(true),
+  /** Double authentification : secret TOTP (base 32), actif une fois le premier code confirmé. */
+  totpSecret: text("totp_secret"),
+  totpActif: boolean("totp_actif").notNull().default(false),
   derniereConnexion: timestamp("derniere_connexion", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("users_email_idx").on(t.email), index("users_etab_idx").on(t.etablissementId)]);
@@ -102,6 +106,8 @@ export const sessions = pgTable("sessions", {
   id: text("id").primaryKey(), // empreinte SHA-256 du jeton ; le jeton lui-même n'est jamais stocké
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  /** false tant que le second facteur n'a pas été saisi */
+  verifiee: boolean("verifiee").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -260,6 +266,14 @@ export const messages = pgTable("messages", {
   envoyeParId: uuid("envoye_par_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("messages_etab_idx").on(t.etablissementId, t.createdAt)]);
+
+/** Contenu des fichiers quand STOCKAGE=base (hébergement sans disque permanent, démonstration). */
+const octets = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
+export const fichiers = pgTable("fichiers", {
+  cle: text("cle").primaryKey(),
+  contenu: octets("contenu").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 /** Journal des actions (cahier des charges, section 6). */
 export const journal = pgTable("journal", {

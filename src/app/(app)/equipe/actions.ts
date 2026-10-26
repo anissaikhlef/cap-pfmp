@@ -51,10 +51,11 @@ export async function reinitialiserMotDePasse(_: Etat, fd: FormData): Promise<Et
   if (!u) return { erreur: "Compte introuvable." };
   if (u.roles.includes("direction") && !ctx.user.roles.includes("direction")) return { erreur: "Seule la direction peut réinitialiser un compte direction." };
   const secret = motDePasseProvisoire();
-  await db.update(schema.users).set({ passwordHash: await hacherMotDePasse(secret), doitChangerMotDePasse: true }).where(eq(schema.users.id, id));
+  // Réinitialise aussi la double authentification (téléphone perdu, par exemple).
+  await db.update(schema.users).set({ passwordHash: await hacherMotDePasse(secret), doitChangerMotDePasse: true, totpActif: false, totpSecret: null }).where(eq(schema.users.id, id));
   await db.delete(schema.sessions).where(eq(schema.sessions.userId, id));
   await journaliser(ctx, "mot_de_passe_reinitialise", "user", id);
-  return { ok: `Nouveau mot de passe provisoire pour ${u.prenom} ${u.nom}.`, secret };
+  return { ok: `Nouveau mot de passe provisoire pour ${u.prenom} ${u.nom}. Sa double authentification est aussi réinitialisée.`, secret };
 }
 
 export async function basculerActif(fd: FormData) {

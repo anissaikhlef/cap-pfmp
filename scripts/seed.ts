@@ -5,13 +5,12 @@
  *   npm run db:seed
  */
 import { drizzle } from "drizzle-orm/node-postgres";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
-import { mkdir, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import path from "node:path";
 import * as schema from "../src/db/schema";
+import { ecrireOctets } from "../src/lib/stockage-brut";
 import { REGLAGES_PAR_DEFAUT, type Horaires, type Signatures, type Role } from "../src/db/schema";
 
 const NOM_LYCEE = "Lycée professionnel de démonstration";
@@ -56,6 +55,7 @@ async function main() {
   // Repartir de zéro pour le lycée de démonstration uniquement
   const anciens = await db.select().from(schema.etablissements).where(eq(schema.etablissements.nom, NOM_LYCEE));
   for (const a of anciens) {
+    await db.delete(schema.fichiers).where(sql`${schema.fichiers.cle} like ${a.id + "/%"}`);
     await db.delete(schema.users).where(eq(schema.users.etablissementId, a.id));
     await db.delete(schema.etablissements).where(eq(schema.etablissements.id, a.id));
   }
@@ -168,14 +168,12 @@ async function main() {
   await visite("MANSOURI", diallo.id, "2026-10-22", "signe", "14:00");
 
   // Documents : fin de stage des 1re (période terminée) et historique de l'année précédente pour les terminales
-  const RACINE = path.resolve(process.env.UPLOAD_DIR ?? "./uploads");
-  await mkdir(path.join(RACINE, E), { recursive: true });
   async function doc(eleveNom: string, type: schema.TypeDocument, statut: "valide" | "a_verifier", annee = "2026-2027", classeLibelle?: string, stageId?: string) {
     const [el] = await db.select().from(schema.eleves).where(and(eq(schema.eleves.nom, eleveNom), eq(schema.eleves.etablissementId, E))).limit(1);
     const [st] = stageId ? [{ id: stageId }] : await db.select({ id: schema.stages.id }).from(schema.stages).where(eq(schema.stages.eleveId, el.id)).limit(1);
     const cle = `${E}/${randomUUID()}.pdf`;
     const b = fauxPdf(`${type} - ${el.prenom} ${el.nom}`);
-    await writeFile(path.join(RACINE, cle), b);
+    await ecrireOctets(db, cle, b);
     const [cl] = await db.select().from(schema.classes).where(eq(schema.classes.id, el.classeId!)).limit(1);
     await db.insert(schema.documents).values({
       etablissementId: E, eleveId: el.id, stageId: st?.id ?? null, anneeScolaire: annee, classeLibelle: classeLibelle ?? cl.libelle, type,

@@ -12,7 +12,7 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | 2 | Entreprises, recherche de stage, horaires et règles | Fait |
 | 3 | Conventions, boîte de dépôt, dossiers par année | Fait |
 | 4 | Visites, ordre de mission, compte rendu | Fait |
-| 5 | Tableau de bord complet, relances, campagne de rentrée | À faire |
+| 5 | Tableau de bord complet, relances, campagne de rentrée, double authentification, année suivante | Fait |
 
 ## Technique
 
@@ -51,9 +51,20 @@ npm run lint        # contrôle des types
 npm test            # tests du moteur de règles et de l'import
 node e2e/etape1.mjs # parcours dans un navigateur (application lancée sur le port 3100)
 node e2e/etape2.mjs
+node e2e/etape3.mjs
 node e2e/etape4.mjs
-node e2e/etape3.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
+node e2e/etape5.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
 ```
+
+## Réglages (fichier `.env`)
+
+| Variable | Rôle |
+| --- | --- |
+| `DATABASE_URL` | Connexion PostgreSQL |
+| `STOCKAGE` | `disque` (par défaut, dossier `UPLOAD_DIR`) ou `base` (fichiers dans PostgreSQL, pour un hébergement sans disque permanent) |
+| `COOKIE_SECURE` | `true` dès que le site est servi en HTTPS |
+| `DOUBLE_AUTH_OBLIGATOIRE` | `true` par défaut : la direction et les gestionnaires doivent activer un code sur téléphone. `false` seulement pour une démonstration |
+| `TACHES_JETON` | Jeton secret de la tâche quotidienne `/api/taches/quotidiennes` (relances automatiques), à appeler chaque matin |
 
 ## Organisation du code
 
@@ -68,7 +79,6 @@ node e2e/etape3.mjs   # chaque parcours suppose des données de démo fraîches 
 
 Ces points du cahier des charges ne sont pas encore traités :
 
-- double authentification pour la direction et les gestionnaires ;
 - stockage des fichiers chez un hébergeur objet en France ou dans l'UE, avec analyse antivirus ;
 - prestataires réels de mail, de SMS et de signature électronique ;
 - sauvegardes, supervision, analyse d'impact (AIPD) et contrat de sous-traitance RGPD ;

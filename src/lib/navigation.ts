@@ -8,24 +8,31 @@ export type Lien = { href: string; libelle: string };
 export async function liensPour(ctx: Contexte): Promise<Lien[]> {
   const l: Lien[] = [];
   const gestion = await estGestionnaire(ctx);
+  const tousLesProfs = gestion || a(ctx, "professeur", "direction");
   if (gestion) {
     l.push({ href: "/", libelle: "Tableau de bord" });
     l.push({ href: "/eleves", libelle: "Élèves" });
+  }
+  if (tousLesProfs) l.push({ href: "/entreprises", libelle: "Entreprises" });
+  if (gestion) {
     l.push({ href: "/documents", libelle: "Documents" });
     l.push({ href: "/visites", libelle: "Visites" });
-    l.push({ href: "/classes", libelle: "Classes" });
+    l.push({ href: "/campagne", libelle: "Campagne" });
   }
   if (a(ctx, "direction")) l.push({ href: "/a-signer", libelle: "À signer" });
   if (a(ctx, "professeur")) l.push({ href: "/mes-visites", libelle: "Mes visites" });
-  if (gestion || a(ctx, "professeur", "direction")) l.push({ href: "/entreprises", libelle: "Entreprises" });
+  if (gestion) {
+    l.push({ href: "/classes", libelle: "Classes" });
+    l.push({ href: "/messages", libelle: "Messages" });
+  }
   if (peutAdministrer(ctx)) {
     l.push({ href: "/equipe", libelle: "Équipe" });
     l.push({ href: "/organisation", libelle: "Organisation" });
   }
-  if (!gestion) l.unshift({ href: "/", libelle: "Accueil" });
   if (a(ctx, "eleve")) l.push({ href: "/mon-stage", libelle: "Mon stage" });
   if (a(ctx, "parent")) l.push({ href: "/mon-enfant", libelle: "Mon enfant" });
   if (a(ctx, "entreprise")) l.push({ href: "/stagiaires", libelle: "Mes stagiaires" });
+  if (!l.length) l.push({ href: "/", libelle: "Accueil" });
   return dedoublonner(l);
 }
 

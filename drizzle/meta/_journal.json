@@ -8,6 +8,20 @@
       "when": 1792970720696,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792974387359,
+      "tag": "0001_double_authentification",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792974482829,
+      "tag": "0002_fichiers_en_base",
+      "breakpoints": true
     }
   ]
 }

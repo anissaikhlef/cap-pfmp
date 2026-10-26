@@ -9,6 +9,10 @@ export async function seConnecter(_: Etat, fd: FormData): Promise<Etat> {
   if (!email || !mdp) return { erreur: "Saisissez votre adresse et votre mot de passe." };
   const r = await verifierIdentifiants(email, mdp);
   if ("erreur" in r) return { erreur: r.erreur };
+  if (r.user.totpActif) {
+    await ouvrirSession(r.user.id, false);
+    redirect("/double-authentification");
+  }
   await ouvrirSession(r.user.id);
   redirect(r.user.doitChangerMotDePasse ? "/mot-de-passe" : "/");
 }

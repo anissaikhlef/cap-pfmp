@@ -61,10 +61,18 @@ export async function verifierIdentifiants(emailBrut: string, mdp: string) {
   return { user: u };
 }
 
-export async function ouvrirSession(userId: string) {
+/** Double authentification obligatoire pour la direction et la gestion (désactivable pour une démonstration). */
+export function doubleAuthRequise(u: { roles: Role[] }): boolean {
+  if (process.env.DOUBLE_AUTH_OBLIGATOIRE === "false") return false;
+  return u.roles.some((r) => r === "direction" || r === "gestionnaire" || r === "admin");
+}
+
+/** verifiee = false : le mot de passe est bon mais le code de double authentification reste à saisir. */
+export async function ouvrirSession(userId: string, verifiee = true) {
   const jeton = randomBytes(32).toString("base64url");
-  const expiresAt = new Date(Date.now() + DUREE_SESSION_MS);
-  await db.insert(schema.sessions).values({ id: empreinte(jeton), userId, expiresAt });
+  // Une session en attente du second facteur n'est valable que 10 minutes.
+  const expiresAt = new Date(Date.now() + (verifiee ? DUREE_SESSION_MS : 10 * 60 * 1000));
+  await db.insert(schema.sessions).values({ id: empreinte(jeton), userId, expiresAt, verifiee });
   await db.update(schema.users).set({ derniereConnexion: new Date() }).where(eq(schema.users.id, userId));
   (await cookies()).set(COOKIE, jeton, {
     httpOnly: true,
@@ -86,11 +94,11 @@ export type Utilisateur = typeof schema.users.$inferSelect;
 export type Etablissement = typeof schema.etablissements.$inferSelect;
 export type Contexte = { user: Utilisateur; etab: Etablissement };
 
-export async function contexteOptionnel(): Promise<Contexte | null> {
+export async function contexteOptionnel(opts: { nonVerifiee?: boolean } = {}): Promise<Contexte | null> {
   const jeton = (await cookies()).get(COOKIE)?.value;
   if (!jeton) return null;
   const rows = await db
-    .select({ user: schema.users, etab: schema.etablissements, expiresAt: schema.sessions.expiresAt })
+    .select({ user: schema.users, etab: schema.etablissements, expiresAt: schema.sessions.expiresAt, verifiee: schema.sessions.verifiee })
     .from(schema.sessions)
     .innerJoin(schema.users, eq(schema.users.id, schema.sessions.userId))
     .innerJoin(schema.etablissements, eq(schema.etablissements.id, schema.users.etablissementId))
@@ -98,14 +106,26 @@ export async function contexteOptionnel(): Promise<Contexte | null> {
     .limit(1);
   const r = rows[0];
   if (!r || r.expiresAt < new Date() || !r.user.actif) return null;
+  if (!r.verifiee && !opts.nonVerifiee) return null;
+  if (r.verifiee && opts.nonVerifiee) return null;
   return { user: r.user, etab: r.etab };
 }
 
+/** Termine la double authentification : la session devient pleinement valide. */
+export async function validerSecondFacteur() {
+  const jeton = (await cookies()).get(COOKIE)?.value;
+  if (!jeton) return;
+  const expiresAt = new Date(Date.now() + DUREE_SESSION_MS);
+  await db.update(schema.sessions).set({ verifiee: true, expiresAt }).where(eq(schema.sessions.id, empreinte(jeton)));
+  (await cookies()).set(COOKIE, jeton, { httpOnly: true, sameSite: "lax", secure: process.env.COOKIE_SECURE === "true", path: "/", expires: expiresAt });
+}
+
 /** À appeler en tête de chaque page et de chaque action serveur. */
-export async function contexte(opts: { roles?: Role[]; ignorerChangementMdp?: boolean } = {}): Promise<Contexte> {
+export async function contexte(opts: { roles?: Role[]; ignorerChangementMdp?: boolean; ignorerDoubleAuth?: boolean } = {}): Promise<Contexte> {
   const ctx = await contexteOptionnel();
   if (!ctx) redirect("/connexion");
   if (ctx.user.doitChangerMotDePasse && !opts.ignorerChangementMdp) redirect("/mot-de-passe");
+  if (doubleAuthRequise(ctx.user) && !ctx.user.totpActif && !opts.ignorerDoubleAuth && !opts.ignorerChangementMdp) redirect("/double-authentification/activer");
   if (opts.roles && !opts.roles.some((r) => ctx.user.roles.includes(r))) redirect("/");
   return ctx;
 }
