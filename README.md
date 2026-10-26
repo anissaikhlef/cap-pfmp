@@ -21,6 +21,10 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 - Authentification par session (cookie `httpOnly`, jeton stocké haché), mots de passe hachés avec bcrypt, blocage après 5 échecs en 15 minutes
 - Aucune dépendance à un service extérieur pour l'instant : mails et SMS sont **simulés** et consignés en base
 
+## Mettre en ligne
+
+Voir [DEPLOIEMENT.md](DEPLOIEMENT.md) : démonstration gratuite (Vercel + Neon) pas à pas, puis ce qu'il faut pour une vraie utilisation.
+
 ## Installer en local
 
 Prérequis : Node.js 20 ou plus, PostgreSQL 16.
@@ -53,7 +57,9 @@ node e2e/etape1.mjs # parcours dans un navigateur (application lancée sur le po
 node e2e/etape2.mjs
 node e2e/etape3.mjs
 node e2e/etape4.mjs
-node e2e/etape5.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
+node e2e/etape5.mjs
+node e2e/organisations.mjs
+node e2e/mobile.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
 ```
 
 ## Réglages (fichier `.env`)

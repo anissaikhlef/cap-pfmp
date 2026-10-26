@@ -1,6 +1,21 @@
 import type { NextConfig } from "next";
 
+// Politique de contenu : uniquement des ressources du site lui-même (en développement, Next a besoin d'eval).
+const csp = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "production" ? "" : " 'unsafe-eval'"}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+].join("; ");
+
 const securityHeaders = [
+  { key: "Content-Security-Policy", value: csp },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "same-origin" },
@@ -10,6 +25,8 @@ const securityHeaders = [
 
 const config: NextConfig = {
   poweredByHeader: false,
+  // Image Docker autonome uniquement quand on la construit (voir Dockerfile)
+  ...(process.env.BUILD_STANDALONE === "1" ? { output: "standalone" as const } : {}),
   // Pas d'optimisation d'images distante : aucune image externe n'est servie.
   images: { unoptimized: true },
   experimental: { serverActions: { bodySizeLimit: "11mb" } },

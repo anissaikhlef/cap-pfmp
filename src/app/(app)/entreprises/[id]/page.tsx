@@ -10,7 +10,7 @@ import { dateCourte } from "@/lib/dates";
 import { Formulaire } from "@/components/Formulaire";
 import { Pill } from "@/components/ui";
 import { ChampsEntreprise } from "../ChampsEntreprise";
-import { creerCompteTuteur, modifierEntreprise } from "../actions";
+import { creerCompteTuteur, modifierEntreprise, reinitialiserTuteur } from "../actions";
 
 export default async function FicheEntreprise({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -64,7 +64,14 @@ export default async function FicheEntreprise({ params }: { params: Promise<{ id
           <div className="panel pad section">
             <h2>Accès du tuteur</h2>
             <p className="sub">Le tuteur se connecte pour signer la convention, déposer l&apos;attestation et le livret, et choisir un créneau de visite. Il ne voit que ses stagiaires.</p>
-            {tuteurs.map((t) => <p key={t.id} className="sub">Compte : {t.prenom} {t.nom} · {t.email}</p>)}
+            {tuteurs.map((t) => (
+              <div key={t.id} className="actions">
+                <span className="sub">Compte : {t.prenom} {t.nom} · {t.email}</span>
+                <details><summary className="btn small">Mot de passe oublié</summary>
+                  <Formulaire action={reinitialiserTuteur} bouton="Générer un mot de passe provisoire" boutonClasse="btn small"><input type="hidden" name="userId" value={t.id} /></Formulaire>
+                </details>
+              </div>
+            ))}
             <details>
               <summary className="btn small">Créer un accès tuteur</summary>
               <Formulaire action={creerCompteTuteur} bouton="Créer l'accès" boutonClasse="btn">

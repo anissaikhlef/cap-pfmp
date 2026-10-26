@@ -1,6 +1,6 @@
 import "server-only";
 import type { Contexte } from "./auth";
-import { a, estGestionnaire, peutAdministrer } from "./acces";
+import { a, estGestionnaire, idsElevesReferent, peutAdministrer } from "./acces";
 
 export type Lien = { href: string; libelle: string };
 
@@ -20,6 +20,7 @@ export async function liensPour(ctx: Contexte): Promise<Lien[]> {
     l.push({ href: "/campagne", libelle: "Campagne" });
   }
   if (a(ctx, "direction")) l.push({ href: "/a-signer", libelle: "À signer" });
+  if (a(ctx, "professeur") && !gestion && (await idsElevesReferent(ctx)).length) l.push({ href: "/mes-eleves", libelle: "Mes élèves" });
   if (a(ctx, "professeur")) l.push({ href: "/mes-visites", libelle: "Mes visites" });
   if (gestion) {
     l.push({ href: "/classes", libelle: "Classes" });

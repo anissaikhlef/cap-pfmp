@@ -63,6 +63,10 @@ export async function peutVoirEleve(ctx: Contexte, e: typeof schema.eleves.$infe
   if (e.classeId && (await peutGererClasse(ctx, e.classeId))) return true;
   if (e.userId === ctx.user.id) return true;
   if (e.referentId === ctx.user.id) return true;
+  if (a(ctx, "professeur") && e.classeId) {
+    const [c] = await db.select({ ref: schema.classes.referentId }).from(schema.classes).where(eq(schema.classes.id, e.classeId)).limit(1);
+    if (c?.ref === ctx.user.id) return true;
+  }
   if (a(ctx, "parent")) {
     const [r] = await db.select().from(schema.responsables)
       .where(and(eq(schema.responsables.eleveId, e.id), eq(schema.responsables.userId, ctx.user.id))).limit(1);
@@ -120,4 +124,13 @@ export async function peutVoirDocument(ctx: Contexte, d: typeof schema.documents
     return s?.ent === ctx.user.entrepriseId;
   }
   return peutVoirEleve(ctx, e);
+}
+
+/** Élèves dont l'utilisateur est le professeur référent (de l'élève ou de sa classe), qu'il gère ou non les PFMP. */
+export async function idsElevesReferent(ctx: Contexte): Promise<string[]> {
+  if (!a(ctx, "professeur")) return [];
+  const rows = await db.select({ id: schema.eleves.id, refE: schema.eleves.referentId, refC: schema.classes.referentId })
+    .from(schema.eleves).innerJoin(schema.classes, eq(schema.classes.id, schema.eleves.classeId))
+    .where(and(eq(schema.eleves.etablissementId, ctx.etab.id), eq(schema.eleves.archive, false), eq(schema.classes.anneeScolaire, ctx.etab.anneeScolaire)));
+  return rows.filter((r) => r.refE === ctx.user.id || (!r.refE && r.refC === ctx.user.id)).map((r) => r.id);
 }

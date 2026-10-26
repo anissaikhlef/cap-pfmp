@@ -204,3 +204,19 @@ export async function importerEleves(_: RapportImport, fd: FormData): Promise<Ra
   revalidatePath("/eleves");
   return { ok: `${crees} élève(s) ajouté(s) sur ${lignes.length - 1} ligne(s).`, lignes: rapport };
 }
+
+/** Nouveau mot de passe provisoire pour le compte de l'élève ou d'un de ses responsables (oubli). */
+export async function reinitialiserCompteFamille(_: Etat, fd: FormData): Promise<Etat> {
+  const ctx = await contexte();
+  const eleveId = z.string().uuid().parse(fd.get("eleveId"));
+  const userId = z.string().uuid().parse(fd.get("userId"));
+  const e = await eleveGere(ctx, eleveId);
+  if (!e) return { erreur: "Vous ne gérez pas cet élève." };
+  const [resp] = await db.select().from(schema.responsables).where(and(eq(schema.responsables.eleveId, eleveId), eq(schema.responsables.userId, userId))).limit(1);
+  if (e.userId !== userId && !resp) return { erreur: "Ce compte n'est pas lié à cet élève." };
+  const secret = motDePasseProvisoire();
+  await db.update(schema.users).set({ passwordHash: await hacherMotDePasse(secret), doitChangerMotDePasse: true }).where(eq(schema.users.id, userId));
+  await db.delete(schema.sessions).where(eq(schema.sessions.userId, userId));
+  await journaliser(ctx, "mot_de_passe_reinitialise", "user", userId);
+  return { ok: "Nouveau mot de passe provisoire :", secret };
+}

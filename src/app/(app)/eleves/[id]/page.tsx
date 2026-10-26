@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
-import { peutGererEleve } from "@/lib/acces";
+import { a, peutGererEleve, peutVoirEleve } from "@/lib/acces";
+import { ResumeStage, statutDossier } from "@/components/ResumeStage";
 import { optionsEleve } from "@/lib/options";
 import { elevesSuivis, texteperiode } from "@/lib/requetes";
 import { ageAu, aujourdhui, dateCourte } from "@/lib/dates";
@@ -14,7 +15,7 @@ import { enregistrerStage, supprimerStage } from "../stage-actions";
 import { Formulaire } from "@/components/Formulaire";
 import { Pastille } from "@/components/ui";
 import { ChampsEleve } from "../ChampsEleve";
-import { ajouterResponsable, archiverEleve, creerCompteEleve, modifierEleve, retirerResponsable } from "../actions";
+import { ajouterResponsable, archiverEleve, creerCompteEleve, modifierEleve, reinitialiserCompteFamille, retirerResponsable } from "../actions";
 
 export default async function FicheEleve({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ periode?: string; msg?: string }> }) {
   const { id } = await params;
@@ -22,7 +23,21 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const ctx = await contexte();
   const [e] = await db.select().from(schema.eleves).where(eq(schema.eleves.id, id)).limit(1);
-  if (!e || !(await peutGererEleve(ctx, e))) notFound();
+  if (!e) notFound();
+  if (!(await peutGererEleve(ctx, e))) {
+    // Professeur référent sans rôle de gestion (lycée organisé autour du BDE ou du DDFPT) : consultation et signature.
+    if (!a(ctx, "professeur") || !(await peutVoirEleve(ctx, e))) notFound();
+    const dl = await dossierStage(ctx, e, periodeId);
+    return (
+      <>
+        <div><h1>{e.prenom} {e.nom}</h1><p className="sub">Consultation · la gestion du stage est assurée par {ctx.etab.reglages.gestion === "bde" ? "le bureau des entreprises" : "le DDFPT"}.</p></div>
+        <ResumeStage d={dl} statut={statutDossier(dl, [])} />
+        {dl.stage && <BlocConvention ctx={ctx} stageId={dl.stage.id} />}
+        {dl.stage && <BlocFinDeStage ctx={ctx} stageId={dl.stage.id} />}
+        <div className="panel pad section" id="dossier"><h2>Dossier de l&apos;élève</h2><DossierEleve eleveId={e.id} /></div>
+      </>
+    );
+  }
 
   const ligne = e.classeId ? (await elevesSuivis(ctx, e.classeId)).find((l) => l.eleve.id === id) : undefined;
   const o = await optionsEleve(ctx);
@@ -107,7 +122,14 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
         <div className="panel pad section">
           <h2>Compte de l&apos;élève</h2>
           {compte ? (
-            <p className="sub">Compte actif : {compte.email}{compte.doitChangerMotDePasse ? " · pas encore connecté" : ""}</p>
+            <>
+              <p className="sub">Compte actif : {compte.email}{compte.doitChangerMotDePasse ? " · pas encore connecté" : ""}</p>
+              <details><summary className="btn small">Mot de passe oublié</summary>
+                <Formulaire action={reinitialiserCompteFamille} bouton="Générer un mot de passe provisoire" boutonClasse="btn small">
+                  <input type="hidden" name="eleveId" value={e.id} /><input type="hidden" name="userId" value={compte.id} />
+                </Formulaire>
+              </details>
+            </>
           ) : (
             <Formulaire action={creerCompteEleve} bouton="Créer le compte" boutonClasse="btn">
               <input type="hidden" name="eleveId" value={e.id} />
@@ -124,6 +146,11 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
             {resp.map(({ u }) => (
               <div key={u.id} className="row">
                 <div className="main"><div className="name">{u.prenom} {u.nom}</div><div className="meta">{u.email}{u.telephone ? ` · ${u.telephone}` : ""}</div></div>
+                <details><summary className="btn small">Mot de passe</summary>
+                  <Formulaire action={reinitialiserCompteFamille} bouton="Générer un mot de passe provisoire" boutonClasse="btn small">
+                    <input type="hidden" name="eleveId" value={e.id} /><input type="hidden" name="userId" value={u.id} />
+                  </Formulaire>
+                </details>
                 <form action={retirerResponsable}>
                   <input type="hidden" name="eleveId" value={e.id} /><input type="hidden" name="userId" value={u.id} />
                   <button className="btn small danger">Retirer</button>

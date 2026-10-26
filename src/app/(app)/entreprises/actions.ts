@@ -77,3 +77,16 @@ export async function creerCompteTuteur(_: Etat, fd: FormData): Promise<Etat> {
   revalidatePath(`/entreprises/${id}`);
   return { ok: `Accès créé pour ${p.data.prenom} ${p.data.nom}. Il ne verra que ses stagiaires.`, secret };
 }
+
+export async function reinitialiserTuteur(_: Etat, fd: FormData): Promise<Etat> {
+  const ctx = await contexte();
+  if (!(await estGestionnaire(ctx))) return { erreur: "Action réservée aux gestionnaires des PFMP." };
+  const userId = z.string().uuid().parse(fd.get("userId"));
+  const [u] = await db.select().from(schema.users).where(and(eq(schema.users.id, userId), eq(schema.users.etablissementId, ctx.etab.id))).limit(1);
+  if (!u || !u.roles.includes("entreprise") || u.roles.length > 1) return { erreur: "Compte introuvable." };
+  const secret = motDePasseProvisoire();
+  await db.update(schema.users).set({ passwordHash: await hacherMotDePasse(secret), doitChangerMotDePasse: true }).where(eq(schema.users.id, userId));
+  await db.delete(schema.sessions).where(eq(schema.sessions.userId, userId));
+  await journaliser(ctx, "mot_de_passe_reinitialise", "user", userId);
+  return { ok: `Nouveau mot de passe provisoire pour ${u.prenom} ${u.nom} :`, secret };
+}

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { contexte } from "@/lib/auth";
-import { a, estGestionnaire } from "@/lib/acces";
+import { a, estGestionnaire, idsElevesReferent } from "@/lib/acces";
 import { elevesSuivis, classesAvecPeriodes, texteperiode, periodeDeReference } from "@/lib/requetes";
 import { STATUTS, problemes, type Statut } from "@/lib/regles";
 import { aujourdhui, dateLongue } from "@/lib/dates";
@@ -27,7 +27,7 @@ export default async function Accueil() {
     if (a(ctx, "eleve")) redirect("/mon-stage");
     if (a(ctx, "parent")) redirect("/mon-enfant");
     if (a(ctx, "entreprise")) redirect("/stagiaires");
-    if (a(ctx, "professeur")) redirect("/mes-visites");
+    if (a(ctx, "professeur")) redirect((await idsElevesReferent(ctx)).length ? "/mes-eleves" : "/mes-visites");
     return (
       <div className="section">
         <h1>Bonjour {ctx.user.prenom}</h1>

@@ -11,7 +11,9 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "db:preparer": "tsx scripts/preparer.ts",
+    "vercel-build": "tsx scripts/preparer.ts && next build"
   },
   "engines": {
     "node": ">=20"
