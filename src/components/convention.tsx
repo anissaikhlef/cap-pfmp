@@ -10,6 +10,8 @@ import { aujourdhui, dateCourte } from "@/lib/dates";
 import { Formulaire } from "./Formulaire";
 import { ChampRetour } from "./ChampRetour";
 import { ChoixSignature } from "./ChoixSignature";
+import { ChampsACompleter } from "./ChampsACompleter";
+import { modeleDeLaConvention, utiliseLePdf } from "@/lib/modeles-documents";
 import { Pill } from "./ui";
 import { VisitesDuDossier } from "./visites";
 import { deposer, envoyerPourSignature, relancer, signer } from "@/app/(app)/documents/actions";
@@ -65,6 +67,7 @@ export async function BlocConvention({ ctx, stageId }: { ctx: Contexte; stageId:
   const peutDeposer = gestion || referent || (mode !== "enligne" && estFamille);
   const complete = cv.requis.every((k) => cv.s.signatures[k]);
   const dernier = r.dernierSignataire;
+  const pdfDuLycee = utiliseLePdf(await modeleDeLaConvention(ctx.etab, cv));
   return (
     <div className="panel pad section">
       <div className="actions" style={{ justifyContent: "space-between" }}>
@@ -97,7 +100,7 @@ export async function BlocConvention({ ctx, stageId }: { ctx: Contexte; stageId:
               <Formulaire key={q} action={signer} className="card" bouton={VERBE_SIGNATURE[q]} boutonClasse={bloque ? "btn" : "btn primary"}>
                 <input type="hidden" name="stageId" value={stageId} />
                 <input type="hidden" name="qualite" value={q} />
-                {bloque ? <p className="sub" style={{ margin: 0 }}>{bloque}</p> : <ChoixSignature modeles={modelesAutorises(r)} />}
+                {bloque ? <p className="sub" style={{ margin: 0 }}>{bloque}</p> : <><ChampsACompleter etab={ctx.etab} cv={cv} qualite={q} /><ChoixSignature modeles={modelesAutorises(r)} /></>}
               </Formulaire>
             );
           })}
@@ -105,7 +108,9 @@ export async function BlocConvention({ ctx, stageId }: { ctx: Contexte; stageId:
         </div>
       )}
       <div className="actions">
-        <Link className="btn small" href={`/conventions/${stageId}`} target="_blank">Voir la convention à imprimer</Link>
+        {pdfDuLycee
+          ? <a className="btn small" href={`/conventions/${stageId}/pdf`} target="_blank" rel="noopener">Ouvrir la convention (PDF)</a>
+          : <Link className="btn small" href={`/conventions/${stageId}`} target="_blank">Voir la convention à imprimer</Link>}
         {convDoc && <a className="btn small" href={`/fichiers/${convDoc.id}`} target="_blank" rel="noopener">Ouvrir le scan déposé</a>}
         {convDoc && <EtatDoc d={convDoc} />}
         {gestion && !complete && mode !== "papier" && (

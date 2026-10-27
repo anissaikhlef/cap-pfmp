@@ -11,6 +11,7 @@ import { lireHoraires, placesOccupees, entrepriseDuLycee } from "@/lib/stages";
 import { aujourdhui } from "@/lib/dates";
 import { alerterRattrapage } from "@/lib/rattrapages";
 import { annulerLiensDuStage } from "@/lib/liens";
+import { modeleDuLycee } from "@/lib/modeles-documents";
 import type { Tuteur } from "@/db/schema";
 import type { Etat } from "@/components/Formulaire";
 
@@ -37,6 +38,14 @@ function lireTuteur(fd: FormData, ent: { tuteurNom: string | null; tuteurFonctio
   return { nom: nom.slice(0, 80), fonction: (champ("tuteurFonction") || ent.tuteurFonction || "").slice(0, 80) || null, email: email || null, telephone: (champ("tuteurTelephone") || ent.telephone || "").slice(0, 30) || null };
 }
 
+/** Les champs complétés par la famille restent ; ceux de l'ancienne entreprise sont effacés. */
+async function complementsSansEntreprise(etab: { id: string; logoCle?: string | null }, s: typeof schema.stages.$inferSelect) {
+  const m = s.modeles?.convention ?? (await modeleDuLycee(etab.id, "convention"));
+  const conv = { ...(s.complements?.convention ?? {}) };
+  for (const c of m.champs) if (c.source === "entreprise") delete conv[c.nom];
+  return { ...s.complements, convention: conv };
+}
+
 export async function enregistrerStage(_: Etat, fd: FormData): Promise<Etat> {
   const ctx = await contexte();
   const eleveId = z.string().uuid().parse(fd.get("eleveId"));
@@ -61,7 +70,9 @@ export async function enregistrerStage(_: Etat, fd: FormData): Promise<Etat> {
     // Changer d'entreprise, d'horaires ou de tuteur invalide les signatures déjà recueillies et les liens envoyés :
     // la convention doit être refaite.
     const change = existant.entrepriseId !== ent.id || JSON.stringify(existant.horaires) !== JSON.stringify(h) || (existant.tuteur?.nom ?? null) !== (tuteur?.nom ?? null);
-    await db.update(schema.stages).set({ entrepriseId: ent.id, horaires: h, tuteur, ...(change ? { signatures: {}, conventionEnvoyeeLe: null } : {}) }).where(eq(schema.stages.id, existant.id));
+    // La convention refaite suit le modèle actuel du lycée ; une autre entreprise complète de nouveau ses champs.
+    const complements = existant.entrepriseId !== ent.id ? await complementsSansEntreprise(ctx.etab, existant) : existant.complements;
+    await db.update(schema.stages).set({ entrepriseId: ent.id, horaires: h, tuteur, ...(change ? { signatures: {}, conventionEnvoyeeLe: null, modeles: {}, complements } : {}) }).where(eq(schema.stages.id, existant.id));
     if (change) await annulerLiensDuStage(existant.id);
     await journaliser(ctx, "stage_modifie", "eleve", eleveId, { entreprise: ent.nom, signaturesEffacees: change });
     if (x.p.eleveId && existant.entrepriseId !== ent.id) await alerterRattrapage(ctx, x.e, x.p, "lieu", ent);

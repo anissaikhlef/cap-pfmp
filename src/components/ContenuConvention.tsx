@@ -5,21 +5,31 @@ import type { ContexteConvention } from "@/lib/convention";
 import { SIGNATAIRES, heuresHebdo, fmtHeures, texteJour } from "@/lib/regles";
 import { imageSignature } from "@/lib/stockage";
 import { JOURS, dateLongue } from "@/lib/dates";
+import { ENGAGEMENTS_CONVENTION, paragraphes, TITRE_CONVENTION } from "@/lib/modeles";
+import { logoDuLycee, modeleDeLaConvention } from "@/lib/modeles-documents";
 
 /**
  * Le texte de la convention, pré-rempli, avec les signatures recueillies (les signatures dessinées en image).
  * Utilisé par la convention à imprimer et par la page de signature à lien personnel.
  */
-export async function ContenuConvention({ etab, cv }: { etab: { nom: string; reglages: Reglages }; cv: ContexteConvention }) {
+export async function ContenuConvention({ etab, cv }: { etab: { id: string; nom: string; reglages: Reglages; logoCle?: string | null }; cv: ContexteConvention }) {
   const [ref] = cv.referentId ? await db.select().from(schema.users).where(eq(schema.users.id, cv.referentId)).limit(1) : [];
+  // Le modèle Cap PFMP tel que le lycée l'a adapté (figé à la première signature).
+  const modele = await modeleDeLaConvention(etab, cv);
+  const p = modele.personnalisation;
+  const logo = await logoDuLycee({ logoCle: modele.logoCle });
+  const rubriques = (p.rubriques ?? []).filter((x) => x.titre || x.texte);
+  const engagements = paragraphes(p.engagements || ENGAGEMENTS_CONVENTION);
   const images = Object.fromEntries(await Promise.all(SIGNATAIRES.map(async (s) => [s.cle, await imageSignature(cv.s.signatures[s.cle]?.image)] as const)));
   const ligne = (l: string, v: React.ReactNode) => <tr><th style={{ width: "38%" }}>{l}</th><td>{v}</td></tr>;
   const r = etab.reglages.regles;
   const t = cv.s.tuteur;
   return (
     <>
-      <h1>Convention relative à la période de formation en milieu professionnel</h1>
+      {logo && <img src={logo} alt={`Logo : ${etab.nom}`} className="logo-document" />}
+      <h1>{p.titre || TITRE_CONVENTION}</h1>
       <p className="sub">{etab.nom} · année scolaire {cv.c.anneeScolaire}</p>
+      {paragraphes(p.introduction).map((x, i) => <p key={i}>{x}</p>)}
 
       <h2>1. Les parties</h2>
       <table><tbody>
@@ -40,13 +50,18 @@ export async function ContenuConvention({ etab, cv }: { etab: { nom: string; reg
       </tbody></table>
 
       <h2>3. Engagements</h2>
-      <p>L&apos;élève conserve son statut scolaire pendant toute la période. Il n&apos;est pas employé de l&apos;organisme d&apos;accueil.</p>
+      {engagements.slice(0, 1).map((x, i) => <p key={i}>{x}</p>)}
       <p>L&apos;organisme d&apos;accueil confie à l&apos;élève des activités conformes au référentiel du diplôme, désigne un tuteur et respecte les règles applicables : pas de travail de nuit ({r.nuitDebut} – {r.nuitFin}), {r.dimancheInterdit ? "pas de travail le dimanche, " : ""}{r.joursReposConsecutifs} jours de repos consécutifs par semaine.</p>
       {r.reglesMineurs && <p>Pour un élève mineur : 8 heures de travail par jour au maximum, une pause d&apos;au moins 30 minutes au-delà de 4 h 30 de travail, aucun travail de nuit (dès 20 h avant 16 ans, dès 22 h de 16 à 18 ans), 14 heures (moins de 16 ans) ou 12 heures (16 à 18 ans) de repos entre deux journées, et deux jours de repos consécutifs dont le dimanche.</p>}
-      <p>Le professeur référent assure le suivi de l&apos;élève et effectue au moins une visite pendant la période.</p>
-      <p>À la fin de la période, l&apos;organisme d&apos;accueil remet une attestation de stage et complète le livret de compétences.</p>
+      {engagements.slice(1).map((x, i) => <p key={i}>{x}</p>)}
+      {rubriques.map((x, i) => (
+        <section key={i}>
+          <h2>{4 + i}. {x.titre || "Clauses particulières"}</h2>
+          {paragraphes(x.texte).map((y, j) => <p key={j}>{y}</p>)}
+        </section>
+      ))}
 
-      <h2>4. Signatures</h2>
+      <h2>{4 + rubriques.length}. Signatures</h2>
       <div className="sigs">
         {SIGNATAIRES.filter((s) => cv.requis.includes(s.cle)).map((s) => {
           const sig = cv.s.signatures[s.cle];
@@ -61,6 +76,7 @@ export async function ContenuConvention({ etab, cv }: { etab: { nom: string; reg
           );
         })}
       </div>
+      {p.piedDePage && <p className="sub pied-document">{p.piedDePage}</p>}
     </>
   );
 }

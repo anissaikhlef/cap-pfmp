@@ -302,3 +302,21 @@ Le résultat est présenté à Anissa avant 6. la formation incluse et 7. les ag
 4. Attestation en ligne.
 5. Livret de compétences en ligne : attitudes professionnelles, activités de chaque jour, grille de compétences du diplôme.
 
+## 27 octobre 2026 : réalisation du lot 3.1 (modèles de documents, la convention d'abord)
+
+- **Modèles de documents** (« Organisation », bouton « Modèles de documents ») : pour la convention, le lycée choisit le modèle Cap PFMP qu'il adapte (logo, titre, texte d'introduction, engagements, jusqu'à 5 rubriques ajoutées, pied de page) ou son propre PDF.
+- **PDF du lycée rempli à l'identique** : le DDFPT dépose son « PDF modifiable ». Cap PFMP trouve ses champs et propose pour chacun une donnée d'après son nom (élève, classe, dates, entreprise, tuteur, professeur référent, horaires du matin et de l'après-midi, signatures). Le DDFPT vérifie et choisit : une donnée, un texte fixe, laisser vide, ou « à compléter en signant » par la famille ou par l'entreprise, avec la question à lui poser. Un aperçu montre où se trouve chaque champ, un autre le résultat avec un vrai stage ; un PDF d'exemple fictif permet d'essayer.
+- **Listes déroulantes du PDF** : Cap PFMP choisit l'option qui correspond (classe « 2nde MS » : « 2nde bac pro »), ou n'en choisit aucune en cas de doute.
+- **Signatures** : le nom et la date de chaque signataire ; la signature dessinée au doigt est placée juste au-dessus du nom ; une signature simple laisse la mention « Signé en ligne dans Cap PFMP le … ».
+- **En signant**, la famille complète ses champs (téléphone, adresse…) et l'entreprise les siens (assureur, numéro de contrat…), depuis son compte ou avec son lien personnel.
+- Quand le lycée utilise son PDF, la convention s'ouvre remplie dans ce PDF, pour tous ceux qui peuvent la voir.
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Une convention signée ne change plus** : le modèle est figé à la première signature. Le lycée peut modifier son modèle sans toucher aux conventions déjà signées. Si le stage change et que les signatures sont effacées, la convention refaite suit le modèle du moment.
+2. **Qui adapte les modèles** : le DDFPT et la direction.
+3. **PDF accepté** : un PDF avec des champs à remplir (« PDF modifiable ») ; un PDF scanné, sans champs, n'est pas accepté pour l'instant.
+4. **Une convention par période** : les champs prévus pour une deuxième période sont laissés vides, car chaque période a sa propre convention dans Cap PFMP.
+5. **Champs complétés en signant** : facultatifs. Si l'entreprise du stage change, ses réponses sont effacées ; celles de la famille sont gardées.
+6. **Affichage** : pour la sécurité du site, le PDF s'ouvre dans un nouvel onglet, sans être intégré à la page.
+

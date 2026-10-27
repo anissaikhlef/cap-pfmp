@@ -140,3 +140,13 @@ details[open] > summary { margin-bottom: 10px; }
 .fiche-qr { flex: none; }
 .fiche-qr svg { width: 104px; height: 104px; display: block; }
 @media print { .fiches { grid-template-columns: 1fr 1fr; } .fiche { background: #fff; color: #000; } }
+
+/* Modèles de documents : le texte fixe et la question ne s'affichent que quand ils servent */
+.champ-pdf { flex-wrap: wrap; }
+.champ-pdf .fixe, .champ-pdf .question { display: none; }
+.champ-pdf:has(select option[value="fixe"]:checked) .fixe,
+.champ-pdf:has(select option[value="famille"]:checked) .question,
+.champ-pdf:has(select option[value="entreprise"]:checked) .question { display: flex; }
+.logo-document { display: block; max-height: 72px; max-width: min(240px, 100%); object-fit: contain; }
+.pied-document { margin-top: 24px; text-align: center; }
+.completer { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 0; }

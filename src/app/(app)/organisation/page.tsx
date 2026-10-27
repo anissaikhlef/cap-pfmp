@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
 import { Formulaire } from "@/components/Formulaire";
+import { Entete } from "@/components/ui";
 import { adresseDuSite } from "@/lib/liens";
 import { ajouterDominante, enregistrerOrganisation, supprimerDominante } from "./actions";
 
@@ -28,10 +30,9 @@ export default async function Organisation() {
   const base = await adresseDuSite();
   return (
     <>
-      <div>
-        <h1>Organisation du lycée</h1>
-        <p className="sub">Chaque lycée s&apos;organise à sa façon. Ces réglages adaptent les rôles, les validations et les étapes de toute l&apos;application.</p>
-      </div>
+      <Entete titre="Organisation du lycée" sous="Chaque lycée s'organise à sa façon. Ces réglages adaptent les rôles, les validations et les étapes de toute l'application.">
+        <Link className="btn" href="/organisation/documents">Modèles de documents</Link>
+      </Entete>
       <Formulaire action={enregistrerOrganisation} bouton="Enregistrer l'organisation">
         <div className="panel pad section">
           <h2>Établissement</h2>

@@ -130,6 +130,8 @@ export const etablissements = pgTable("etablissements", {
   uai: text("uai"),
   anneeScolaire: text("annee_scolaire").notNull(),
   reglages: jsonb("reglages").$type<Reglages>().notNull(),
+  /** Logo du lycée (image PNG ou JPG), en tête des documents du modèle Cap PFMP. */
+  logoCle: text("logo_cle"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -283,6 +285,13 @@ export const stages = pgTable("stages", {
   tuteur: jsonb("tuteur").$type<Tuteur>(),
   /** Première invitation à signer la convention : point de départ des rappels à l'entreprise. Remis à zéro si le stage change. */
   conventionEnvoyeeLe: timestamp("convention_envoyee_le", { withTimezone: true }),
+  /**
+   * Champs du PDF du lycée que la famille ou l'entreprise complète au moment de signer (assureur, téléphone…),
+   * par document puis par nom de champ.
+   */
+  complements: jsonb("complements").$type<Complements>().notNull().default({}),
+  /** Modèle figé à la première signature : une convention signée ne change plus si le lycée modifie son modèle ensuite. */
+  modeles: jsonb("modeles").$type<ModelesFiges>().notNull().default({}),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("stages_eleve_periode_idx").on(t.eleveId, t.periodeId), index("stages_entreprise_idx").on(t.entrepriseId)]);
 
@@ -415,6 +424,65 @@ export const soucisEntreprises = pgTable("soucis_entreprises", {
   description: text("description").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("soucis_entreprise_idx").on(t.entrepriseId)]);
+
+/* ------------------------------------------------------------------ */
+/* Modèles de documents propres à chaque lycée                          */
+/* ------------------------------------------------------------------ */
+
+/** Documents dont le lycée choisit le modèle (les autres suivront : attestation, livret, ordre de mission). */
+export type TypeModele = "convention";
+
+/**
+ * Un champ du PDF du lycée et ce qu'on y écrit. `source` : une donnée de Cap PFMP (ex. « eleve.nomPrenom »),
+ * « fixe » (le texte `fixe`), « famille » ou « entreprise » (complété par elle en signant), ou vide (rempli à la main).
+ */
+export type ChampPdf = {
+  nom: string;
+  type: "texte" | "case" | "liste" | "signature";
+  /** Pages où le champ apparaît (à partir de 1). */
+  pages: number[];
+  options?: string[];
+  source: string;
+  fixe?: string;
+  /** Intitulé montré à la famille ou à l'entreprise quand elle complète ce champ en signant. */
+  libelle?: string;
+};
+
+/** Le modèle Cap PFMP adapté par le lycée : titre, texte d'introduction, rubriques ajoutées, pied de page. */
+export type PersonnalisationModele = {
+  titre?: string;
+  introduction?: string;
+  engagements?: string;
+  rubriques?: { titre: string; texte: string }[];
+  piedDePage?: string;
+};
+
+export type Complements = Partial<Record<TypeModele, Record<string, string>>>;
+
+/** Ce qu'il faut pour refaire le document à l'identique : le modèle tel qu'il était à la première signature. */
+export type ModeleFige = {
+  mode: "cap_pfmp" | "pdf";
+  personnalisation: PersonnalisationModele;
+  pdfCle: string | null;
+  pdfNom: string | null;
+  champs: ChampPdf[];
+  logoCle: string | null;
+};
+export type ModelesFiges = Partial<Record<TypeModele, ModeleFige>>;
+
+export const modelesDocuments = pgTable("modeles_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  type: text("type").$type<TypeModele>().notNull(),
+  /** cap_pfmp : le modèle de l'application, adapté · pdf : le PDF du lycée, rempli à l'identique */
+  mode: text("mode").$type<"cap_pfmp" | "pdf">().notNull().default("cap_pfmp"),
+  personnalisation: jsonb("personnalisation").$type<PersonnalisationModele>().notNull().default({}),
+  pdfCle: text("pdf_cle"),
+  pdfNom: text("pdf_nom"),
+  champs: jsonb("champs").$type<ChampPdf[]>().notNull().default([]),
+  majLe: timestamp("maj_le", { withTimezone: true }).notNull().defaultNow(),
+  majParId: uuid("maj_par_id").references(() => users.id, { onDelete: "set null" }),
+}, (t) => [uniqueIndex("modeles_documents_etab_type_idx").on(t.etablissementId, t.type)]);
 
 /* ------------------------------------------------------------------ */
 /* Campagne de rentrée et messages sortants                             */
