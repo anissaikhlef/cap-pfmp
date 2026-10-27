@@ -1,30 +1,66 @@
 import "server-only";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { envoyer } from "./messages";
-import { ageAu, anneeScolaireDe, aujourdhui, dateLongue, ecartJours, jourDe, texteDates } from "./dates";
+import { ageAu, ajouterJours, aujourdhui, dateLongue, ecartJours, jourDe, texteDates } from "./dates";
 import { chargerConventionEtab } from "./convention";
 import { inviterASigner } from "./invitations";
 import { adresseDuSite } from "./liens";
 import { responsablesDe } from "./alertes";
 import { piecesAllocation } from "./allocations";
+import { candidaturesDe } from "./candidatures";
 import { campagneDe, relancerEntreprise, reponsesCampagne } from "./campagne";
-import { piecesManquantes, relanceHebdomadaireDue } from "./regles";
-import { completerReglages, type Reglages } from "@/db/schema";
+import { referentDe } from "./requetes";
+import { estJourOuvre, jourDeRelance, piecesManquantes, relanceCyclique, relanceHebdomadaireDue, tachesEleve } from "./regles";
+import { completerReglages, type Reglages, type Signataire } from "@/db/schema";
 
 type Etab = typeof schema.etablissements.$inferSelect;
 type EtabC = Etab & { reglages: Reglages };
 type Eleve = typeof schema.eleves.$inferSelect;
 type Expediteur = { etab: Etab; user: { id: string } | null };
+type Destinataire = { email: string; prenom: string };
 
-async function dejaFait(etabId: string, cle: string) {
-  const [x] = await db.select({ id: schema.journal.id }).from(schema.journal)
-    .where(and(eq(schema.journal.etablissementId, etabId), eq(schema.journal.action, "relance_auto"), eq(schema.journal.entiteId, cle))).limit(1);
-  return !!x;
+/**
+ * Les relances déjà envoyées depuis la rentrée (clés du journal), pour ne jamais envoyer deux fois la même
+ * et compter celles d'une même demande (clé « demande:jour »).
+ */
+async function journalDesRelances(etab: Etab) {
+  const rows = await db.select({ cle: schema.journal.entiteId }).from(schema.journal)
+    .where(and(eq(schema.journal.etablissementId, etab.id), eq(schema.journal.action, "relance_auto"),
+      gte(schema.journal.at, new Date(`${etab.anneeScolaire.slice(0, 4)}-08-01T00:00:00Z`))));
+  const cles = new Set(rows.map((r) => r.cle ?? ""));
+  return {
+    fait: (cle: string) => cles.has(cle),
+    /** Les jours des relances déjà envoyées pour une demande. */
+    dates: (demande: string) => [...cles].filter((c) => c.startsWith(`${demande}:`)).map((c) => c.slice(demande.length + 1)).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)),
+    noter: async (entite: string, cle: string, details: unknown = {}) => {
+      cles.add(cle);
+      await db.insert(schema.journal).values({ etablissementId: etab.id, action: "relance_auto", entite, entiteId: cle, details });
+    },
+  };
 }
 
-async function noter(etabId: string, entite: string, cle: string, details: unknown) {
-  await db.insert(schema.journal).values({ etablissementId: etabId, action: "relance_auto", entite, entiteId: cle, details });
+/** Les entreprises qui n'ont pas répondu malgré tous les rappels : un seul mail par personne du lycée, qui les liste. */
+function listeDAppels() {
+  const parPersonne = new Map<string, { prenom: string; lignes: string[] }>();
+  return {
+    ajouter(dest: Destinataire[], ligne: string) {
+      for (const d of dest) {
+        const x = parPersonne.get(d.email) ?? { prenom: d.prenom, lignes: [] };
+        x.lignes.push(ligne);
+        parPersonne.set(d.email, x);
+      }
+    },
+    async envoyer(ctx: Expediteur) {
+      for (const [email, x] of parPersonne) {
+        await envoyer(ctx, {
+          canal: "mail", destinataire: email, sujet: "Entreprises à appeler",
+          corps: `Bonjour ${x.prenom},\n\nCes entreprises n'ont pas répondu malgré plusieurs rappels par mail. Un appel téléphonique sera plus efficace :\n${x.lignes.map((l) => `- ${l}`).join("\n")}\n\n${ctx.etab.nom}`,
+        });
+      }
+      return parPersonne.size;
+    },
+  };
 }
 
 /**
@@ -43,13 +79,13 @@ async function familleDe(e: Eleve, jour: string) {
 const espace = (eleve: boolean, base: string) => (eleve ? `« Mon stage » : ${base}/mon-stage` : `« Mon enfant » : ${base}/mon-enfant`);
 
 /**
- * Envoie les relances du jour pour un établissement, aux jours réglés dans « Organisation ».
- * Sans doublon : chaque relance n'est envoyée qu'une fois (clé objet + jour), et les pièces de l'allocation
- * au plus une fois par semaine. Si `classes` est fourni, se limite à ces classes ; la campagne de rentrée
- * (qui concerne tout le lycée) n'est relancée qu'avec `campagne`.
+ * Envoie les relances du jour pour un établissement, aux rythmes réglés dans « Organisation », jamais le week-end.
+ * Sans doublon : chaque relance n'est envoyée qu'une fois. Si `classes` est fourni, se limite à ces classes ;
+ * la campagne de rentrée (qui concerne tout le lycée) n'est relancée qu'avec `campagne`.
  */
 export async function relancesDuJour(etab: Etab, opts: { classes?: string[]; userId?: string | null; base?: string; campagne?: boolean } = {}) {
   const jour = aujourdhui();
+  if (!estJourOuvre(jour)) return 0;
   const etabC: EtabC = { ...etab, reglages: completerReglages(etab.reglages) };
   const R = etabC.reglages.relances;
   const base = opts.base ?? (await adresseDuSite());
@@ -63,67 +99,108 @@ export async function relancesDuJour(etab: Etab, opts: { classes?: string[]; use
     .innerJoin(schema.entreprises, eq(schema.entreprises.id, schema.stages.entrepriseId))
     .where(and(...conds, eq(schema.eleves.archive, false)));
   const ctx: Expediteur = { etab, user: opts.userId ? { id: opts.userId } : null };
+  const journal = await journalDesRelances(etab);
+  const appels = listeDAppels();
+  const equipe = await equipeDuLycee(etab.id);
+  const cycle = { jour, intervalle: R.entrepriseIntervalle, max: R.entrepriseMax };
   let n = 0;
 
   for (const l of lignes) {
     const avant = ecartJours(jour, l.p.debut);
-    const apres = ecartJours(l.p.fin, jour);
+    const quand = avant > 0 ? `Le stage commence le ${dateLongue(l.p.debut)}, dans ${avant} jour${avant > 1 ? "s" : ""} : sans convention signée, l'élève ne peut pas partir en stage.`
+      : avant === 0 ? "Le stage commence aujourd'hui : sans convention signée, l'élève ne peut pas partir en stage."
+      : `Le stage a commencé le ${dateLongue(l.p.debut)} : la convention doit être signée au plus vite.`;
 
-    // 1. Convention incomplète avant le départ : chacun est invité à signer (lien personnel s'il n'a pas de compte).
-    //    La direction signe depuis « À signer » ; le dernier signataire est prévenu quand tous les autres ont signé.
-    if (R.convention.includes(avant)) {
-      const cle = `${l.s.id}:convention:${jour}`;
+    // 1. Convention pas encore signée par tous (signature en ligne seulement).
+    const jourFixe = avant >= 0 && jourDeRelance(jour, R.convention.map((k) => ajouterJours(l.p.debut, -k)));
+    const cycleEntreprise = !!l.s.conventionEnvoyeeLe && R.entrepriseIntervalle > 0;
+    if (etabC.reglages.signature !== "papier" && l.p.fin >= jour && (jourFixe || cycleEntreprise)) {
       const cv = await chargerConventionEtab(etabC, l.s.id);
       const manquants = cv ? cv.requis.filter((k) => !cv.s.signatures[k] && k !== "direction" && k !== etabC.reglages.dernierSignataire) : [];
-      if (cv && manquants.length && !(await dejaFait(etab.id, cle))) {
-        const r = await inviterASigner(ctx, cv, manquants, base, true, `Le stage commence le ${dateLongue(l.p.debut)}, dans ${avant} jours : sans convention signée, l'élève ne peut pas partir en stage.`);
-        n += r.messages;
-        await noter(etab.id, "stage", cle, { manquants });
+      const estEntreprise = (k: Signataire) => k === "entreprise" || k === "tuteur";
+      const pourLEntreprise = manquants.filter(estEntreprise);
+      // L'élève qui a un compte reçoit déjà son rappel quotidien.
+      const eleveAuQuotidien = R.eleveQuotidien && !!l.e.userId;
+      // Aux dates fixes avant le départ : chacun est invité ; l'entreprise seulement tant que ses rappels n'ont pas commencé.
+      const cle = `${l.s.id}:convention:${jour}`;
+      const auxDatesFixes = manquants.filter((k) => !(k === "eleve" && eleveAuQuotidien) && !(cycleEntreprise && estEntreprise(k)));
+      if (cv && jourFixe && auxDatesFixes.length && !journal.fait(cle)) {
+        n += (await inviterASigner(ctx, cv, auxDatesFixes, base, true, quand)).messages;
+        await journal.noter("stage", cle, { manquants: auxDatesFixes });
+      }
+      // L'entreprise et le tuteur : tous les N jours depuis l'envoi de la convention.
+      if (cv && cycleEntreprise && pourLEntreprise.length) {
+        const demande = `signature:${l.s.id}`;
+        const action = relanceCyclique({ ...cycle, depuis: jourDe(l.s.conventionEnvoyeeLe!), dejaEnvoyees: journal.dates(demande) });
+        if (action === "relancer") {
+          n += (await inviterASigner(ctx, cv, pourLEntreprise, base, true, quand)).messages;
+          await journal.noter("stage", `${demande}:${jour}`, { pourLEntreprise });
+        } else if (action === "appeler" && !journal.fait(`${demande}:appel`)) {
+          appels.ajouter(await equipeDuStage(equipe, l.e), `${l.ent.nom}${l.ent.telephone ? ` (${l.ent.telephone})` : ""} : convention de ${l.e.prenom} ${l.e.nom} (${l.c.libelle}) pas encore signée.`);
+          await journal.noter("stage", `${demande}:appel`);
+        }
       }
     }
 
-    // 2. Attestation et livret après la fin
-    if (R.finDeStage.includes(apres) && l.ent.email) {
-      const recus = await db.select({ type: schema.documents.type }).from(schema.documents)
-        .where(and(eq(schema.documents.stageId, l.s.id), sql`${schema.documents.statut} in ('valide', 'a_verifier')`));
-      const manquent = (["attestation", "livret"] as const).filter((t) => !recus.some((r) => r.type === t));
-      const cle = `${l.s.id}:fin:${jour}`;
-      if (manquent.length && !(await dejaFait(etab.id, cle))) {
-        await envoyer(ctx, {
-          canal: "mail", destinataire: l.ent.email, sujet: `Fin du stage de ${l.e.prenom} ${l.e.nom} : documents à transmettre`, eleveId: l.e.id, entrepriseId: l.ent.id,
-          corps: `Madame, Monsieur,\n\nLe stage de ${l.e.prenom} ${l.e.nom} s'est terminé le ${dateLongue(l.p.fin)}. Merci de nous transmettre ${manquent.map((t) => (t === "attestation" ? "l'attestation de stage" : "le livret de compétences complété")).join(" et ")}, signé(s), en le(s) déposant sur Cap PFMP ou en répondant à ce message.\n\nMerci pour l'accueil de notre élève.\n${etab.nom}`,
-        });
-        await noter(etab.id, "stage", cle, { manquent });
-        n++;
+    // 2. Attestation et livret : l'entreprise, tous les N jours après la fin du stage.
+    if (l.p.fin < jour && l.ent.email) {
+      const demande = `fin:${l.s.id}`;
+      const action = relanceCyclique({ ...cycle, depuis: l.p.fin, dejaEnvoyees: journal.dates(demande) });
+      if (action && !(action === "appeler" && journal.fait(`${demande}:appel`))) {
+        const recus = await db.select({ type: schema.documents.type }).from(schema.documents)
+          .where(and(eq(schema.documents.stageId, l.s.id), sql`${schema.documents.statut} in ('valide', 'a_verifier')`));
+        const manquent = (["attestation", "livret"] as const).filter((t) => !recus.some((r) => r.type === t));
+        const quoi = manquent.map((t) => (t === "attestation" ? "l'attestation de stage" : "le livret de compétences")).join(" et ");
+        if (manquent.length && action === "relancer") {
+          await envoyer(ctx, {
+            canal: "mail", destinataire: l.ent.email, sujet: `Fin du stage de ${l.e.prenom} ${l.e.nom} : documents à transmettre`, eleveId: l.e.id, entrepriseId: l.ent.id,
+            corps: `Madame, Monsieur,\n\nLe stage de ${l.e.prenom} ${l.e.nom} s'est terminé le ${dateLongue(l.p.fin)}. Merci de nous transmettre ${quoi}, complété${manquent.length > 1 ? "s" : ""} et signé${manquent.length > 1 ? "s" : ""}, en ${manquent.length > 1 ? "les" : "le"} déposant sur Cap PFMP ou en répondant à ce message.\n\nMerci pour l'accueil de notre élève.\n${etab.nom}`,
+          });
+          await journal.noter("stage", `${demande}:${jour}`, { manquent });
+          n++;
+        } else if (manquent.length) {
+          appels.ajouter(await equipeDuStage(equipe, l.e), `${l.ent.nom}${l.ent.telephone ? ` (${l.ent.telephone})` : ""} : ${quoi} de ${l.e.prenom} ${l.e.nom} (${l.c.libelle}) pas encore reçu${manquent.length > 1 ? "s" : ""}.`);
+          await journal.noter("stage", `${demande}:appel`);
+        }
       }
     }
   }
 
   const eleves = new Map(lignes.map((l) => [l.e.id, l.e]));
-  n += await relancerPieces(ctx, etabC, [...eleves.values()], jour, base);
-  n += await relancerAbsences(ctx, etabC, lignes.map((l) => l.s.id), eleves, jour, base);
-  if (opts.campagne ?? !opts.classes) n += await relancerCampagne(ctx, etabC, jour, base);
+  n += await relancerPieces(ctx, etabC, [...eleves.values()], journal, jour, base);
+  n += await relancerAbsences(ctx, etabC, lignes.map((l) => l.s.id), eleves, journal, jour, base);
+  if (R.eleveQuotidien) n += await rappelerEleves(ctx, etabC, conds, journal, jour, base);
+  if (opts.campagne ?? !opts.classes) n += await relancerCampagne(ctx, etabC, journal, appels, equipe, cycle, base);
+  n += await appels.envoyer(ctx);
   return n;
 }
+
+/** Les comptes actifs de l'équipe du lycée (gestion des PFMP, référents, direction). */
+async function equipeDuLycee(etabId: string) {
+  return db.select().from(schema.users).where(and(eq(schema.users.etablissementId, etabId), eq(schema.users.actif, true)));
+}
+
+/** Qui appelle l'entreprise pour un élève : son professeur référent et la gestion des PFMP ; à défaut, la direction. */
+async function equipeDuStage(equipe: (typeof schema.users.$inferSelect)[], e: Eleve): Promise<Destinataire[]> {
+  const refId = await referentDe(e);
+  const dest = equipe.filter((u) => u.id === refId || u.roles.includes("gestionnaire"));
+  return dest.length ? dest : equipe.filter((u) => u.roles.includes("direction"));
+}
+
+type Journal = Awaited<ReturnType<typeof journalDesRelances>>;
 
 /**
  * 3. Pièces de l'allocation (RIB, pièce d'identité) : les familles des élèves qui ont un stage cette année,
  * une fois par semaine tant qu'il en manque, au plus le nombre de fois réglé dans l'année.
  */
-async function relancerPieces(ctx: Expediteur, etab: EtabC, eleves: Eleve[], jour: string, base: string) {
+async function relancerPieces(ctx: Expediteur, etab: EtabC, eleves: Eleve[], journal: Journal, jour: string, base: string) {
   const max = etab.reglages.relances.piecesMax;
   if (max <= 0 || !eleves.length) return 0;
   const pieces = await piecesAllocation(eleves.map((e) => e.id));
-  const passees = await db.select({ cle: schema.journal.entiteId }).from(schema.journal)
-    .where(and(eq(schema.journal.etablissementId, etab.id), eq(schema.journal.action, "relance_auto"), eq(schema.journal.entite, "pieces")));
   let n = 0;
   for (const e of eleves) {
     const manquent = piecesManquantes(pieces.get(e.id));
-    if (!manquent.length) continue;
-    // Clé « élève:pieces:jour » : les relances déjà envoyées à cette famille pendant l'année scolaire
-    const dates = passees.map((x) => x.cle ?? "").filter((c) => c.startsWith(`${e.id}:pieces:`)).map((c) => c.slice(-10))
-      .filter((d) => anneeScolaireDe(d) === etab.anneeScolaire);
-    if (!relanceHebdomadaireDue(dates, jour, max)) continue;
+    if (!manquent.length || !relanceHebdomadaireDue(journal.dates(`${e.id}:pieces`), jour, max)) continue;
     const famille = await familleDe(e, jour);
     if (!famille.length) continue;
     const quoi = manquent.map((t) => (t === "rib" ? "le RIB" : "une pièce d'identité")).join(" et ");
@@ -134,13 +211,13 @@ async function relancerPieces(ctx: Expediteur, etab: EtabC, eleves: Eleve[], jou
       });
       n++;
     }
-    await noter(etab.id, "pieces", `${e.id}:pieces:${jour}`, { manquent, destinataires: famille.length });
+    await journal.noter("pieces", `${e.id}:pieces:${jour}`, { manquent, destinataires: famille.length });
   }
   return n;
 }
 
 /** 4. Absence pas encore justifiée : la famille, aux jours réglés après le signalement de l'absence. */
-async function relancerAbsences(ctx: Expediteur, etab: EtabC, stageIds: string[], eleves: Map<string, Eleve>, jour: string, base: string) {
+async function relancerAbsences(ctx: Expediteur, etab: EtabC, stageIds: string[], eleves: Map<string, Eleve>, journal: Journal, jour: string, base: string) {
   const jours = etab.reglages.relances.absences;
   if (!jours.length || !stageIds.length) return 0;
   const absences = await db.select().from(schema.absences).where(and(inArray(schema.absences.stageId, stageIds), isNull(schema.absences.justifieeLe)));
@@ -148,7 +225,8 @@ async function relancerAbsences(ctx: Expediteur, etab: EtabC, stageIds: string[]
   for (const a of absences) {
     const e = eleves.get(a.eleveId);
     const cle = `${a.id}:absence:${jour}`;
-    if (!e || !jours.includes(ecartJours(jourDe(a.createdAt), jour)) || (await dejaFait(etab.id, cle))) continue;
+    const signalee = jourDe(a.createdAt);
+    if (!e || !jourDeRelance(jour, jours.map((k) => ajouterJours(signalee, k))) || journal.fait(cle)) continue;
     const famille = await familleDe(e, jour);
     for (const f of famille) {
       await envoyer(ctx, {
@@ -157,22 +235,69 @@ async function relancerAbsences(ctx: Expediteur, etab: EtabC, stageIds: string[]
       });
       n++;
     }
-    if (famille.length) await noter(etab.id, "absence", cle, { destinataires: famille.length });
+    if (famille.length) await journal.noter("absence", cle, { destinataires: famille.length });
   }
   return n;
 }
 
-/** 5. Campagne de rentrée : les entreprises sans réponse, aux jours réglés après l'envoi, avec un nouveau lien personnel. */
-async function relancerCampagne(ctx: Expediteur, etab: EtabC, jour: string, base: string) {
+/**
+ * 5. Rappel quotidien à chaque élève qui a un compte : ce qui lui reste à faire (trouver son stage, relancer
+ * les entreprises contactées, déposer son CV, signer sa convention). Rien à faire : pas de message.
+ */
+async function rappelerEleves(ctx: Expediteur, etab: EtabC, conds: SQL[], journal: Journal, jour: string, base: string) {
+  const eleves = await db.select({ e: schema.eleves, u: schema.users }).from(schema.eleves)
+    .innerJoin(schema.classes, eq(schema.classes.id, schema.eleves.classeId))
+    .innerJoin(schema.users, eq(schema.users.id, schema.eleves.userId))
+    .where(and(...conds, eq(schema.eleves.archive, false), eq(schema.users.actif, true)));
+  if (!eleves.length) return 0;
+  const ids = eleves.map((x) => x.e.id);
+  const classes = [...new Set(eleves.map((x) => x.e.classeId!))];
+  const periodes = await db.select().from(schema.periodes).where(inArray(schema.periodes.classeId, classes));
+  const stages = await db.select({ s: schema.stages, ent: schema.entreprises.nom }).from(schema.stages)
+    .innerJoin(schema.entreprises, eq(schema.entreprises.id, schema.stages.entrepriseId))
+    .where(inArray(schema.stages.eleveId, ids));
+  const demarches = await db.select().from(schema.demarches).where(and(inArray(schema.demarches.eleveId, ids), eq(schema.demarches.reponse, "attente")));
+  const candidatures = await candidaturesDe(ids);
+  let n = 0;
+  for (const { e, u } of eleves) {
+    const cle = `eleve:${e.id}:${jour}`;
+    if (journal.fait(cle)) continue;
+    const taches = tachesEleve({
+      jour, rechercheJours: etab.reglages.relances.eleveRechercheJours, signatureEnLigne: etab.reglages.signature !== "papier", aUnCv: !!candidatures.get(e.id)?.cv,
+      periodes: periodes.filter((p) => p.classeId === e.classeId && (!p.eleveId || p.eleveId === e.id)),
+      stages: stages.filter((x) => x.s.eleveId === e.id).map((x) => ({ periodeId: x.s.periodeId, entreprise: x.ent, signeeParLEleve: !!x.s.signatures.eleve })),
+      demarchesEnAttente: demarches.filter((d) => d.eleveId === e.id).map((d) => ({ entreprise: d.entrepriseNom, date: d.date })),
+    });
+    if (!taches.length) continue;
+    await envoyer(ctx, {
+      canal: "mail", destinataire: u.email, sujet: "Votre stage : ce qu'il vous reste à faire", eleveId: e.id,
+      corps: `Bonjour ${e.prenom},\n\nVoici ce qu'il vous reste à faire pour votre stage :\n${taches.map((t) => (t.startsWith("  ·") ? t : `- ${t}`)).join("\n")}\n\nTout se fait dans Cap PFMP, rubrique « Mon stage » : ${base}/mon-stage\n\n${etab.nom}`,
+    });
+    await journal.noter("eleve", cle, { taches: taches.length });
+    n++;
+  }
+  return n;
+}
+
+/** 6. Campagne de rentrée : les entreprises sans réponse, tous les N jours après l'envoi, avec un nouveau lien personnel. */
+async function relancerCampagne(ctx: Expediteur, etab: EtabC, journal: Journal, appels: ReturnType<typeof listeDAppels>,
+  equipe: (typeof schema.users.$inferSelect)[], cycle: { jour: string; intervalle: number; max: number }, base: string) {
   const c = await campagneDe(etab);
-  if (!c?.envoyeeLe || !etab.reglages.relances.campagne.includes(ecartJours(jourDe(c.envoyeeLe), jour))) return 0;
+  if (!c?.envoyeeLe) return 0;
+  // La personne qui a lancé la campagne appelle les entreprises silencieuses ; à défaut, la gestion des PFMP ou la direction.
+  const auteur = equipe.filter((u) => u.id === c.creeParId);
+  const quiAppelle = auteur.length ? auteur : equipe.filter((u) => u.roles.includes("gestionnaire") || u.roles.includes("direction"));
   let n = 0;
   for (const { r, e } of await reponsesCampagne(c.id)) {
-    const cle = `${c.id}:${e.id}:campagne:${jour}`;
-    if (r.reponduLe || (await dejaFait(etab.id, cle))) continue;
-    if (await relancerEntreprise(ctx, c, e, base)) {
-      await noter(etab.id, "entreprise", cle, {});
+    if (r.reponduLe || !e.email) continue;
+    const demande = `campagne:${c.id}:${e.id}`;
+    const action = relanceCyclique({ ...cycle, depuis: jourDe(c.envoyeeLe), dejaEnvoyees: journal.dates(demande) });
+    if (action === "relancer" && (await relancerEntreprise(ctx, c, e, base))) {
+      await journal.noter("entreprise", `${demande}:${cycle.jour}`);
       n++;
+    } else if (action === "appeler" && !journal.fait(`${demande}:appel`)) {
+      appels.ajouter(quiAppelle, `${e.nom}${e.telephone ? ` (${e.telephone})` : ""} : pas de réponse à la campagne de rentrée.`);
+      await journal.noter("entreprise", `${demande}:appel`);
     }
   }
   return n;

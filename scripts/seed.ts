@@ -187,6 +187,12 @@ async function main() {
     }
   }
 
+  // La convention de Moussa a été envoyée le 20 octobre ; l'entreprise ne l'a pas encore signée : elle est relancée tous les 3 jours.
+  {
+    const [moussa] = await db.select().from(schema.eleves).where(and(eq(schema.eleves.nom, "TRAORÉ"), eq(schema.eleves.etablissementId, E))).limit(1);
+    await db.update(schema.stages).set({ conventionEnvoyeeLe: new Date("2026-10-20T09:00:00+02:00") }).where(eq(schema.stages.eleveId, moussa.id));
+  }
+
   // Absences en stage, signalées par le tuteur et pas encore justifiées
   async function absence(nom: string, debut: string, fin: string, commentaire: string, signaleeLe: string) {
     const [el] = await db.select().from(schema.eleves).where(and(eq(schema.eleves.nom, nom), eq(schema.eleves.etablissementId, E))).limit(1);

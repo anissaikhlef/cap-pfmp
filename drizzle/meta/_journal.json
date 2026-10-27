@@ -50,6 +50,13 @@
       "when": 1793093188101,
       "tag": "0006_lot2_relances_campagne",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793117600101,
+      "tag": "0007_rythmes_de_rappel",
+      "breakpoints": true
     }
   ]
 }

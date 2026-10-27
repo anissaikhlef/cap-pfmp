@@ -1,0 +1,1 @@
+ALTER TABLE "stages" ADD COLUMN "convention_envoyee_le" timestamp with time zone;

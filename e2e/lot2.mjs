@@ -231,11 +231,14 @@ await dir.goto(BASE + "/messages");
 const relancesCampagne = dir.locator("details.row", { hasText: "Relance : Accueil de stagiaires" });
 const corpsGarde = await relancesCampagne.filter({ hasText: `contact@garde-ouest.${D}` }).first().locator("pre").textContent();
 const lienCampagne = corpsGarde.match(/\/repondre\/[\w-]+/)?.[0];
-ok(!!lienCampagne && corpsGarde.includes("sans créer de compte"), "14 jours après la campagne, les entreprises sans réponse sont relancées avec un lien pour répondre en ligne");
+ok(!!lienCampagne && corpsGarde.includes("sans créer de compte"), "les entreprises sans réponse à la campagne sont relancées, avec un lien pour répondre en ligne");
 ok(await relancesCampagne.filter({ hasText: `rh@heliance.${D}` }).count() === 0, "pas de relance pour une entreprise qui a déjà répondu");
 ok(await dir.locator("details.row", { hasText: "Allocation de stage de Mehdi RAHMANI : document à déposer" }).filter({ hasText: `l.rahmani@${D}` }).count() === 1, "la famille est relancée pour la pièce d'identité manquante");
 const corpsAbsence = await dir.locator("details.row", { hasText: "Absence de Mehdi en stage : à justifier" }).first().locator("pre").textContent();
 ok(corpsAbsence.includes("du 12 octobre 2026 au 16 octobre 2026") && corpsAbsence.includes("/mon-enfant"), "et pour l'absence pas encore justifiée, 7 jours après son signalement");
+const corpsInes = await dir.locator("details.row", { hasText: "Votre stage : ce qu'il vous reste à faire" }).filter({ hasText: `ines.haddad@${D}` }).first().locator("pre").textContent();
+ok(corpsInes.includes("Signer votre convention de stage chez Atlas Sûreté") && corpsInes.includes("/mon-stage"), "l'élève reçoit chaque jour ce qu'il lui reste à faire");
+ok(await dir.locator("details.row", { hasText: "Rappel : convention de stage de Moussa TRAORÉ à signer" }).filter({ hasText: `k.ferhat@${D}` }).count() >= 1, "l'entreprise qui n'a pas signé est relancée, 3 jours ou plus après l'envoi de la convention");
 await dir.goto(BASE + "/");
 await dir.click("button:has-text('Envoyer les relances du jour')");
 ok(await visible(dir.getByText("Aucune relance à envoyer")), "une relance n'est jamais envoyée deux fois le même jour");
@@ -264,16 +267,17 @@ ok((await ligneGarde.textContent()).includes("En ligne, par J. Pereira") && (awa
 await dir.goto(BASE + "/messages");
 ok((await dir.textContent("main")).includes("Campagne de rentrée : réponse de Garde Ouest Services"), "la direction est prévenue de la réponse");
 
-/* ------------------- Organisation : les délais de relance ------------------- */
+/* ------------------- Organisation : le rythme des rappels ------------------- */
 await dir.goto(BASE + "/organisation");
-ok((await dir.inputValue("#relanceCampagne")) === "7, 14" && (await dir.inputValue("#relancePiecesMax")) === "3", "les délais de relance par défaut sont affichés");
-await dir.fill("#relanceCampagne", "dans une semaine");
+ok((await dir.inputValue("#entrepriseIntervalle")) === "3" && (await dir.inputValue("#entrepriseMax")) === "5" && (await dir.inputValue("#eleveQuotidien")) === "oui", "les rythmes de rappel par défaut sont affichés");
+await dir.fill("#relanceConvention", "dans une semaine");
 await dir.click("button:has-text(\"Enregistrer l'organisation\")");
 ok(await visible(dir.getByText("Relances : indiquez des nombres de jours")), "une saisie incorrecte est refusée, sans effacer le formulaire");
-await dir.fill("#relanceCampagne", "10, 20");
+await dir.fill("#relanceConvention", "7, 3");
+await dir.fill("#entrepriseIntervalle", "4");
 await dir.click("button:has-text(\"Enregistrer l'organisation\")");
-ok(await visible(dir.getByText("Organisation enregistrée")), "la direction règle les jours de relance");
+ok(await visible(dir.getByText("Organisation enregistrée")), "la direction règle le rythme des rappels");
 await dir.goto(BASE + "/campagne");
-ok((await dir.textContent("main")).includes("relancée automatiquement 10 et 20 jours après l'envoi"), "le suivi de la campagne annonce les nouveaux délais");
+ok((await dir.textContent("main")).includes("relancée automatiquement tous les 4 jours, 5 fois au plus"), "le suivi de la campagne annonce le nouveau rythme");
 
 await fin();

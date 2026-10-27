@@ -36,18 +36,25 @@ export type Reglages = {
     /** Règles du code du travail pour les élèves mineurs (article 10 de la convention). */
     reglesMineurs: boolean;
   };
-  /** Relances automatiques, envoyées chaque matin. Une liste de jours vide : pas de relance. */
+  /**
+   * Relances automatiques, envoyées chaque matin, jamais le samedi ni le dimanche
+   * (une relance prévue un jour de week-end part le lundi). Une liste de jours vide : pas de relance.
+   */
   relances: {
     /** Convention pas encore signée par tous : jours avant le départ en stage. */
     convention: number[];
-    /** Attestation et livret pas encore reçus : jours après la fin du stage. */
-    finDeStage: number[];
-    /** Entreprises sans réponse à la campagne de rentrée : jours après l'envoi. */
-    campagne: number[];
     /** Absence pas encore justifiée : jours après son signalement. */
     absences: number[];
     /** RIB ou pièce d'identité manquant : une relance par semaine, au plus ce nombre de fois dans l'année (0 : jamais). */
     piecesMax: number;
+    /** Élève : un rappel chaque jour de ce qui lui reste à faire (trouver son stage, signer sa convention). */
+    eleveQuotidien: boolean;
+    /** La recherche de stage figure dans ce rappel à partir de ce nombre de jours avant le début de la période. */
+    eleveRechercheJours: number;
+    /** Entreprise : un rappel tous les N jours tant qu'elle n'a pas répondu (places, signature, attestation et livret). 0 : jamais. */
+    entrepriseIntervalle: number;
+    /** Au plus ce nombre de rappels pour une même demande ; ensuite, le lycée est prévenu pour appeler l'entreprise. */
+    entrepriseMax: number;
   };
 };
 
@@ -61,7 +68,7 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   ordreMission: true,
   compteRendu: true,
   regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2, reglesMineurs: true },
-  relances: { convention: [7, 3], finDeStage: [3, 10], campagne: [7, 14], absences: [2, 7], piecesMax: 3 },
+  relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5 },
 };
 
 /** Réglages enregistrés complétés par les valeurs par défaut : un lycée créé avant l'ajout d'un réglage le reçoit ainsi. */
@@ -260,6 +267,8 @@ export const stages = pgTable("stages", {
   signatures: jsonb("signatures").$type<Signatures>().notNull().default({}),
   /** Tuteur désigné pour ce stage ; vide si aucun tuteur n'est désigné (il ne signe alors pas la convention). */
   tuteur: jsonb("tuteur").$type<Tuteur>(),
+  /** Première invitation à signer la convention : point de départ des rappels à l'entreprise. Remis à zéro si le stage change. */
+  conventionEnvoyeeLe: timestamp("convention_envoyee_le", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("stages_eleve_periode_idx").on(t.eleveId, t.periodeId), index("stages_entreprise_idx").on(t.entrepriseId)]);
 

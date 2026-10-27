@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { Signataire } from "@/db/schema";
 import type { ContexteConvention } from "./convention";
@@ -97,6 +97,10 @@ export async function inviterASigner(exp: Expediteur, cv: ContexteConvention, qu
       }
       messages++; liens++;
     }
+  }
+  // La première invitation lance les rappels à l'entreprise (tous les N jours, réglés dans « Organisation »).
+  if (messages && !cv.s.conventionEnvoyeeLe) {
+    await db.update(schema.stages).set({ conventionEnvoyeeLe: new Date() }).where(and(eq(schema.stages.id, cv.s.id), isNull(schema.stages.conventionEnvoyeeLe)));
   }
   return { messages, liens, sansContact };
 }

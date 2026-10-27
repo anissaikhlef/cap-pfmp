@@ -18,6 +18,7 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | Lot 2.2 | CV et lettre de motivation : dépôt, relecture conseillée par le référent, envoi aux entreprises depuis l'application | Fait |
 | Lot 2.3 | Allocations de stage : RIB et pièce d'identité déposés par la famille et vérifiés, jours effectués par semaine, export pour tableur | Fait |
 | Lot 2.4 | Relances automatiques réglables : places des entreprises (réponse en ligne avec un lien personnel), conventions, pièces de l'allocation et absences non justifiées | Fait |
+| Rappels | Rappel quotidien de l'élève (ce qui lui reste à faire), rappel des entreprises tous les 3 jours (5 fois au plus, puis le lycée appelle), jamais le week-end | Fait |
 
 Les décisions de conception d'Anissa Ikhlef sont consignées, avec leur date, dans [JOURNAL_DE_CONCEPTION.md](JOURNAL_DE_CONCEPTION.md).
 

@@ -58,7 +58,7 @@ export default async function Campagne() {
           </div>
           <p className="sub">
             Chaque entreprise a reçu un lien personnel pour répondre en ligne, sans compte
-            {ctx.etab.reglages.relances.campagne.length > 0 && <> ; sans réponse, elle est relancée automatiquement {ctx.etab.reglages.relances.campagne.slice().sort((x, y) => x - y).join(" et ")} jours après l&apos;envoi</>}.
+            {ctx.etab.reglages.relances.entrepriseIntervalle > 0 && <> ; sans réponse, elle est relancée automatiquement tous les {ctx.etab.reglages.relances.entrepriseIntervalle} jours, {ctx.etab.reglages.relances.entrepriseMax} fois au plus, puis vous êtes prévenu pour l&apos;appeler</>}.
             Vous pouvez aussi saisir les places annoncées par téléphone : l&apos;annuaire et les suggestions faites aux élèves se mettent à jour.
           </p>
           <div className="panel tbl">

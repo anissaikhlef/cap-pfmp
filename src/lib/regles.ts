@@ -3,7 +3,7 @@
  * Fonctions pures, sans accès à la base : faciles à tester et réutilisées partout.
  */
 import type { Horaires, Plage, Reglages, Signataire, Signatures } from "@/db/schema";
-import { ajouterJours, ecartJours, jourSemaine } from "./dates";
+import { ajouterJours, dateLongue, ecartJours, jourSemaine } from "./dates";
 
 export type ResultatRegle = { code: string; ok: boolean; libelle: string };
 
@@ -402,7 +402,69 @@ export function lireJours(texte: string): number[] | null {
   return jours.every((j) => j >= 1 && j <= 60) && jours.length <= 5 ? jours : null;
 }
 
-/** Une relance par semaine, au plus `max` fois : `dejaEnvoyees` sont les jours des relances précédentes. */
+/** Les relances partent du lundi au vendredi. */
+export function estJourOuvre(jour: string): boolean {
+  return jourSemaine(jour) < 5;
+}
+
+/** Le jour même s'il est ouvré, sinon le lundi suivant. */
+export function prochainJourOuvre(jour: string): string {
+  let d = jour;
+  while (!estJourOuvre(d)) d = ajouterJours(d, 1);
+  return d;
+}
+
+/**
+ * Relance à date fixe (« 7 et 3 jours avant le départ », « 2 et 7 jours après le signalement ») :
+ * vrai si `jour` est l'une des dates prévues, ou le lundi qui suit une date prévue un week-end.
+ */
+export function jourDeRelance(jour: string, dates: string[]): boolean {
+  return dates.some((d) => prochainJourOuvre(d) === jour);
+}
+
+/** Une relance par semaine (jour ouvré), au plus `max` fois : `dejaEnvoyees` sont les jours des relances précédentes. */
 export function relanceHebdomadaireDue(dejaEnvoyees: string[], jour: string, max: number): boolean {
-  return dejaEnvoyees.length < max && dejaEnvoyees.every((d) => ecartJours(d, jour) >= 7);
+  return estJourOuvre(jour) && dejaEnvoyees.length < max && dejaEnvoyees.every((d) => ecartJours(d, jour) >= 7);
+}
+
+/**
+ * Relance d'une entreprise tous les `intervalle` jours depuis `depuis` (envoi de la campagne, de la convention, fin du stage),
+ * au plus `max` fois. Ensuite, une seule fois : « appeler », pour que le lycée téléphone à l'entreprise.
+ */
+export function relanceCyclique(x: { depuis: string; dejaEnvoyees: string[]; jour: string; intervalle: number; max: number }): "relancer" | "appeler" | null {
+  if (x.intervalle <= 0 || x.max <= 0 || !estJourOuvre(x.jour)) return null;
+  const derniere = [x.depuis, ...x.dejaEnvoyees].sort().at(-1)!;
+  if (ecartJours(derniere, x.jour) < x.intervalle) return null;
+  return x.dejaEnvoyees.length < x.max ? "relancer" : "appeler";
+}
+
+/**
+ * Ce qu'il reste à faire à un élève, pour son rappel quotidien : trouver son lieu de stage (à partir de `rechercheJours`
+ * avant le début de la période), relancer les entreprises contactées sans réponse depuis 7 jours, déposer son CV,
+ * signer sa convention. Liste vide : pas de rappel.
+ */
+export function tachesEleve(x: {
+  jour: string; rechercheJours: number; signatureEnLigne: boolean; aUnCv: boolean;
+  periodes: { id: string; libelle: string; debut: string; fin: string }[];
+  stages: { periodeId: string; entreprise: string; signeeParLEleve: boolean }[];
+  demarchesEnAttente: { entreprise: string; date: string }[];
+}): string[] {
+  const taches: string[] = [];
+  const aVenir = x.periodes.filter((p) => p.fin >= x.jour).sort((a, b) => a.debut.localeCompare(b.debut));
+  const sansStage = aVenir.find((p) => !x.stages.some((s) => s.periodeId === p.id));
+  if (sansStage && ecartJours(x.jour, sansStage.debut) <= x.rechercheJours) {
+    const dans = ecartJours(x.jour, sansStage.debut);
+    taches.push(`Trouver votre lieu de stage : ${sansStage.libelle}, du ${dateLongue(sansStage.debut)} au ${dateLongue(sansStage.fin)} (${dans > 0 ? `dans ${dans} jour${dans > 1 ? "s" : ""}` : "la période a commencé"}).`);
+    for (const d of x.demarchesEnAttente.filter((d) => ecartJours(d.date, x.jour) >= 7)) {
+      taches.push(`  · Relancer ${d.entreprise}, contactée le ${dateLongue(d.date)} et toujours sans réponse.`);
+    }
+    if (!x.aUnCv) taches.push("  · Déposer votre CV : votre professeur référent pourra le relire.");
+  }
+  if (x.signatureEnLigne) {
+    const ids = new Set(aVenir.map((p) => p.id));
+    for (const s of x.stages.filter((s) => ids.has(s.periodeId) && !s.signeeParLEleve)) {
+      taches.push(`Signer votre convention de stage chez ${s.entreprise}.`);
+    }
+  }
+  return taches;
 }

@@ -59,7 +59,7 @@ export async function enregistrerStage(_: Etat, fd: FormData): Promise<Etat> {
     // Changer d'entreprise, d'horaires ou de tuteur invalide les signatures déjà recueillies et les liens envoyés :
     // la convention doit être refaite.
     const change = existant.entrepriseId !== ent.id || JSON.stringify(existant.horaires) !== JSON.stringify(h) || (existant.tuteur?.nom ?? null) !== (tuteur?.nom ?? null);
-    await db.update(schema.stages).set({ entrepriseId: ent.id, horaires: h, tuteur, ...(change ? { signatures: {} } : {}) }).where(eq(schema.stages.id, existant.id));
+    await db.update(schema.stages).set({ entrepriseId: ent.id, horaires: h, tuteur, ...(change ? { signatures: {}, conventionEnvoyeeLe: null } : {}) }).where(eq(schema.stages.id, existant.id));
     if (change) await annulerLiensDuStage(existant.id);
     await journaliser(ctx, "stage_modifie", "eleve", eleveId, { entreprise: ent.nom, signaturesEffacees: change });
     if (x.p.eleveId && existant.entrepriseId !== ent.id) await alerterRattrapage(ctx, x.e, x.p, "lieu", ent);

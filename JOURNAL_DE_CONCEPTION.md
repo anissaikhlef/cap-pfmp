@@ -242,3 +242,15 @@ Les couleurs de la plateforme pourront être changées plus tard (couleurs de la
 
 1. Ce journal. 2. Nouveaux rythmes de rappel. 3. Accès, droits du DDFPT, calendrier des PFMP et rattrapages. 4. Entreprises : mails, classement, entreprises écartées. 5. Lot 3 : modèles de documents.
 Le résultat est présenté à Anissa avant 6. la formation incluse et 7. les agents IA.
+
+## 27 octobre 2026 : réalisation de l'étape 2 (rythmes de rappel)
+
+- **Élève, chaque jour** : un seul mail qui liste ce qui lui reste à faire. Il ne part que s'il reste quelque chose :
+  - trouver son lieu de stage, à partir de 30 jours avant le début de la période ;
+  - relancer les entreprises contactées sans réponse depuis 7 jours ;
+  - déposer son CV ;
+  - signer sa convention.
+- **Entreprise, tous les 3 jours** tant qu'elle n'a pas répondu, au plus 5 fois pour une même demande, puis le lycée reçoit la liste des entreprises à appeler (avec leur numéro). Trois demandes : les places de la campagne de rentrée (depuis l'envoi), la signature de la convention (depuis son premier envoi) et l'attestation avec le livret (depuis la fin du stage).
+- **Jamais de relance le samedi ni le dimanche** : une relance prévue ce jour-là part le lundi.
+- **Réglages** dans « Organisation » : rappel quotidien des élèves (oui ou non) et début de la recherche, rythme et nombre de rappels des entreprises ; les jours avant le départ (convention) et après le signalement d'une absence restent réglables.
+- **Signature sur papier** : un lycée qui signe ses conventions sur papier ne reçoit plus d'invitations à signer en ligne.
