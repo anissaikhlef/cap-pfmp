@@ -177,3 +177,68 @@ D'après la décision 6 du lot 2 (« la relance de mail pour les entreprises pou
 1. **Lien de la campagne** : valable 30 jours, il ne sert qu'une fois ; une nouvelle campagne annule les liens de la précédente. Pour modifier sa réponse, l'entreprise répond au mail du lycée.
 2. **Relance des familles** : elle commence dès que l'élève a un lieu de stage dans l'année, et compte à nouveau à partir de 0 chaque année scolaire.
 3. **Bouton « Envoyer les relances du jour »** : la campagne de rentrée, qui concerne tout le lycée, n'est relancée d'ici que par la direction ou la gestion de tout l'établissement ; les relances partent aussi seules chaque matin.
+
+---
+
+## 27 octobre 2026 : décisions après le lot 2 (formation incluse, agents IA, abonnement, accès, entreprises, calendrier)
+
+Réponses d'Anissa Ikhlef aux questions de l'assistant, une à une, puis « commence ».
+
+### Formation incluse
+
+Demande d'Anissa : « une idée qui permet aux utilisateurs de comprendre l'outil comme une formation incluse ».
+
+1. **Visite guidée** à la première connexion, adaptée à chaque rôle, et **bouton « ? »** sur chaque page.
+2. **Lycée d'entraînement** : « très bien ».
+3. **Missions, quiz et attestation de prise en main** : « oui, cette dernière apporte une plus-value ».
+
+### Agents IA (lot 4)
+
+1. **Rappels** : « automatisation en fonction du besoin : rappel élève chaque jour, rappel entreprise tous les trois jours ». Les rappels partent seuls.
+2. **Autres mails qui concernent un élève** : validés par le professeur référent de la classe, « pour décharger le DDFPT » ; « le DDFPT peut valider si besoin ».
+3. **Mails qui ne concernent aucun élève** (prospection, rendez-vous) : validés « selon l'organisation du lycée », au choix dans « Organisation » : le référent de la classe concernée, la personne chargée des relations avec les entreprises, ou le DDFPT.
+4. **Recherche d'opportunités** : l'annuaire du lycée, les réponses à la campagne et des sources publiques gratuites (annuaire officiel des entreprises, « La bonne boîte » de France Travail).
+5. **Données des élèves** : l'IA ne voit aucun nom ; l'application le remet au moment de la relecture. Pour relire un CV, l'IA reçoit le texte sans les coordonnées.
+6. **Veille réglementaire** : une alerte avec un résumé et le lien vers le texte officiel, et des propositions de changements dans Cap PFMP, validées par une personne avant de s'appliquer.
+7. **Abonnement** : « le fonctionnement ou pas des agents définira le montant de l'abonnement ». Trois niveaux : **Essentiel** (sans IA), **Plus** (agent administratif et veille réglementaire), **Complet** (tous les agents). Anissa règle le niveau de chaque lycée depuis un compte administrateur de Cap PFMP.
+8. **Marque** : « je veux les vendre comme mes propres agents ». Les agents portent la marque Cap PFMP ; le fournisseur d'IA n'apparaît pas dans l'application.
+
+### Documents (lot 3)
+
+« Les documents peuvent être modifiés en fonction des lycées » : pour chaque document, le lycée choisit son propre PDF, rempli à l'identique, ou le modèle Cap PFMP qu'il adapte dans l'application (textes, logo, rubriques).
+
+### Accès et droits
+
+1. **Comptes et mots de passe** : « seul le DDFPT gère la création des mots de passe et des accès » (la direction garde tous les droits). Un générateur crée les comptes d'une classe et imprime une fiche de connexion par élève et par parent ; une connexion par lien envoyé par mail évite le mot de passe.
+2. **Documents reçus sur papier ou par courrier** : déposés par « le DDFPT ou le professeur référent ».
+3. **Calendrier des PFMP** : « une rubrique qui renferme toutes les dates de PFMP de toutes les classes du lycée, visible pour tous, non modifiable que par le DDFPT ».
+4. **Rattrapages** : « visibles pour le DDFPT, la famille, la vie scolaire et les professeurs de la classe de l'élève ».
+
+### Entreprises
+
+1. **Entreprises qui ne se connectent pas** : un lien personnel pour remplir et signer l'attestation et le livret, ou déposer le scan ; pendant la visite, le professeur fait signer le tuteur sur son téléphone ou photographie le document signé ; le DDFPT ou le référent dépose ce qui arrive par courrier.
+2. **Mails aux entreprises qui accueillent les élèves** : les deux, un message groupé écrit par le DDFPT, et des mails automatiques (accueil avant le stage, remerciements à la fin avec le lien pour l'attestation et le livret).
+3. **Classement** : « un outil qui permet de classer et d'identifier les entreprises qui jouent le jeu et de bannir celles avec qui les élèves ont eu un souci ».
+
+### Couleurs
+
+Les couleurs de la plateforme pourront être changées plus tard (couleurs de la marque ou propositions à comparer).
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Lycée d'entraînement** : un par membre de l'équipe (direction, gestion, professeurs, vie scolaire), remis à zéro à la demande ; on peut s'y mettre à la place d'un parent, d'un élève ou d'une entreprise ; rien n'en sort (aucun vrai message, données fictives, bandeau de couleur). Pour les élèves, les parents et les entreprises, la visite guidée suffit.
+2. **Formation incluse dans les trois niveaux** d'abonnement.
+3. **Rappels** : aucun le week-end ; le rappel quotidien de l'élève regroupe ce qui lui reste à faire et ne part que s'il reste quelque chose ; au plus 5 rappels à une entreprise pour une même demande, puis le lycée est prévenu pour l'appeler.
+4. **Mails à valider** : une liste « Mails à valider » avec « Envoyer », « Modifier », « Ne pas envoyer » ; le DDFPT peut lire ceux des référents ; dans une classe sans référent, la personne qui gère les PFMP valide.
+5. **Fournisseur d'IA** : engagé par contrat à ne pas utiliser les données pour entraîner ses modèles, indiqué aux lycées dans le contrat (RGPD) ; une mention « préparé avec… » prévient que le texte vient d'une IA (loi européenne sur l'IA).
+6. **Veille réglementaire** : sources officielles seulement (Bulletin officiel, Légifrance, Éduscol) ; alertes à la direction et à la personne qui gère les PFMP.
+7. **Abonnement** : un plafond d'usage par mois et par niveau protège la marge ; au-delà, l'agent s'arrête jusqu'au mois suivant, ou le lycée passe au niveau supérieur. Noms possibles des agents : « Cap Admin », « Cap Partenaires », « Cap Courrier », « Cap Veille », à déposer comme marques à l'INPI.
+8. **Calendrier des PFMP** : les rattrapages n'y figurent pas ; un lien public, sans compte, peut être activé dans « Organisation ».
+9. **Rattrapages** : les professeurs de la classe voient l'élève et les dates, pas le motif (souvent médical) ; un court mail les prévient quand un rattrapage est programmé.
+10. **Entreprises** : une note de partenariat calculée à partir de faits (réponse à la campagne, conventions signées à temps, documents renvoyés, élèves accueillis au fil des années, avis du professeur après la visite), un badge « Partenaire fiable », visibles seulement par l'équipe ; un souci est signalé par le référent ou le DDFPT ; seul le DDFPT, ou la direction, écarte une entreprise, avec un motif interne et factuel.
+11. **Mails d'accueil et de remerciement** : 3 jours avant le début du stage, et le lendemain de la fin ; jours réglables dans « Organisation ».
+
+### Ordre de travail retenu
+
+1. Ce journal. 2. Nouveaux rythmes de rappel. 3. Accès, droits du DDFPT, calendrier des PFMP et rattrapages. 4. Entreprises : mails, classement, entreprises écartées. 5. Lot 3 : modèles de documents.
+Le résultat est présenté à Anissa avant 6. la formation incluse et 7. les agents IA.
