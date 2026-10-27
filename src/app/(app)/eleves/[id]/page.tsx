@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
-import { a, estReferentDe, peutGererEleve, peutVoirEleve } from "@/lib/acces";
+import { a, estReferentDe, gereLesAcces, peutGererEleve, peutVoirEleve } from "@/lib/acces";
 import { ResumeStage, statutDossier } from "@/components/ResumeStage";
 import { BlocPresenceEleve } from "@/components/absences";
 import { BlocRattrapages } from "@/components/rattrapages";
@@ -60,6 +60,7 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
   const d = await dossierStage(ctx, e, periodeId);
   const entreprises = await entreprisesDuLycee(ctx);
   const dem = await demarchesDe(e.id);
+  const acces = gereLesAcces(ctx);
   const statut = d.periode && d.periode.id !== ligne?.periode?.id ? null : ligne?.statut;
 
   return (
@@ -136,19 +137,23 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
           {compte ? (
             <>
               <p className="sub">Compte actif : {compte.email}{compte.doitChangerMotDePasse ? " · pas encore connecté" : ""}</p>
-              <details><summary className="btn small">Mot de passe oublié</summary>
-                <Formulaire action={reinitialiserCompteFamille} bouton="Générer un mot de passe provisoire" boutonClasse="btn small">
-                  <input type="hidden" name="eleveId" value={e.id} /><input type="hidden" name="userId" value={compte.id} />
-                </Formulaire>
-              </details>
+              {acces && (
+                <details><summary className="btn small">Mot de passe oublié</summary>
+                  <Formulaire action={reinitialiserCompteFamille} bouton="Générer un mot de passe provisoire" boutonClasse="btn small">
+                    <input type="hidden" name="eleveId" value={e.id} /><input type="hidden" name="userId" value={compte.id} />
+                  </Formulaire>
+                </details>
+              )}
             </>
-          ) : (
+          ) : acces ? (
             <Formulaire action={creerCompteEleve} bouton="Créer le compte" boutonClasse="btn">
               <input type="hidden" name="eleveId" value={e.id} />
               <p className="sub">L&apos;élève pourra suivre ses démarches et déposer sa convention signée.</p>
               <label className="f" htmlFor="ce-email">Adresse e-mail de l&apos;élève<input id="ce-email" name="email" type="email" defaultValue={e.email ?? ""} required /></label>
             </Formulaire>
-          )}
+          ) : <p className="sub">Pas encore de compte.</p>}
+          {acces && e.classeId && <a className="btn small" href={`/eleves/acces?classe=${e.classeId}`}>Fiches de connexion de la classe</a>}
+          {!acces && <p className="sub" style={{ margin: 0 }}>Les comptes et les mots de passe sont créés par le DDFPT.</p>}
         </div>
         <div className="panel pad section">
           <h2>Responsables légaux</h2>
@@ -158,30 +163,36 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
             {resp.map(({ u }) => (
               <div key={u.id} className="row">
                 <div className="main"><div className="name">{u.prenom} {u.nom}</div><div className="meta">{u.email}{u.telephone ? ` · ${u.telephone}` : ""}</div></div>
-                <details><summary className="btn small">Mot de passe</summary>
-                  <Formulaire action={reinitialiserCompteFamille} bouton="Générer un mot de passe provisoire" boutonClasse="btn small">
-                    <input type="hidden" name="eleveId" value={e.id} /><input type="hidden" name="userId" value={u.id} />
-                  </Formulaire>
-                </details>
-                <form action={retirerResponsable}>
-                  <input type="hidden" name="eleveId" value={e.id} /><input type="hidden" name="userId" value={u.id} />
-                  <button className="btn small danger">Retirer</button>
-                </form>
+                {acces && (
+                  <>
+                    <details><summary className="btn small">Mot de passe</summary>
+                      <Formulaire action={reinitialiserCompteFamille} bouton="Générer un mot de passe provisoire" boutonClasse="btn small">
+                        <input type="hidden" name="eleveId" value={e.id} /><input type="hidden" name="userId" value={u.id} />
+                      </Formulaire>
+                    </details>
+                    <form action={retirerResponsable}>
+                      <input type="hidden" name="eleveId" value={e.id} /><input type="hidden" name="userId" value={u.id} />
+                      <button className="btn small danger">Retirer</button>
+                    </form>
+                  </>
+                )}
               </div>
             ))}
           </div>
-          <details>
-            <summary className="btn small">Ajouter un responsable</summary>
-            <Formulaire action={ajouterResponsable} bouton="Créer son accès" boutonClasse="btn">
-              <input type="hidden" name="eleveId" value={e.id} />
-              <div className="grid2">
-                <label className="f" htmlFor="r-prenom">Prénom<input id="r-prenom" name="prenom" required /></label>
-                <label className="f" htmlFor="r-nom">Nom<input id="r-nom" name="nom" required /></label>
-                <label className="f" htmlFor="r-email">Adresse e-mail<input id="r-email" name="email" type="email" required /></label>
-                <label className="f" htmlFor="r-tel">Mobile<input id="r-tel" name="telephone" /></label>
-              </div>
-            </Formulaire>
-          </details>
+          {acces && (
+            <details>
+              <summary className="btn small">Ajouter un responsable</summary>
+              <Formulaire action={ajouterResponsable} bouton="Créer son accès" boutonClasse="btn">
+                <input type="hidden" name="eleveId" value={e.id} />
+                <div className="grid2">
+                  <label className="f" htmlFor="r-prenom">Prénom<input id="r-prenom" name="prenom" required /></label>
+                  <label className="f" htmlFor="r-nom">Nom<input id="r-nom" name="nom" required /></label>
+                  <label className="f" htmlFor="r-email">Adresse e-mail<input id="r-email" name="email" type="email" required /></label>
+                  <label className="f" htmlFor="r-tel">Mobile<input id="r-tel" name="telephone" /></label>
+                </div>
+              </Formulaire>
+            </details>
+          )}
         </div>
       </div>
 

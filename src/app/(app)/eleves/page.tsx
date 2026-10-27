@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { contexte } from "@/lib/auth";
-import { estGestionnaire } from "@/lib/acces";
+import { estGestionnaire, gereLesAcces } from "@/lib/acces";
 import { elevesSuivis, classesAvecPeriodes } from "@/lib/requetes";
 import { classesGerees } from "@/lib/acces";
 import { STATUTS, problemes, type Statut } from "@/lib/regles";
@@ -42,6 +42,7 @@ export default async function Eleves({ searchParams }: { searchParams: Promise<{
       <div className="actions" style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
         <div><h1>Élèves</h1><p className="sub">{lignes.length} élève(s) affiché(s)</p></div>
         <div className="actions">
+          {gereLesAcces(ctx) && <Link className="btn" href={`/eleves/acces${classe ? `?classe=${classe}` : ""}`}>Comptes et fiches de connexion</Link>}
           <Link className="btn" href="/eleves/import">Importer un fichier</Link>
           <Link className="btn primary" href="/eleves/nouveau">Ajouter un élève</Link>
         </div>

@@ -85,6 +85,8 @@ async function main() {
   const garnier = await compte("Marie", "GARNIER", "m.garnier", ["professeur"], { discipline: "Lettres-histoire", enseignementPro: false });
   const haddou = await compte("Karim", "HADDOU", "k.haddou", ["professeur"], { discipline: "Mathématiques", enseignementPro: false });
   await compte("Nadia", "BERRADA", "vie.scolaire", ["vie_scolaire"]);
+  // Le DDFPT (compte « Gestion des PFMP ») : seul, avec la direction, il crée les comptes et fixe les dates de PFMP.
+  await compte("Julien", "ROUSSEL", "ddfpt", ["gestionnaire"]);
 
   const doms = await db.insert(schema.dominantes).values(
     ["Sûreté / gardiennage", "Sécurité incendie", "Sécurité publique"].map((libelle) => ({ etablissementId: E, libelle })),
@@ -133,7 +135,7 @@ async function main() {
   ];
   await db.insert(schema.heuresClasses).values(services.map(([u, k, heures]) => ({ etablissementId: E, professeurId: u.id, classeId: k.c.id, heures })));
 
-  type L = { prenom: string; nom: string; k: typeof cap; naissance?: string; dom?: string; stage?: [string, Horaires, Signatures] };
+  type L = { prenom: string; nom: string; k: typeof cap; naissance?: string; dom?: string; email?: string; stage?: [string, Horaires, Signatures] };
   const eleves: L[] = [
     { prenom: "Inès", nom: "HADDAD", k: sec, naissance: "2010-03-14" },
     { prenom: "Lucas", nom: "MOREAU", k: sec, naissance: "2010-07-02", stage: ["Atlas", STD, sig("eleve", "parent", "entreprise", "tuteur", "direction")] },
@@ -147,15 +149,15 @@ async function main() {
     { prenom: "Adam", nom: "CISSÉ", k: ter, naissance: "2008-08-11", dom: "Sécurité publique", stage: ["Police", STD, TOUS] },
     { prenom: "Léa", nom: "FONTAINE", k: ter, naissance: "2008-12-03", dom: "Sécurité incendie", stage: ["Héliance", STD, sig("eleve", "parent", "entreprise", "tuteur")] },
     { prenom: "Rayan", nom: "MANSOURI", k: ter, naissance: "2007-09-15", dom: "Sûreté / gardiennage", stage: ["Garde Ouest", STD, sig("eleve", "entreprise", "tuteur", "direction")] },
-    { prenom: "Kenza", nom: "AMRANI", k: cap, naissance: "2010-10-01" },
-    { prenom: "Tom", nom: "GIRARD", k: cap, naissance: "2010-02-26" },
-    { prenom: "Moussa", nom: "TRAORÉ", k: cap, naissance: "2010-06-19", stage: ["Atlas", STD, sig("eleve")] },
-    { prenom: "Jade", nom: "MOREL", k: cap, naissance: "2010-08-29" },
+    { prenom: "Kenza", nom: "AMRANI", k: cap, email: `kenza.amrani@${DOMAINE}`, naissance: "2010-10-01" },
+    { prenom: "Tom", nom: "GIRARD", k: cap, email: `tom.girard@${DOMAINE}`, naissance: "2010-02-26" },
+    { prenom: "Moussa", nom: "TRAORÉ", k: cap, email: `moussa.traore@${DOMAINE}`, naissance: "2010-06-19", stage: ["Atlas", STD, sig("eleve")] },
+    { prenom: "Jade", nom: "MOREL", k: cap, email: `jade.morel@${DOMAINE}`, naissance: "2010-08-29" },
   ];
 
   for (const l of eleves) {
     const [e] = await db.insert(schema.eleves).values({
-      etablissementId: E, classeId: l.k.c.id, prenom: l.prenom, nom: l.nom, dateNaissance: l.naissance ?? null,
+      etablissementId: E, classeId: l.k.c.id, prenom: l.prenom, nom: l.nom, dateNaissance: l.naissance ?? null, email: l.email ?? null,
       dominanteId: l.dom ? dom(l.dom) : null,
     }).returning();
     if (l.stage) {
@@ -294,7 +296,7 @@ async function main() {
   await db.insert(schema.journal).values({ etablissementId: E, action: "donnees_demo", entite: "etablissement", entiteId: E, details: { version: VERSION_DONNEES_DEMO } });
 
   console.log(`Lycée de démonstration créé. Mot de passe de tous les comptes : ${MOT_DE_PASSE_DEMO}`);
-  console.log(`Comptes : direction@${DOMAINE}, p.martin@${DOMAINE} (référent 2nde), ines.haddad@${DOMAINE} (élève), f.traore@${DOMAINE} et l.rahmani@${DOMAINE} (parents), k.ferhat@${DOMAINE} (entreprise), vie.scolaire@${DOMAINE} (vie scolaire)`);
+  console.log(`Comptes : direction@${DOMAINE}, ddfpt@${DOMAINE} (DDFPT), p.martin@${DOMAINE} (référent 2nde), ines.haddad@${DOMAINE} (élève), f.traore@${DOMAINE} et l.rahmani@${DOMAINE} (parents), k.ferhat@${DOMAINE} (entreprise), vie.scolaire@${DOMAINE} (vie scolaire)`);
   await pool.end();
 }
 

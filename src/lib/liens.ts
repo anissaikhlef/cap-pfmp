@@ -3,29 +3,32 @@ import { createHash, randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { completerReglages, type Signataire } from "@/db/schema";
+import { completerReglages, type ObjetLien, type Signataire } from "@/db/schema";
 
 /** Durée de validité d'un lien personnel de signature. */
 export const JOURS_LIEN_SIGNATURE = 7;
 
 const empreinte = (jeton: string) => createHash("sha256").update(jeton).digest("hex");
 
-/** Crée un lien personnel et renvoie le jeton (seule son empreinte est enregistrée). */
+/** Durée de validité d'un lien de connexion sans mot de passe. */
+export const MINUTES_LIEN_CONNEXION = 15;
+
+/** Crée un lien personnel et renvoie le jeton (seule son empreinte est enregistrée). Validité en jours, ou en minutes. */
 export async function creerLien(etablissementId: string, v: {
-  objet: "signature" | "campagne"; destinataire: string; jours: number;
-  stageId?: string; qualite?: Signataire; entrepriseId?: string; creeParId?: string | null;
+  objet: ObjetLien; destinataire: string; jours?: number; minutes?: number;
+  stageId?: string; qualite?: Signataire; entrepriseId?: string; userId?: string; creeParId?: string | null;
 }): Promise<{ jeton: string; expireLe: Date }> {
   const jeton = randomBytes(32).toString("base64url");
-  const expireLe = new Date(Date.now() + v.jours * 86_400_000);
+  const expireLe = new Date(Date.now() + (v.minutes !== undefined ? v.minutes * 60_000 : (v.jours ?? 1) * 86_400_000));
   await db.insert(schema.liensAcces).values({
     etablissementId, jeton: empreinte(jeton), objet: v.objet, destinataire: v.destinataire, expireLe,
-    stageId: v.stageId ?? null, qualite: v.qualite ?? null, entrepriseId: v.entrepriseId ?? null, creeParId: v.creeParId ?? null,
+    stageId: v.stageId ?? null, qualite: v.qualite ?? null, entrepriseId: v.entrepriseId ?? null, userId: v.userId ?? null, creeParId: v.creeParId ?? null,
   });
   return { jeton, expireLe };
 }
 
 /** Le lien correspondant au jeton, s'il existe, n'a pas expiré et n'a pas encore servi. */
-export async function lienValide(jeton: string, objet: "signature" | "campagne") {
+export async function lienValide(jeton: string, objet: ObjetLien) {
   if (!/^[\w-]{30,60}$/.test(jeton)) return null;
   const [l] = await db.select().from(schema.liensAcces)
     .where(and(eq(schema.liensAcces.jeton, empreinte(jeton)), eq(schema.liensAcces.objet, objet), isNull(schema.liensAcces.utiliseLe), gt(schema.liensAcces.expireLe, new Date())))
@@ -60,7 +63,7 @@ export async function adresseDuSite(): Promise<string> {
 }
 
 /** Le lien correspondant au jeton, même expiré ou déjà utilisé (pour expliquer à la personne où elle en est). */
-export async function lienParJeton(jeton: string, objet: "signature" | "campagne") {
+export async function lienParJeton(jeton: string, objet: ObjetLien) {
   if (!/^[\w-]{30,60}$/.test(jeton)) return null;
   const [l] = await db.select().from(schema.liensAcces)
     .where(and(eq(schema.liensAcces.jeton, empreinte(jeton)), eq(schema.liensAcces.objet, objet))).limit(1);

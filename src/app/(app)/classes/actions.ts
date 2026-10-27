@@ -5,7 +5,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
-import { peutGererClasse, peutAdministrer } from "@/lib/acces";
+import { peutAdministrer, peutFixerLesDates, peutGererClasse } from "@/lib/acces";
 import { journaliser } from "@/lib/journal";
 import type { Etat } from "@/components/Formulaire";
 
@@ -61,6 +61,12 @@ export async function modifierClasse(_: Etat, fd: FormData): Promise<Etat> {
   return { ok: "Classe enregistrée." };
 }
 
+/** Les dates de PFMP des classes sont fixées par le DDFPT (ou la direction) seulement ; elles figurent dans le calendrier commun. */
+const REFUS_DATES = "Les dates de PFMP sont fixées par le DDFPT.";
+async function datesModifiables(ctx: Awaited<ReturnType<typeof contexte>>, classeId: string) {
+  return peutFixerLesDates(ctx) && (await peutGererClasse(ctx, classeId));
+}
+
 const PeriodeSchema = z.object({
   classeId: z.string().uuid(),
   libelle: z.string().trim().min(1).max(60),
@@ -72,11 +78,11 @@ export async function ajouterPeriode(_: Etat, fd: FormData): Promise<Etat> {
   const ctx = await contexte();
   const p = PeriodeSchema.safeParse(Object.fromEntries(fd));
   if (!p.success) return { erreur: p.error.issues[0]?.message ?? "Valeurs invalides." };
-  if (!(await peutGererClasse(ctx, p.data.classeId))) return { erreur: "Vous ne gérez pas cette classe." };
+  if (!(await datesModifiables(ctx, p.data.classeId))) return { erreur: REFUS_DATES };
   if (p.data.fin < p.data.debut) return { erreur: "La fin de la période est avant son début." };
   await db.insert(schema.periodes).values(p.data);
   await journaliser(ctx, "periode_ajoutee", "classe", p.data.classeId, p.data);
-  revalidatePath(`/classes/${p.data.classeId}`);
+  for (const x of [`/classes/${p.data.classeId}`, "/calendrier"]) revalidatePath(x);
   return { ok: "Période ajoutée." };
 }
 
@@ -85,12 +91,12 @@ export async function modifierPeriode(_: Etat, fd: FormData): Promise<Etat> {
   const id = z.string().uuid().parse(fd.get("id"));
   const p = PeriodeSchema.safeParse(Object.fromEntries(fd));
   if (!p.success) return { erreur: p.error.issues[0]?.message ?? "Valeurs invalides." };
-  if (!(await peutGererClasse(ctx, p.data.classeId))) return { erreur: "Vous ne gérez pas cette classe." };
+  if (!(await datesModifiables(ctx, p.data.classeId))) return { erreur: REFUS_DATES };
   if (p.data.fin < p.data.debut) return { erreur: "La fin de la période est avant son début." };
   await db.update(schema.periodes).set({ libelle: p.data.libelle, debut: p.data.debut, fin: p.data.fin })
     .where(and(eq(schema.periodes.id, id), eq(schema.periodes.classeId, p.data.classeId), isNull(schema.periodes.eleveId)));
   await journaliser(ctx, "periode_modifiee", "classe", p.data.classeId, p.data);
-  revalidatePath(`/classes/${p.data.classeId}`);
+  for (const x of [`/classes/${p.data.classeId}`, "/calendrier"]) revalidatePath(x);
   return { ok: "Période mise à jour." };
 }
 
@@ -98,11 +104,11 @@ export async function supprimerPeriode(fd: FormData) {
   const ctx = await contexte();
   const id = z.string().uuid().parse(fd.get("id"));
   const classeId = z.string().uuid().parse(fd.get("classeId"));
-  if (!(await peutGererClasse(ctx, classeId))) return;
+  if (!(await datesModifiables(ctx, classeId))) return;
   const [st] = await db.select({ id: schema.stages.id }).from(schema.stages).where(eq(schema.stages.periodeId, id)).limit(1);
   if (st) return; // une période avec des stages ne peut pas être supprimée
   // Seulement une période de la classe : un rattrapage se gère depuis la fiche de l'élève.
   await db.delete(schema.periodes).where(and(eq(schema.periodes.id, id), eq(schema.periodes.classeId, classeId), isNull(schema.periodes.eleveId)));
   await journaliser(ctx, "periode_supprimee", "classe", classeId);
-  revalidatePath(`/classes/${classeId}`);
+  for (const x of [`/classes/${classeId}`, "/calendrier"]) revalidatePath(x);
 }

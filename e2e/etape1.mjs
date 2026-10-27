@@ -60,11 +60,13 @@ await martin.fill("#e-naiss", "2010-05-05");
 await Promise.all([martin.waitForURL(/\/eleves\/[0-9a-f-]{36}$/), martin.click("button:has-text('Créer la fiche')")]);
 ok((await martin.textContent("h1")).includes("Nora TEST"), "crée une fiche élève");
 
-// Compte responsable
-await martin.click("summary:has-text('Ajouter un responsable')");
-await martin.fill("#r-prenom", "Sami"); await martin.fill("#r-nom", "Test"); await martin.fill("#r-email", `sami.test@${D}`);
-await martin.click("button:has-text('Créer son accès')");
-ok(await martin.locator(".secret").waitFor({ timeout: 8000 }).then(() => true, () => false), "crée un accès responsable avec mot de passe provisoire");
+// Compte responsable : seuls le DDFPT et la direction créent les comptes (décision d'Anissa)
+ok(await martin.locator("summary:has-text('Ajouter un responsable')").count() === 0, "le référent ne crée pas les comptes des familles");
+await dir.goto(martin.url());
+await dir.click("summary:has-text('Ajouter un responsable')");
+await dir.fill("#r-prenom", "Sami"); await dir.fill("#r-nom", "Test"); await dir.fill("#r-email", `sami.test@${D}`);
+await dir.click("button:has-text('Créer son accès')");
+ok(await dir.locator(".secret").waitFor({ timeout: 8000 }).then(() => true, () => false), "la direction crée un accès responsable avec mot de passe provisoire");
 
 // Import CSV
 const csv = `nom;prenom;classe;date_naissance\nIMPORT;Alice;2nde MS;12/02/2010\nIMPORT;Bob;Tle MS;12/02/2008\n;Vide;2nde MS;\n`;

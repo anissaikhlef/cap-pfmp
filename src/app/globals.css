@@ -116,3 +116,27 @@ details[open] > summary { margin-bottom: 10px; }
   body, .convention { background: #fff; color: #000; }
   .convention { padding: 0; max-width: none; }
 }
+
+/* Calendrier des PFMP : frise de l'année, une ligne par classe */
+.frise { min-width: 640px; display: flex; flex-direction: column; gap: 6px; }
+.frise-ligne { display: flex; align-items: center; gap: 10px; }
+.frise-classe { width: 84px; flex: none; font-weight: 700; font-size: 13px; }
+.frise-piste { position: relative; flex: 1; height: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.frise-mois .frise-piste { background: none; border: 0; height: 18px; }
+.frise-mois .frise-piste span { position: absolute; top: 0; font-size: 12px; color: var(--muted); text-align: center; white-space: nowrap; }
+.frise-sep { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.frise-barre { position: absolute; top: 3px; bottom: 3px; border-radius: 4px; background: var(--accent); }
+.frise-auj { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--bad); }
+
+/* Fiches de connexion à imprimer (une par élève ou parent) */
+.fiches { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.fiche { border: 1px dashed var(--muted); border-radius: 10px; padding: 14px; background: var(--surface); display: flex; flex-direction: column; gap: 6px; break-inside: avoid; }
+.fiche-corps { display: flex; gap: 12px; align-items: center; }
+.fiche dl { margin: 0; flex: 1; min-width: 0; font-size: 14px; }
+.fiche dt { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.fiche dt:first-child { margin-top: 0; }
+.fiche dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.fiche-mdp { font-family: var(--f-mono); }
+.fiche-qr { flex: none; }
+.fiche-qr svg { width: 104px; height: 104px; display: block; }
+@media print { .fiches { grid-template-columns: 1fr 1fr; } .fiche { background: #fff; color: #000; } }

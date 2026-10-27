@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
-import { a, estGestionnaire, idsElevesGeres } from "@/lib/acces";
+import { a, estGestionnaire, gereLesAcces, idsElevesGeres } from "@/lib/acces";
 import { entrepriseDuLycee } from "@/lib/stages";
 import { domaines } from "@/lib/domaines";
 import { dateCourte } from "@/lib/dates";
@@ -17,6 +17,7 @@ export default async function FicheEntreprise({ params }: { params: Promise<{ id
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const ctx = await contexte();
   const gestion = await estGestionnaire(ctx);
+  const acces = gereLesAcces(ctx);
   if (!gestion && !a(ctx, "professeur", "direction")) redirect("/");
   const e = await entrepriseDuLycee(ctx, id);
   if (!e) notFound();
@@ -67,22 +68,26 @@ export default async function FicheEntreprise({ params }: { params: Promise<{ id
             {tuteurs.map((t) => (
               <div key={t.id} className="actions">
                 <span className="sub">Compte : {t.prenom} {t.nom} · {t.email}</span>
-                <details><summary className="btn small">Mot de passe oublié</summary>
-                  <Formulaire action={reinitialiserTuteur} bouton="Générer un mot de passe provisoire" boutonClasse="btn small"><input type="hidden" name="userId" value={t.id} /></Formulaire>
-                </details>
+                {acces && (
+                  <details><summary className="btn small">Mot de passe oublié</summary>
+                    <Formulaire action={reinitialiserTuteur} bouton="Générer un mot de passe provisoire" boutonClasse="btn small"><input type="hidden" name="userId" value={t.id} /></Formulaire>
+                  </details>
+                )}
               </div>
             ))}
-            <details>
-              <summary className="btn small">Créer un accès tuteur</summary>
-              <Formulaire action={creerCompteTuteur} bouton="Créer l'accès" boutonClasse="btn">
-                <input type="hidden" name="entrepriseId" value={e.id} />
-                <div className="grid3">
-                  <label className="f" htmlFor="t-prenom">Prénom<input id="t-prenom" name="prenom" required /></label>
-                  <label className="f" htmlFor="t-nom">Nom<input id="t-nom" name="nom" defaultValue={e.tuteurNom?.split(" ").at(-1) ?? ""} required /></label>
-                  <label className="f" htmlFor="t-email">E-mail<input id="t-email" name="email" type="email" defaultValue={e.email ?? ""} required /></label>
-                </div>
-              </Formulaire>
-            </details>
+            {acces ? (
+              <details>
+                <summary className="btn small">Créer un accès tuteur</summary>
+                <Formulaire action={creerCompteTuteur} bouton="Créer l'accès" boutonClasse="btn">
+                  <input type="hidden" name="entrepriseId" value={e.id} />
+                  <div className="grid3">
+                    <label className="f" htmlFor="t-prenom">Prénom<input id="t-prenom" name="prenom" required /></label>
+                    <label className="f" htmlFor="t-nom">Nom<input id="t-nom" name="nom" defaultValue={e.tuteurNom?.split(" ").at(-1) ?? ""} required /></label>
+                    <label className="f" htmlFor="t-email">E-mail<input id="t-email" name="email" type="email" defaultValue={e.email ?? ""} required /></label>
+                  </div>
+                </Formulaire>
+              </details>
+            ) : <p className="sub" style={{ margin: 0 }}>Les comptes et les mots de passe sont créés par le DDFPT.</p>}
           </div>
           <div className="panel pad section">
             <h2>Modifier la fiche</h2>

@@ -2,6 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
 import { Formulaire } from "@/components/Formulaire";
+import { adresseDuSite } from "@/lib/liens";
 import { ajouterDominante, enregistrerOrganisation, supprimerDominante } from "./actions";
 
 export const metadata = { title: "Organisation" };
@@ -24,6 +25,7 @@ export default async function Organisation() {
   const r = ctx.etab.reglages;
   const dominantes = await db.select().from(schema.dominantes).where(eq(schema.dominantes.etablissementId, ctx.etab.id)).orderBy(asc(schema.dominantes.libelle));
   const on = (b: boolean) => (b ? "oui" : "non");
+  const base = await adresseDuSite();
   return (
     <>
       <div>
@@ -89,6 +91,15 @@ export default async function Organisation() {
             <div className="section"><b>Compte rendu après chaque visite</b>
               <Choix nom="compteRendu" valeur={on(r.compteRendu)} options={[["oui", "Oui, rangé dans le dossier"], ["non", "Non"]]} /></div>
           </div>
+        </div>
+        <div className="panel pad section">
+          <h2>Calendrier des PFMP</h2>
+          <p className="sub">Toutes les périodes de toutes les classes, visibles par tous les comptes du lycée ; seuls le DDFPT et la direction en fixent les dates.</p>
+          <Choix nom="calendrierPublic" valeur={on(r.calendrierPublic)} options={[
+            ["non", "Réservé aux comptes du lycée"],
+            ["oui", "Aussi consultable sans compte, avec un lien public", "Pour le site du lycée ou les mails aux entreprises. Aucun nom d'élève n'y figure."],
+          ]} />
+          {r.calendrierPublic && <p className="sub" style={{ margin: 0 }}>Lien public : <a href={`/pfmp/${ctx.etab.id}`}>{`${base}/pfmp/${ctx.etab.id}`}</a></p>}
         </div>
         <div className="panel pad section">
           <h2>Règles de stage</h2>

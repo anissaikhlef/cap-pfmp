@@ -2,7 +2,7 @@ import Link from "next/link";
 import { and, desc, eq, notInArray } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { Contexte } from "@/lib/auth";
-import { peutGererEleve, a } from "@/lib/acces";
+import { estReferentDe, peutGererEleve, a } from "@/lib/acces";
 import { blocage, chargerConvention, qualitesSignature } from "@/lib/convention";
 import { modelesAutorises } from "@/lib/signature";
 import { SIGNATAIRES, VERBE_SIGNATURE } from "@/lib/regles";
@@ -60,7 +60,9 @@ export async function BlocConvention({ ctx, stageId }: { ctx: Contexte; stageId:
   const r = ctx.etab.reglages;
   const mode = r.signature;
   const estFamille = cv.e.userId === ctx.user.id || a(ctx, "parent");
-  const peutDeposer = gestion || (mode !== "enligne" && estFamille);
+  // Le professeur référent dépose aussi une convention reçue sur papier ou par courrier.
+  const referent = !gestion && (await estReferentDe(ctx, cv.e));
+  const peutDeposer = gestion || referent || (mode !== "enligne" && estFamille);
   const complete = cv.requis.every((k) => cv.s.signatures[k]);
   const dernier = r.dernierSignataire;
   return (
@@ -131,7 +133,8 @@ export async function BlocFinDeStage({ ctx, stageId }: { ctx: Contexte; stageId:
   const tuteur = a(ctx, "entreprise") && ctx.user.entrepriseId === cv.s.entrepriseId;
   const docs = await documentsDuStage(stageId);
   const termine = aujourdhui() > cv.p.fin;
-  const peutDeposer = gestion || tuteur;
+  // Le professeur référent dépose aussi un document reçu sur papier ou par courrier.
+  const peutDeposer = gestion || tuteur || (await estReferentDe(ctx, cv.e));
   return (
     <div className="panel pad section">
       <h2>Fin de stage</h2>

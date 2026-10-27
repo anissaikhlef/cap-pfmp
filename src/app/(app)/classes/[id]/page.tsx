@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { contexte } from "@/lib/auth";
-import { peutAdministrer, peutGererClasse } from "@/lib/acces";
+import { peutAdministrer, peutFixerLesDates, peutGererClasse } from "@/lib/acces";
+import { dateLongue } from "@/lib/dates";
 import { classesAvecPeriodes, professeurs, texteperiode } from "@/lib/requetes";
 import { Formulaire } from "@/components/Formulaire";
 import { ChampsClasse } from "../ChampsClasse";
@@ -14,6 +15,7 @@ export default async function Classe({ params }: { params: Promise<{ id: string 
   const [c] = await classesAvecPeriodes(ctx, [id]);
   if (!c) notFound();
   const profs = await professeurs(ctx);
+  const dates = peutFixerLesDates(ctx);
   return (
     <>
       <div className="actions" style={{ justifyContent: "space-between" }}>
@@ -22,9 +24,10 @@ export default async function Classe({ params }: { params: Promise<{ id: string 
       </div>
       <div className="panel pad section">
         <h2>Périodes de PFMP</h2>
+        {!dates && <p className="sub" style={{ margin: 0 }}>Les dates de PFMP sont fixées par le DDFPT. Elles figurent aussi dans le <Link href="/calendrier">calendrier des PFMP</Link>.</p>}
         <div className="panel rows">
-          {c.periodes.length === 0 && <div className="empty">Aucune période. Ajoutez la première ci-dessous.</div>}
-          {c.periodes.map((p) => (
+          {c.periodes.length === 0 && <div className="empty">{dates ? "Aucune période. Ajoutez la première ci-dessous." : "Aucune période pour l'instant."}</div>}
+          {c.periodes.map((p) => dates ? (
             <div key={p.id} className="row">
               <Formulaire action={modifierPeriode} className="actions" bouton="Enregistrer" boutonClasse="btn small">
                 <input type="hidden" name="id" value={p.id} />
@@ -39,14 +42,20 @@ export default async function Classe({ params }: { params: Promise<{ id: string 
                 <button className="btn small danger" title="Impossible si des stages y sont rattachés">Supprimer</button>
               </form>
             </div>
+          ) : (
+            <div key={p.id} className="row">
+              <div className="main"><div className="name">{p.libelle}</div><div className="meta">du {dateLongue(p.debut)} au {dateLongue(p.fin)} · {texteperiode(p)}</div></div>
+            </div>
           ))}
         </div>
-        <Formulaire action={ajouterPeriode} className="actions" bouton="Ajouter la période" boutonClasse="btn">
-          <input type="hidden" name="classeId" value={c.id} />
-          <label className="f" htmlFor="np-l">Nom<input id="np-l" name="libelle" defaultValue={`PFMP ${c.periodes.length + 1}`} /></label>
-          <label className="f" htmlFor="np-d">Début<input id="np-d" name="debut" type="date" required /></label>
-          <label className="f" htmlFor="np-f">Fin<input id="np-f" name="fin" type="date" required /></label>
-        </Formulaire>
+        {dates && (
+          <Formulaire action={ajouterPeriode} className="actions" bouton="Ajouter la période" boutonClasse="btn">
+            <input type="hidden" name="classeId" value={c.id} />
+            <label className="f" htmlFor="np-l">Nom<input id="np-l" name="libelle" defaultValue={`PFMP ${c.periodes.length + 1}`} /></label>
+            <label className="f" htmlFor="np-d">Début<input id="np-d" name="debut" type="date" required /></label>
+            <label className="f" htmlFor="np-f">Fin<input id="np-f" name="fin" type="date" required /></label>
+          </Formulaire>
+        )}
       </div>
       <div className="panel pad section">
         <h2>Paramètres de la classe</h2>

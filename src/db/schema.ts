@@ -26,6 +26,8 @@ export type Reglages = {
   dernierSignataire: "professeur" | "direction";
   ordreMission: boolean;
   compteRendu: boolean;
+  /** Calendrier des PFMP consultable sans compte, avec un lien public (sans aucun nom d'élève). */
+  calendrierPublic: boolean;
   regles: {
     heuresMin: number;
     heuresMax: number;
@@ -67,6 +69,7 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   dernierSignataire: "direction",
   ordreMission: true,
   compteRendu: true,
+  calendrierPublic: false,
   regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2, reglesMineurs: true },
   relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5 },
 };
@@ -273,17 +276,21 @@ export const stages = pgTable("stages", {
 }, (t) => [uniqueIndex("stages_eleve_periode_idx").on(t.eleveId, t.periodeId), index("stages_entreprise_idx").on(t.entrepriseId)]);
 
 /**
- * Liens personnels envoyés par mail ou SMS à ceux qui n'ont pas de compte : signer une convention,
- * répondre à la campagne de rentrée. Seule l'empreinte du jeton est enregistrée ; le lien expire.
+ * Liens personnels envoyés par mail ou SMS : signer une convention ou répondre à la campagne de rentrée sans compte,
+ * se connecter sans mot de passe (élèves, parents, entreprises). Seule l'empreinte du jeton est enregistrée ; le lien expire.
  */
+export type ObjetLien = "signature" | "campagne" | "connexion";
+
 export const liensAcces = pgTable("liens_acces", {
   id: uuid("id").primaryKey().defaultRandom(),
   etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
   jeton: text("jeton").notNull(),
-  objet: text("objet").$type<"signature" | "campagne">().notNull(),
+  objet: text("objet").$type<ObjetLien>().notNull(),
   stageId: uuid("stage_id").references(() => stages.id, { onDelete: "cascade" }),
   qualite: text("qualite").$type<Signataire>(),
   entrepriseId: uuid("entreprise_id").references(() => entreprises.id, { onDelete: "cascade" }),
+  /** Lien de connexion : le compte qu'il ouvre. */
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
   destinataire: text("destinataire").notNull(),
   expireLe: timestamp("expire_le", { withTimezone: true }).notNull(),
   utiliseLe: timestamp("utilise_le", { withTimezone: true }),

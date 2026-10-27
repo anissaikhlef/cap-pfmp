@@ -36,6 +36,8 @@ export async function liensPour(ctx: Contexte): Promise<Lien[]> {
   if (a(ctx, "parent")) l.push({ href: "/mon-enfant", libelle: "Mon enfant" });
   if (a(ctx, "entreprise")) l.push({ href: "/stagiaires", libelle: "Mes stagiaires" });
   if (!l.length) l.push({ href: "/", libelle: "Accueil" });
+  // Le calendrier des PFMP est visible par tous (décision d'Anissa).
+  l.push({ href: "/calendrier", libelle: "Calendrier" });
   return dedoublonner(l);
 }
 

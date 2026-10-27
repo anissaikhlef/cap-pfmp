@@ -57,6 +57,13 @@
       "when": 1793117600101,
       "tag": "0007_rythmes_de_rappel",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793118554390,
+      "tag": "0008_lien_de_connexion",
+      "breakpoints": true
     }
   ]
 }

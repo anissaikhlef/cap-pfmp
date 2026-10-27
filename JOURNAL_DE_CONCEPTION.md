@@ -254,3 +254,19 @@ Le résultat est présenté à Anissa avant 6. la formation incluse et 7. les ag
 - **Jamais de relance le samedi ni le dimanche** : une relance prévue ce jour-là part le lundi.
 - **Réglages** dans « Organisation » : rappel quotidien des élèves (oui ou non) et début de la recherche, rythme et nombre de rappels des entreprises ; les jours avant le départ (convention) et après le signalement d'une absence restent réglables.
 - **Signature sur papier** : un lycée qui signe ses conventions sur papier ne reçoit plus d'invitations à signer en ligne.
+
+## 27 octobre 2026 : réalisation de l'étape 3 (accès, droits du DDFPT, calendrier, rattrapages)
+
+- **Comptes et mots de passe réservés au DDFPT** (et à la direction) : création des comptes des élèves, des parents et des tuteurs, mots de passe provisoires. Les professeurs référents voient l'état des comptes, sans formulaire.
+- **Comptes et fiches de connexion par classe** (« Élèves », bouton « Comptes et fiches de connexion ») : en un clic, le DDFPT crée les comptes des élèves qui ont une adresse e-mail, donne un nouveau mot de passe provisoire aux comptes jamais utilisés, et imprime une fiche par élève et par parent : adresse du site, identifiant, mot de passe provisoire, QR code qui ouvre la page de connexion avec l'identifiant déjà rempli. Les mots de passe ne sont affichés qu'une fois.
+- **Connexion sans mot de passe** : « Me connecter sans mot de passe » sur la page de connexion. Un élève, un parent ou une entreprise reçoit un lien par mail, valable 15 minutes et une seule fois. L'équipe du lycée garde son mot de passe et sa double authentification.
+- **Dépôt des documents papier** : le professeur référent peut déposer un document reçu sur papier ou par courrier (convention, attestation, livret), validé d'office, même quand le DDFPT gère les PFMP.
+- **Calendrier des PFMP** (onglet « Calendrier », pour tous les comptes) : une frise de l'année et la liste de toutes les périodes de toutes les classes. Seuls le DDFPT et la direction fixent les dates.
+- **Rattrapages** : visibles dans le calendrier par le DDFPT, la direction, la vie scolaire et les professeurs de la classe (référent et professeurs qui y ont déclaré des heures) ; la famille les voit dans son espace. Les professeurs de la classe reçoivent un mail quand un rattrapage est programmé, modifié ou annulé.
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Lien de connexion** : au plus 3 liens par heure pour une même adresse ; la réponse ne dit jamais si l'adresse a un compte. Se connecter par lien rend inutilisable un mot de passe provisoire jamais changé : la personne continue par lien, ou demande un nouveau mot de passe au DDFPT.
+2. **Fiches** : un élève sans adresse e-mail n'a pas de compte ; il est signalé pour que sa fiche soit complétée. Un parent de plusieurs élèves de la classe reçoit une seule fiche.
+3. **Calendrier public** (« Organisation ») : désactivé par défaut ; activé, il montre les dates des classes, jamais un nom d'élève ni un rattrapage.
+4. **Démonstration** : un compte DDFPT fictif (`ddfpt@demo.cap-pfmp.example`) ; les élèves du CAP ont une adresse e-mail pour essayer les fiches.

@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { contexte, hacherMotDePasse, motDePasseProvisoire } from "@/lib/auth";
-import { estGestionnaire } from "@/lib/acces";
+import { estGestionnaire, gereLesAcces } from "@/lib/acces";
 import { journaliser } from "@/lib/journal";
 import type { Etat } from "@/components/Formulaire";
 
@@ -60,7 +60,7 @@ export async function modifierEntreprise(_: Etat, fd: FormData): Promise<Etat> {
 
 export async function creerCompteTuteur(_: Etat, fd: FormData): Promise<Etat> {
   const ctx = await contexte();
-  if (!(await estGestionnaire(ctx))) return { erreur: "Action réservée aux gestionnaires des PFMP." };
+  if (!gereLesAcces(ctx)) return { erreur: "Seul le DDFPT crée les comptes et donne les mots de passe." };
   const id = z.string().uuid().parse(fd.get("entrepriseId"));
   const [ent] = await db.select().from(schema.entreprises).where(and(eq(schema.entreprises.id, id), eq(schema.entreprises.etablissementId, ctx.etab.id))).limit(1);
   if (!ent) return { erreur: "Entreprise introuvable." };
@@ -84,7 +84,7 @@ export async function creerCompteTuteur(_: Etat, fd: FormData): Promise<Etat> {
 
 export async function reinitialiserTuteur(_: Etat, fd: FormData): Promise<Etat> {
   const ctx = await contexte();
-  if (!(await estGestionnaire(ctx))) return { erreur: "Action réservée aux gestionnaires des PFMP." };
+  if (!gereLesAcces(ctx)) return { erreur: "Seul le DDFPT crée les comptes et donne les mots de passe." };
   const userId = z.string().uuid().parse(fd.get("userId"));
   const [u] = await db.select().from(schema.users).where(and(eq(schema.users.id, userId), eq(schema.users.etablissementId, ctx.etab.id))).limit(1);
   if (!u || !u.roles.includes("entreprise") || u.roles.length > 1) return { erreur: "Compte introuvable." };

@@ -46,6 +46,28 @@ export function peutAdministrer(ctx: Contexte): boolean {
   return a(ctx, "direction", "gestionnaire");
 }
 
+/**
+ * Créer les comptes, donner les mots de passe et les accès (élèves, parents, entreprises) : seulement le DDFPT
+ * (compte « Gestion des PFMP ») et la direction, même dans un lycée où les référents gèrent leurs classes (décision d'Anissa).
+ */
+export function gereLesAcces(ctx: Contexte): boolean {
+  return a(ctx, "direction", "gestionnaire");
+}
+
+/** Fixer les dates des périodes de PFMP des classes : seulement le DDFPT et la direction (décision d'Anissa). */
+export function peutFixerLesDates(ctx: Contexte): boolean {
+  return a(ctx, "direction", "gestionnaire");
+}
+
+/** Professeurs d'une classe : son référent et ceux qui y ont déclaré des heures de face à face. */
+export async function professeursDeLaClasse(etabId: string, classeId: string): Promise<string[]> {
+  const [c] = await db.select({ ref: schema.classes.referentId }).from(schema.classes)
+    .where(and(eq(schema.classes.id, classeId), eq(schema.classes.etablissementId, etabId))).limit(1);
+  const heures = await db.select({ id: schema.heuresClasses.professeurId }).from(schema.heuresClasses)
+    .where(and(eq(schema.heuresClasses.classeId, classeId), eq(schema.heuresClasses.etablissementId, etabId)));
+  return [...new Set([...(c?.ref ? [c.ref] : []), ...heures.map((h) => h.id)])];
+}
+
 /** Charge un élève de l'établissement et vérifie que l'utilisateur peut le voir. */
 export async function eleveVisible(ctx: Contexte, eleveId: string) {
   const [e] = await db

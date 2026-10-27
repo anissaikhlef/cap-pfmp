@@ -352,6 +352,19 @@ export function joursEffectues(h: Horaires, debut: string, fin: string, absences
   return { semaines: liste, prevus: somme("prevus"), absences: somme("absences"), effectues: somme("effectues"), aVenir: somme("aVenir") };
 }
 
+/** Durée d'une période en semaines, arrondie (du 5 au 23 octobre : 3 semaines). */
+export function semainesDeStage(debut: string, fin: string): number {
+  return Math.max(1, Math.round((ecartJours(debut, fin) + 1) / 7));
+}
+
+/** Où se place une période sur la frise de l'année : début et largeur, en pourcentage de la frise. */
+export function placeSurLaFrise(p: { debut: string; fin: string }, frise: { debut: string; fin: string }): { gauche: number; largeur: number } {
+  const total = ecartJours(frise.debut, frise.fin) + 1;
+  const d = Math.max(0, ecartJours(frise.debut, p.debut));
+  const f = Math.min(total, ecartJours(frise.debut, p.fin) + 1);
+  return { gauche: (d / total) * 100, largeur: (Math.max(0, f - d) / total) * 100 };
+}
+
 /** Jours d'absence comptés pour une absence : les jours prévus du stage compris entre ses deux dates. */
 export function joursDAbsence(h: Horaires, absence: { debut: string; fin: string }): number {
   return joursPrevus(h, absence.debut, absence.fin).length;

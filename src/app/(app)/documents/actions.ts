@@ -4,7 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
-import { a, peutGererEleve } from "@/lib/acces";
+import { a, estReferentDe, peutGererEleve } from "@/lib/acces";
 import { journaliser } from "@/lib/journal";
 import { enregistrerFichier } from "@/lib/stockage";
 import { envoyer } from "@/lib/messages";
@@ -62,9 +62,12 @@ export async function envoyerPourSignature(fd: FormData) {
 
 const TYPES_DEPOT: Record<string, TypeDocument> = { convention: "convention", attestation: "attestation", livret: "livret", autre: "autre" };
 
-/** Qui peut déposer quoi : l'élève et sa famille la convention ; l'entreprise l'attestation et le livret ; le gestionnaire tout. */
+/**
+ * Qui peut déposer quoi : l'élève et sa famille la convention ; l'entreprise l'attestation et le livret ; le gestionnaire
+ * et le professeur référent tout document reçu sur papier ou par courrier (décision d'Anissa).
+ */
 async function peutDeposer(ctx: Awaited<ReturnType<typeof contexte>>, cv: NonNullable<Awaited<ReturnType<typeof chargerConvention>>>, type: TypeDocument) {
-  if (await peutGererEleve(ctx, cv.e)) return true;
+  if (await deposeParLEquipe(ctx, cv)) return true;
   if (type === "convention") {
     if (ctx.etab.reglages.signature === "enligne") return false;
     if (cv.e.userId === ctx.user.id) return true;
@@ -75,6 +78,11 @@ async function peutDeposer(ctx: Awaited<ReturnType<typeof contexte>>, cv: NonNul
   }
   if ((type === "attestation" || type === "livret") && a(ctx, "entreprise") && ctx.user.entrepriseId === cv.s.entrepriseId) return true;
   return false;
+}
+
+/** La gestion des PFMP de l'élève ou son professeur référent : ils déposent un document reçu au lycée, validé d'office. */
+async function deposeParLEquipe(ctx: Awaited<ReturnType<typeof contexte>>, cv: NonNullable<Awaited<ReturnType<typeof chargerConvention>>>) {
+  return (await peutGererEleve(ctx, cv.e)) || (await estReferentDe(ctx, cv.e));
 }
 
 export async function deposer(_: Etat, fd: FormData): Promise<Etat> {
@@ -88,13 +96,13 @@ export async function deposer(_: Etat, fd: FormData): Promise<Etat> {
   if (!(f instanceof File)) return { erreur: "Choisissez un fichier." };
   const r = await enregistrerFichier(ctx.etab.id, f);
   if (typeof r === "string") return { erreur: r };
-  const gestion = await peutGererEleve(ctx, cv.e);
+  const gestion = await deposeParLEquipe(ctx, cv);
   // Un nouveau dépôt remplace celui qui attendait encore d'être vérifié.
   await db.delete(schema.documents).where(and(eq(schema.documents.stageId, stageId), eq(schema.documents.type, type), eq(schema.documents.statut, "a_verifier")));
   const [doc] = await db.insert(schema.documents).values({
     etablissementId: ctx.etab.id, eleveId: cv.e.id, stageId, anneeScolaire: cv.c.anneeScolaire, classeLibelle: cv.c.libelle, type,
     nomFichier: r.nom, cleStockage: r.cle, typeMime: r.mime, taille: r.taille, deposeParId: ctx.user.id,
-    // Déposé par le gestionnaire lui-même : validé d'office.
+    // Déposé par le gestionnaire ou le professeur référent, qui a le document papier en main : validé d'office.
     statut: gestion ? "valide" : "a_verifier", valideParId: gestion ? ctx.user.id : null, valideLe: gestion ? new Date() : null,
   }).returning();
   if (gestion) await appliquerValidation(doc, ctx.user.id);

@@ -18,6 +18,7 @@ const Schema = z.object({
   repartition: z.enum(["auto", "heures"]),
   signature: z.enum(["enligne", "papier", "les2"]),
   ordreMission: z.enum(["oui", "non"]),
+  calendrierPublic: z.enum(["oui", "non"]),
   compteRendu: z.enum(["oui", "non"]),
   heuresMin: z.coerce.number().min(0).max(48),
   heuresMax: z.coerce.number().min(1).max(48),
@@ -49,7 +50,7 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
   const reglages: Reglages = {
     gestion: v.gestion, visiteurs: v.visiteurs, repartition: v.repartition, signature: v.signature,
     signatureModele: v.signatureModele, dernierSignataire: v.dernierSignataire,
-    ordreMission: v.ordreMission === "oui", compteRendu: v.compteRendu === "oui",
+    ordreMission: v.ordreMission === "oui", compteRendu: v.compteRendu === "oui", calendrierPublic: v.calendrierPublic === "oui",
     regles: {
       heuresMin: v.heuresMin, heuresMax: v.heuresMax, nuitDebut: v.nuitDebut, nuitFin: v.nuitFin,
       dimancheInterdit: v.dimancheInterdit === "oui", joursReposConsecutifs: v.joursReposConsecutifs,

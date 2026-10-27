@@ -19,6 +19,7 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | Lot 2.3 | Allocations de stage : RIB et pièce d'identité déposés par la famille et vérifiés, jours effectués par semaine, export pour tableur | Fait |
 | Lot 2.4 | Relances automatiques réglables : places des entreprises (réponse en ligne avec un lien personnel), conventions, pièces de l'allocation et absences non justifiées | Fait |
 | Rappels | Rappel quotidien de l'élève (ce qui lui reste à faire), rappel des entreprises tous les 3 jours (5 fois au plus, puis le lycée appelle), jamais le week-end | Fait |
+| Accès | Comptes et mots de passe réservés au DDFPT, fiches de connexion par classe avec QR code, connexion sans mot de passe par lien, calendrier des PFMP pour tous, rattrapages vus par les professeurs de la classe | Fait |
 
 Les décisions de conception d'Anissa Ikhlef sont consignées, avec leur date, dans [JOURNAL_DE_CONCEPTION.md](JOURNAL_DE_CONCEPTION.md).
 
@@ -51,6 +52,7 @@ Comptes de démonstration (mot de passe `Demo-pfmp-2026`) :
 | Compte | Rôle |
 | --- | --- |
 | `direction@demo.cap-pfmp.example` | Direction : voit tout, paramètre l'organisation |
+| `ddfpt@demo.cap-pfmp.example` | DDFPT : crée les comptes et les fiches de connexion, fixe les dates de PFMP |
 | `p.martin@demo.cap-pfmp.example` | Professeur référent de la 2nde |
 | `s.benali@demo.cap-pfmp.example` | Professeure référente de la 1re (rattrapage de Mehdi) |
 | `m.garnier@demo.cap-pfmp.example` | Professeure d'enseignement général (visites à choisir) |
@@ -73,6 +75,7 @@ node e2e/etape5.mjs
 node e2e/organisations.mjs
 node e2e/lot1.mjs
 node e2e/lot2.mjs
+node e2e/acces.mjs
 node e2e/mobile.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
 ```
 

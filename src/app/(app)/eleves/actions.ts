@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { contexte, hacherMotDePasse, motDePasseProvisoire } from "@/lib/auth";
-import { classesGerees, peutGererEleve } from "@/lib/acces";
+import { classesGerees, gereLesAcces, peutGererEleve } from "@/lib/acces";
 import { journaliser } from "@/lib/journal";
 import { lireCsv, lireDate, normaliserEntete } from "@/lib/csv";
 import type { Etat } from "@/components/Formulaire";
@@ -59,6 +59,12 @@ async function eleveGere(ctxId: Awaited<ReturnType<typeof contexte>>, id: string
   return e;
 }
 
+/** Comptes et mots de passe des élèves et de leurs familles : seulement le DDFPT et la direction. */
+const REFUS_ACCES = "Seul le DDFPT crée les comptes et donne les mots de passe.";
+async function eleveDontOnGereLAcces(ctx: Awaited<ReturnType<typeof contexte>>, id: string) {
+  return gereLesAcces(ctx) ? eleveGere(ctx, id) : null;
+}
+
 export async function modifierEleve(_: Etat, fd: FormData): Promise<Etat> {
   const ctx = await contexte();
   const id = z.string().uuid().parse(fd.get("id"));
@@ -93,8 +99,8 @@ export async function archiverEleve(fd: FormData) {
 export async function creerCompteEleve(_: Etat, fd: FormData): Promise<Etat> {
   const ctx = await contexte();
   const id = z.string().uuid().parse(fd.get("eleveId"));
-  const e = await eleveGere(ctx, id);
-  if (!e) return { erreur: "Vous ne gérez pas cet élève." };
+  const e = await eleveDontOnGereLAcces(ctx, id);
+  if (!e) return { erreur: REFUS_ACCES };
   if (e.userId) return { erreur: "Cet élève a déjà un compte." };
   const email = z.string().trim().toLowerCase().email("Adresse e-mail invalide").safeParse(fd.get("email"));
   if (!email.success) return { erreur: email.error.issues[0]?.message };
@@ -114,8 +120,8 @@ export async function creerCompteEleve(_: Etat, fd: FormData): Promise<Etat> {
 export async function ajouterResponsable(_: Etat, fd: FormData): Promise<Etat> {
   const ctx = await contexte();
   const id = z.string().uuid().parse(fd.get("eleveId"));
-  const e = await eleveGere(ctx, id);
-  if (!e) return { erreur: "Vous ne gérez pas cet élève." };
+  const e = await eleveDontOnGereLAcces(ctx, id);
+  if (!e) return { erreur: REFUS_ACCES };
   const p = z.object({
     prenom: z.string().trim().min(1, "Prénom manquant").max(60),
     nom: z.string().trim().min(1, "Nom manquant").max(60),
@@ -147,7 +153,7 @@ export async function retirerResponsable(fd: FormData) {
   const ctx = await contexte();
   const eleveId = z.string().uuid().parse(fd.get("eleveId"));
   const userId = z.string().uuid().parse(fd.get("userId"));
-  if (!(await eleveGere(ctx, eleveId))) return;
+  if (!(await eleveDontOnGereLAcces(ctx, eleveId))) return;
   await db.delete(schema.responsables).where(and(eq(schema.responsables.eleveId, eleveId), eq(schema.responsables.userId, userId)));
   await journaliser(ctx, "responsable_retire", "eleve", eleveId);
   revalidatePath(`/eleves/${eleveId}`);
@@ -210,8 +216,8 @@ export async function reinitialiserCompteFamille(_: Etat, fd: FormData): Promise
   const ctx = await contexte();
   const eleveId = z.string().uuid().parse(fd.get("eleveId"));
   const userId = z.string().uuid().parse(fd.get("userId"));
-  const e = await eleveGere(ctx, eleveId);
-  if (!e) return { erreur: "Vous ne gérez pas cet élève." };
+  const e = await eleveDontOnGereLAcces(ctx, eleveId);
+  if (!e) return { erreur: REFUS_ACCES };
   const [resp] = await db.select().from(schema.responsables).where(and(eq(schema.responsables.eleveId, eleveId), eq(schema.responsables.userId, userId))).limit(1);
   if (e.userId !== userId && !resp) return { erreur: "Ce compte n'est pas lié à cet élève." };
   const secret = motDePasseProvisoire();
