@@ -1,5 +1,5 @@
 // Lot 2 : signatures (simple ou dessinée, lien personnel sans compte, référent en dernier), horaires en deux plages,
-// règles des mineurs, CV et lettre de motivation, pièces de l'allocation de stage.
+// règles des mineurs, CV et lettre de motivation, pièces de l'allocation de stage, relances automatiques.
 // Données de démonstration fraîches (npm run db:seed), application lancée avec CAP_PFMP_DATE_DU_JOUR=2026-10-26.
 import { writeFileSync } from "node:fs";
 import { BASE, D, OUT, ok, visible, session, fin, browser } from "./outils.mjs";
@@ -222,5 +222,58 @@ await dir.goto(BASE + "/");
 ok((await dir.textContent("main")).includes("dont le RIB ou la pièce d'identité manque"), "le tableau de bord signale les pièces d'allocation manquantes");
 await dir.goto(BASE + "/allocations");
 await dir.screenshot({ path: `${OUT}/l2-allocations.png`, fullPage: true });
+
+/* ------------------- Relances automatiques : campagne, pièces de l'allocation, absences ------------------- */
+await dir.goto(BASE + "/");
+await dir.click("button:has-text('Envoyer les relances du jour')");
+ok(await visible(dir.getByText("relance(s) envoyée(s)")), "la direction envoie les relances du jour");
+await dir.goto(BASE + "/messages");
+const relancesCampagne = dir.locator("details.row", { hasText: "Relance : Accueil de stagiaires" });
+const corpsGarde = await relancesCampagne.filter({ hasText: `contact@garde-ouest.${D}` }).first().locator("pre").textContent();
+const lienCampagne = corpsGarde.match(/\/repondre\/[\w-]+/)?.[0];
+ok(!!lienCampagne && corpsGarde.includes("sans créer de compte"), "14 jours après la campagne, les entreprises sans réponse sont relancées avec un lien pour répondre en ligne");
+ok(await relancesCampagne.filter({ hasText: `rh@heliance.${D}` }).count() === 0, "pas de relance pour une entreprise qui a déjà répondu");
+ok(await dir.locator("details.row", { hasText: "Allocation de stage de Mehdi RAHMANI : document à déposer" }).filter({ hasText: `l.rahmani@${D}` }).count() === 1, "la famille est relancée pour la pièce d'identité manquante");
+const corpsAbsence = await dir.locator("details.row", { hasText: "Absence de Mehdi en stage : à justifier" }).first().locator("pre").textContent();
+ok(corpsAbsence.includes("du 12 octobre 2026 au 16 octobre 2026") && corpsAbsence.includes("/mon-enfant"), "et pour l'absence pas encore justifiée, 7 jours après son signalement");
+await dir.goto(BASE + "/");
+await dir.click("button:has-text('Envoyer les relances du jour')");
+ok(await visible(dir.getByText("Aucune relance à envoyer")), "une relance n'est jamais envoyée deux fois le même jour");
+
+/* ------------- Entreprise : réponse à la campagne avec son lien, sur téléphone ------------- */
+const garde = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+await garde.goto(BASE + lienCampagne);
+t = await garde.textContent("body");
+ok(t.includes("Accueillir des élèves de") && t.includes("Garde Ouest Services") && t.includes("2nde MS"), "le lien ouvre le formulaire de l'entreprise, sans compte");
+ok((await garde.evaluate(() => document.documentElement.scrollWidth)) <= 390, "le formulaire tient sur un téléphone");
+await garde.locator("label", { hasText: "2nde MS" }).locator("input").fill("2");
+await garde.locator("label", { hasText: "CAP AS" }).locator("input").fill("1");
+await garde.click("button:has-text('Envoyer ma réponse')");
+ok((await garde.locator("#rp-nom:invalid").count()) === 1 && (await garde.textContent("body")).includes("Accueillir des élèves de"), "le nom de la personne qui répond est demandé");
+await garde.fill("#rp-nom", "J. Pereira");
+await garde.fill("#rp-commentaire", "Horaires de jour uniquement.");
+await garde.click("button:has-text('Envoyer ma réponse')");
+ok(await visible(garde.getByText("Merci, votre réponse est enregistrée")), "l'entreprise répond en ligne");
+t = await garde.textContent("body");
+ok(t.includes("2nde MS : 2 élève(s)") && t.includes("CAP AS : 1 élève(s)"), "elle voit le récapitulatif de sa réponse");
+await garde.goto(BASE + "/repondre/" + "x".repeat(43));
+ok((await garde.textContent("body")).includes("Lien introuvable"), "un lien inventé ne mène à rien");
+await dir.goto(BASE + "/campagne");
+const ligneGarde = dir.locator("tr", { hasText: "Garde Ouest Services" });
+ok((await ligneGarde.textContent()).includes("En ligne, par J. Pereira") && (await ligneGarde.locator("input[aria-label='Places 2nde MS chez Garde Ouest Services']").inputValue()) === "2", "la réponse apparaît dans le suivi de la campagne");
+await dir.goto(BASE + "/messages");
+ok((await dir.textContent("main")).includes("Campagne de rentrée : réponse de Garde Ouest Services"), "la direction est prévenue de la réponse");
+
+/* ------------------- Organisation : les délais de relance ------------------- */
+await dir.goto(BASE + "/organisation");
+ok((await dir.inputValue("#relanceCampagne")) === "7, 14" && (await dir.inputValue("#relancePiecesMax")) === "3", "les délais de relance par défaut sont affichés");
+await dir.fill("#relanceCampagne", "dans une semaine");
+await dir.click("button:has-text(\"Enregistrer l'organisation\")");
+ok(await visible(dir.getByText("Relances : indiquez des nombres de jours")), "une saisie incorrecte est refusée, sans effacer le formulaire");
+await dir.fill("#relanceCampagne", "10, 20");
+await dir.click("button:has-text(\"Enregistrer l'organisation\")");
+ok(await visible(dir.getByText("Organisation enregistrée")), "la direction règle les jours de relance");
+await dir.goto(BASE + "/campagne");
+ok((await dir.textContent("main")).includes("relancée automatiquement 10 et 20 jours après l'envoi"), "le suivi de la campagne annonce les nouveaux délais");
 
 await fin();

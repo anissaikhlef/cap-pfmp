@@ -43,6 +43,16 @@ export function dateLongue(iso: string | null | undefined): string {
   return `${j} ${MOIS_LONGS.at(m - 1)} ${a}`;
 }
 
+/** « le 12 octobre 2026 » ou « du 12 octobre 2026 au 16 octobre 2026 ». */
+export function texteDates(debut: string, fin: string): string {
+  return debut === fin ? `le ${dateLongue(debut)}` : `du ${dateLongue(debut)} au ${dateLongue(fin)}`;
+}
+
+/** Le jour (heure de Paris) d'un instant enregistré, au format « AAAA-MM-JJ ». */
+export function jourDe(d: Date): string {
+  return new Intl.DateTimeFormat("fr-CA", { timeZone: "Europe/Paris" }).format(d);
+}
+
 export function anneeScolaireDe(iso: string): string {
   const [a, m] = iso.split("-").map(Number);
   return m >= 8 ? `${a}-${a + 1}` : `${a - 1}-${a}`;

@@ -17,7 +17,7 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | Lot 2.1 | Signature simple ou dessinée au doigt, lien personnel pour signer sans compte, tuteur signataire, référent ou direction en dernier, horaires en deux plages, règles des élèves mineurs | Fait |
 | Lot 2.2 | CV et lettre de motivation : dépôt, relecture conseillée par le référent, envoi aux entreprises depuis l'application | Fait |
 | Lot 2.3 | Allocations de stage : RIB et pièce d'identité déposés par la famille et vérifiés, jours effectués par semaine, export pour tableur | Fait |
-| Lot 2.4 | Relances automatiques (places des entreprises, conventions, documents des familles) | En cours |
+| Lot 2.4 | Relances automatiques réglables : places des entreprises (réponse en ligne avec un lien personnel), conventions, pièces de l'allocation et absences non justifiées | Fait |
 
 Les décisions de conception d'Anissa Ikhlef sont consignées, avec leur date, dans [JOURNAL_DE_CONCEPTION.md](JOURNAL_DE_CONCEPTION.md).
 
@@ -86,7 +86,7 @@ Les parcours sont écrits pour le 26 octobre 2026 : lancez l'application avec `C
 | `COOKIE_SECURE` | `true` dès que le site est servi en HTTPS |
 | `SITE_URL` | Adresse publique du site (ex. `https://cap-pfmp.example.fr`), écrite dans les liens personnels envoyés par mail et SMS. Sur Vercel, l'adresse de production est trouvée automatiquement |
 | `DOUBLE_AUTH_OBLIGATOIRE` | `true` par défaut : la direction et les gestionnaires doivent activer un code sur téléphone. `false` seulement pour une démonstration |
-| `TACHES_JETON` | Jeton secret de la tâche quotidienne `/api/taches/quotidiennes` (relances automatiques), à appeler chaque matin |
+| `TACHES_JETON` | Jeton secret de la tâche quotidienne `/api/taches/quotidiennes` (relances automatiques, aux jours réglés dans « Organisation »), à appeler chaque matin |
 
 ## Organisation du code
 

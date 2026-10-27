@@ -1,7 +1,8 @@
 # Cap PFMP — consignes pour les sessions de travail
 
 - Tout le texte visible (interface, messages, commits, documentation) est en **français**. La porteuse du projet, Anissa Ikhlef, n'est pas développeuse : expliquer simplement.
-- Chaque lecture ou écriture de données passe par `src/lib/acces.ts` et filtre sur `ctx.etab.id`. Aucune action serveur sans `contexte()` en tête, sauf les pages publiques à lien personnel (`src/app/signer`) : le jeton secret, à usage unique et limité dans le temps, y remplace la session (`src/lib/liens.ts`).
+- Chaque lecture ou écriture de données passe par `src/lib/acces.ts` et filtre sur `ctx.etab.id`. Aucune action serveur sans `contexte()` en tête, sauf les pages publiques à lien personnel (`src/app/signer`, `src/app/repondre`) : le jeton secret, à usage unique et limité dans le temps, y remplace la session (`src/lib/liens.ts`).
+- Relances automatiques : `relancesDuJour()` (src/lib/relances.ts), aux jours de `reglages.relances` ; jamais de délai codé en dur.
 - L'organisation propre à chaque lycée vient de `etablissements.reglages` : ne jamais coder en dur qui gère, qui visite ou comment on signe.
 - Règles métier : fonctions pures dans `src/lib/regles.ts`, avec tests dans `tests/`.
 - Après une modification : `npm run lint`, `npm test`, `npx next build`, puis le parcours `e2e/` concerné.

@@ -188,13 +188,13 @@ async function main() {
   }
 
   // Absences en stage, signalées par le tuteur et pas encore justifiées
-  async function absence(nom: string, debut: string, fin: string, commentaire: string) {
+  async function absence(nom: string, debut: string, fin: string, commentaire: string, signaleeLe: string) {
     const [el] = await db.select().from(schema.eleves).where(and(eq(schema.eleves.nom, nom), eq(schema.eleves.etablissementId, E))).limit(1);
     const [st] = await db.select().from(schema.stages).where(eq(schema.stages.eleveId, el.id)).limit(1);
-    await db.insert(schema.absences).values({ etablissementId: E, stageId: st.id, eleveId: el.id, debut, fin, origine: "entreprise", commentaire });
+    await db.insert(schema.absences).values({ etablissementId: E, stageId: st.id, eleveId: el.id, debut, fin, origine: "entreprise", commentaire, createdAt: new Date(`${signaleeLe}T09:00:00+02:00`) });
   }
-  await absence("RAHMANI", "2026-10-12", "2026-10-16", "Malade toute la semaine, la famille a prévenu par téléphone");
-  await absence("LAURENT", "2026-10-22", "2026-10-22", "Ne s'est pas présentée, sans nouvelles");
+  await absence("RAHMANI", "2026-10-12", "2026-10-16", "Malade toute la semaine, la famille a prévenu par téléphone", "2026-10-19");
+  await absence("LAURENT", "2026-10-22", "2026-10-22", "Ne s'est pas présentée, sans nouvelles", "2026-10-22");
 
   // Rattrapage : Mehdi refait une semaine de stage, hors de la période de sa classe
   {
@@ -267,6 +267,22 @@ async function main() {
   }
   // Pièces de l'allocation déposées l'an dernier : toujours valables cette année
   await piece("LAURENT", "rib", "valide", null, "2025-2026", "1re MS"); await piece("LAURENT", "piece_identite", "valide", null, "2025-2026", "1re MS");
+
+  // Campagne de rentrée envoyée le 12 octobre : deux entreprises ont répondu, dont une en ligne avec son lien personnel.
+  // Les autres sont relancées automatiquement 7 et 14 jours après l'envoi.
+  {
+    const [c] = await db.insert(schema.campagnes).values({
+      etablissementId: E, anneeScolaire: "2026-2027", sujet: "Accueil de stagiaires en PFMP – année 2026-2027", creeParId: direction.id,
+      envoyeeLe: new Date("2026-10-12T08:00:00+02:00"),
+      message: `Madame, Monsieur,\n\n${NOM_LYCEE} prépare les périodes de formation en milieu professionnel (PFMP) de ses élèves pour l'année 2026-2027.\n\nNous serions heureux de poursuivre ou de démarrer un partenariat avec {entreprise}. Pourriez-vous nous indiquer combien d'élèves vous pourriez accueillir sur chacune de ces périodes ?\n\nCordialement,\nClaire DUVAL\n${NOM_LYCEE}`,
+    }).returning();
+    await db.insert(schema.campagneReponses).values(ents.map((x) => ({ campagneId: c.id, entrepriseId: x.id })));
+    const repondre = (n: string, places: [typeof cap, number][], le: string, extra: { repondant?: string; commentaire?: string } = {}) =>
+      db.update(schema.campagneReponses).set({ placesParClasse: Object.fromEntries(places.map(([k, v]) => [k.c.id, v])), reponduLe: new Date(`${le}T10:00:00+02:00`), ...extra })
+        .where(and(eq(schema.campagneReponses.campagneId, c.id), eq(schema.campagneReponses.entrepriseId, ent(n))));
+    await repondre("Atlas", [[sec, 2], [pre, 1], [ter, 1], [cap, 2]], "2026-10-14");
+    await repondre("Héliance", [[pre, 2], [ter, 1]], "2026-10-15", { repondant: "M. Lambert", commentaire: "Plutôt des élèves de 1re et de terminale, pour le poste SSIAP." });
+  }
 
   // Repère pour scripts/preparer.ts : ces données de démonstration sont à jour.
   await db.insert(schema.journal).values({ etablissementId: E, action: "donnees_demo", entite: "etablissement", entiteId: E, details: { version: VERSION_DONNEES_DEMO } });

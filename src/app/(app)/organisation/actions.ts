@@ -7,6 +7,7 @@ import { contexte } from "@/lib/auth";
 import { journaliser } from "@/lib/journal";
 import type { Etat } from "@/components/Formulaire";
 import type { Reglages } from "@/db/schema";
+import { lireJours } from "@/lib/regles";
 
 const heure = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Heure au format HH:MM");
 const Schema = z.object({
@@ -27,6 +28,11 @@ const Schema = z.object({
   reglesMineurs: z.enum(["oui", "non"]),
   signatureModele: z.enum(["simple", "dessinee", "les2"]),
   dernierSignataire: z.enum(["professeur", "direction"]),
+  relanceConvention: z.string(),
+  relanceFinDeStage: z.string(),
+  relanceCampagne: z.string(),
+  relanceAbsences: z.string(),
+  relancePiecesMax: z.coerce.number().int().min(0, "Relances des pièces : entre 0 et 10 fois").max(10, "Relances des pièces : entre 0 et 10 fois"),
 });
 
 export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Etat> {
@@ -35,6 +41,9 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
   if (!p.success) return { erreur: p.error.issues[0]?.message ?? "Valeurs invalides." };
   const v = p.data;
   if (v.heuresMin > v.heuresMax) return { erreur: "La durée minimale dépasse la durée maximale." };
+  const jours = [v.relanceConvention, v.relanceFinDeStage, v.relanceCampagne, v.relanceAbsences].map(lireJours);
+  if (jours.some((j) => j === null)) return { erreur: "Relances : indiquez des nombres de jours entre 1 et 60, séparés par des virgules (ex. 7, 3)." };
+  const [convention, finDeStage, campagne, absences] = jours as number[][];
   const reglages: Reglages = {
     gestion: v.gestion, visiteurs: v.visiteurs, repartition: v.repartition, signature: v.signature,
     signatureModele: v.signatureModele, dernierSignataire: v.dernierSignataire,
@@ -44,6 +53,7 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
       dimancheInterdit: v.dimancheInterdit === "oui", joursReposConsecutifs: v.joursReposConsecutifs,
       reglesMineurs: v.reglesMineurs === "oui",
     },
+    relances: { convention, finDeStage, campagne, absences, piecesMax: v.relancePiecesMax },
   };
   await db.update(schema.etablissements).set({ nom: v.nom, anneeScolaire: v.anneeScolaire, reglages }).where(eq(schema.etablissements.id, ctx.etab.id));
   await journaliser(ctx, "organisation_modifiee", "etablissement", ctx.etab.id, reglages);

@@ -11,7 +11,7 @@ import { alerter, equipeAPrevenir, responsablesDe } from "@/lib/alertes";
 import { enregistrerFichier } from "@/lib/stockage";
 import { journaliser } from "@/lib/journal";
 import { revenirAvec } from "@/lib/retour";
-import { ageAu, aujourdhui, dateCourte, dateLongue } from "@/lib/dates";
+import { ageAu, aujourdhui, dateCourte, texteDates } from "@/lib/dates";
 import { joursDAbsence } from "@/lib/regles";
 import { MOTIFS_ABSENCE } from "@/lib/constantes-absences";
 import type { Etat } from "@/components/Formulaire";
@@ -20,10 +20,6 @@ type Ctx = Awaited<ReturnType<typeof contexte>>;
 
 function rafraichir(eleveId: string) {
   for (const p of [`/eleves/${eleveId}`, "/mon-enfant", "/mon-stage", "/stagiaires", "/vie-scolaire", "/eleves", "/"]) revalidatePath(p);
-}
-
-function texteDates(debut: string, fin: string) {
-  return debut === fin ? `le ${dateLongue(debut)}` : `du ${dateLongue(debut)} au ${dateLongue(fin)}`;
 }
 
 /** Enregistre le justificatif éventuel comme document du dossier de l'élève (jamais visible par l'entreprise). */

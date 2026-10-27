@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  blocageSignature, dossierAllocationComplet, heuresHebdo, pauseConforme, piecesAVerifier, piecesManquantes, plagesDuJour,
-  reposHebdoMineur, reposQuotidienMinimal, signatairesAttendus, texteJour, verifierStage,
+  blocageSignature, dossierAllocationComplet, heuresHebdo, lireJours, pauseConforme, piecesAVerifier, piecesManquantes, plagesDuJour,
+  relanceHebdomadaireDue, reposHebdoMineur, reposQuotidienMinimal, signatairesAttendus, texteJour, verifierStage,
 } from "@/lib/regles";
 import { lireCsv, versCsv } from "@/lib/csv";
-import { REGLAGES_PAR_DEFAUT, type Horaires, type Plage, type Signatures } from "@/db/schema";
+import { completerReglages, REGLAGES_PAR_DEFAUT, type Horaires, type Plage, type Reglages, type Signatures } from "@/db/schema";
 
 const R = REGLAGES_PAR_DEFAUT.regles;
 const MATIN: Plage = ["08:30", "12:00"], APRES_MIDI: Plage = ["13:00", "16:30"];
@@ -117,6 +117,35 @@ describe("dossier d'allocation", () => {
   it("n'est pas complet sans stage dans l'année, ni avec une pièce en attente", () => {
     expect(dossierAllocationComplet({ rib: valide, piece_identite: valide }, [])).toBe(false);
     expect(dossierAllocationComplet({ rib: valide, piece_identite: attente }, [{ termine: true, attestation: valide }])).toBe(false);
+  });
+});
+
+describe("relances automatiques", () => {
+  it("lit les jours saisis dans « Organisation »", () => {
+    expect(lireJours("7, 3")).toEqual([7, 3]);
+    expect(lireJours("3 et 7")).toEqual([3, 7]);
+    expect(lireJours(" 14 ; 7 ; 7 ")).toEqual([14, 7]);
+    expect(lireJours("")).toEqual([]);
+  });
+  it("refuse une saisie qui n'est pas une liste de jours", () => {
+    expect(lireJours("une semaine")).toBeNull();
+    expect(lireJours("0")).toBeNull();
+    expect(lireJours("90")).toBeNull();
+    expect(lireJours("1, 2, 3, 4, 5, 6")).toBeNull();
+  });
+  it("relance une famille une fois par semaine", () => {
+    expect(relanceHebdomadaireDue([], "2026-10-26", 3)).toBe(true);
+    expect(relanceHebdomadaireDue(["2026-10-20"], "2026-10-26", 3)).toBe(false);
+    expect(relanceHebdomadaireDue(["2026-10-19"], "2026-10-26", 3)).toBe(true);
+  });
+  it("au plus le nombre de fois réglé", () => {
+    expect(relanceHebdomadaireDue(["2026-10-05", "2026-10-12", "2026-10-19"], "2026-10-26", 3)).toBe(false);
+    expect(relanceHebdomadaireDue([], "2026-10-26", 0)).toBe(false);
+  });
+  it("un lycée enregistré avant les relances reçoit les délais par défaut", () => {
+    const r = completerReglages({ gestion: "ddfpt" } as Partial<Reglages>);
+    expect(r.relances).toEqual({ convention: [7, 3], finDeStage: [3, 10], campagne: [7, 14], absences: [2, 7], piecesMax: 3 });
+    expect(completerReglages({ relances: { campagne: [10] } } as unknown as Partial<Reglages>).relances.campagne).toEqual([10]);
   });
 });
 

@@ -161,3 +161,19 @@ Les questions de détail (sources des opportunités, validation humaine avant l'
 2. **Qui voit le RIB et la pièce d'identité** : seulement la gestion des PFMP, la direction, l'élève et ses responsables légaux. Les professeurs qui visitent l'élève, la vie scolaire et les entreprises ne les voient pas.
 3. **Pièce refusée** : la famille reçoit le motif par mail et dépose une nouvelle pièce ; une pièce en cours de vérification n'est pas redemandée.
 4. **Tableau de bord** : « À faire » signale les élèves qui ont un lieu de stage mais dont le RIB ou la pièce d'identité manque.
+
+## 27 octobre 2026 : réalisation du lot 2.4 (relances automatiques)
+
+D'après la décision 6 du lot 2 (« la relance de mail pour les entreprises pour nous donner le nombre de places, la signature de convention, relance parent et élève pour les documents »).
+
+- **Places des entreprises** : chaque mail de la campagne de rentrée contient un lien personnel. L'entreprise indique, sans compte, combien d'élèves elle peut accueillir pour chaque classe, avec son nom et un commentaire. La réponse s'inscrit dans le suivi de la campagne, met à jour l'annuaire et les suggestions faites aux élèves, et la personne qui a lancé la campagne est prévenue par mail. Sans réponse, l'entreprise est relancée automatiquement 7 et 14 jours après l'envoi, avec un nouveau lien.
+- **Signature de la convention** : relances 7 et 3 jours avant le départ (déjà en place), avec le lien personnel pour signer.
+- **Documents des familles** : quand le RIB ou la pièce d'identité manque, la famille (le responsable légal, ou l'élève majeur) est relancée une fois par semaine, au plus 3 fois dans l'année. Le mail ne dit pas que le lycée peut déposer ces pièces lui-même.
+- **Absences non justifiées** : la famille est relancée 2 et 7 jours après le signalement de l'absence.
+- **Délais réglables** : tous ces jours se règlent dans « Organisation », rubrique « Relances automatiques » (une liste vide : pas de relance).
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Lien de la campagne** : valable 30 jours, il ne sert qu'une fois ; une nouvelle campagne annule les liens de la précédente. Pour modifier sa réponse, l'entreprise répond au mail du lycée.
+2. **Relance des familles** : elle commence dès que l'élève a un lieu de stage dans l'année, et compte à nouveau à partir de 0 chaque année scolaire.
+3. **Bouton « Envoyer les relances du jour »** : la campagne de rentrée, qui concerne tout le lycée, n'est relancée d'ici que par la direction ou la gestion de tout l'établissement ; les relances partent aussi seules chaque matin.

@@ -43,6 +43,13 @@
       "when": 1793091363749,
       "tag": "0005_lot2_pieces_jointes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793093188101,
+      "tag": "0006_lot2_relances_campagne",
+      "breakpoints": true
     }
   ]
 }

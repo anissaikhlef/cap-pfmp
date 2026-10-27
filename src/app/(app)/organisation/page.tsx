@@ -110,6 +110,17 @@ export default async function Organisation() {
             </label>
           </div>
         </div>
+        <div className="panel pad section">
+          <h2>Relances automatiques</h2>
+          <p className="sub">Envoyées chaque matin par mail, avec un lien personnel pour ceux qui n&apos;ont pas de compte. Indiquez les jours séparés par des virgules ; laissez vide pour ne pas relancer.</p>
+          <div className="grid2">
+            <label className="f" htmlFor="relanceConvention">Convention pas encore signée : jours avant le départ<input id="relanceConvention" name="relanceConvention" defaultValue={r.relances.convention.join(", ")} placeholder="Ex. 7, 3" /></label>
+            <label className="f" htmlFor="relanceFinDeStage">Attestation et livret pas reçus : jours après la fin du stage<input id="relanceFinDeStage" name="relanceFinDeStage" defaultValue={r.relances.finDeStage.join(", ")} placeholder="Ex. 3, 10" /></label>
+            <label className="f" htmlFor="relanceCampagne">Entreprises sans réponse à la campagne de rentrée : jours après l&apos;envoi<input id="relanceCampagne" name="relanceCampagne" defaultValue={r.relances.campagne.join(", ")} placeholder="Ex. 7, 14" /></label>
+            <label className="f" htmlFor="relanceAbsences">Absence pas encore justifiée : jours après son signalement<input id="relanceAbsences" name="relanceAbsences" defaultValue={r.relances.absences.join(", ")} placeholder="Ex. 2, 7" /></label>
+            <label className="f" htmlFor="relancePiecesMax">RIB ou pièce d&apos;identité manquant : relance chaque semaine, au plus (fois par an, 0 pour jamais)<input id="relancePiecesMax" name="relancePiecesMax" type="number" min={0} max={10} defaultValue={r.relances.piecesMax} /></label>
+          </div>
+        </div>
       </Formulaire>
 
       <div className="panel pad section">

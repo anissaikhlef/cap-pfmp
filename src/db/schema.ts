@@ -36,6 +36,19 @@ export type Reglages = {
     /** Règles du code du travail pour les élèves mineurs (article 10 de la convention). */
     reglesMineurs: boolean;
   };
+  /** Relances automatiques, envoyées chaque matin. Une liste de jours vide : pas de relance. */
+  relances: {
+    /** Convention pas encore signée par tous : jours avant le départ en stage. */
+    convention: number[];
+    /** Attestation et livret pas encore reçus : jours après la fin du stage. */
+    finDeStage: number[];
+    /** Entreprises sans réponse à la campagne de rentrée : jours après l'envoi. */
+    campagne: number[];
+    /** Absence pas encore justifiée : jours après son signalement. */
+    absences: number[];
+    /** RIB ou pièce d'identité manquant : une relance par semaine, au plus ce nombre de fois dans l'année (0 : jamais). */
+    piecesMax: number;
+  };
 };
 
 export const REGLAGES_PAR_DEFAUT: Reglages = {
@@ -48,11 +61,16 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   ordreMission: true,
   compteRendu: true,
   regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2, reglesMineurs: true },
+  relances: { convention: [7, 3], finDeStage: [3, 10], campagne: [7, 14], absences: [2, 7], piecesMax: 3 },
 };
 
 /** Réglages enregistrés complétés par les valeurs par défaut : un lycée créé avant l'ajout d'un réglage le reçoit ainsi. */
 export function completerReglages(r: Partial<Reglages> | null | undefined): Reglages {
-  return { ...REGLAGES_PAR_DEFAUT, ...(r ?? {}), regles: { ...REGLAGES_PAR_DEFAUT.regles, ...(r?.regles ?? {}) } };
+  return {
+    ...REGLAGES_PAR_DEFAUT, ...(r ?? {}),
+    regles: { ...REGLAGES_PAR_DEFAUT.regles, ...(r?.regles ?? {}) },
+    relances: { ...REGLAGES_PAR_DEFAUT.relances, ...(r?.relances ?? {}) },
+  };
 }
 
 /** Une plage horaire : début et fin, « HH:MM ». */
@@ -377,6 +395,9 @@ export const campagneReponses = pgTable("campagne_reponses", {
   placesParClasse: jsonb("places_par_classe").$type<Record<string, number>>(),
   reponduLe: timestamp("repondu_le", { withTimezone: true }),
   relanceLe: timestamp("relance_le", { withTimezone: true }),
+  /** Réponse en ligne avec le lien personnel : nom de la personne qui a répondu, et son commentaire. */
+  repondant: text("repondant"),
+  commentaire: text("commentaire"),
 }, (t) => [primaryKey({ columns: [t.campagneId, t.entrepriseId] })]);
 
 /** File des mails et SMS. En l'absence de prestataire configuré, les messages sont « simulés » et seulement consignés. */

@@ -384,3 +384,25 @@ export function dossierAllocationComplet(p: PiecesAllocation | undefined, stages
   return PIECES_ALLOCATION.every((t) => p?.[t]?.statut === "valide")
     && stages.length > 0 && stages.filter((s) => s.termine).every((s) => s.attestation?.statut === "valide");
 }
+
+/* ------------------------------------------------------------------ */
+/* Relances automatiques                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Jours de relance saisis dans « Organisation » : « 7, 3 », « 7 et 3 », « 7 3 ». Vide : aucune relance.
+ * Renvoie null si la saisie n'est pas une liste de nombres de jours entre 1 et 60 (5 au plus).
+ */
+export function lireJours(texte: string): number[] | null {
+  const t = texte.trim();
+  if (!t) return [];
+  const morceaux = t.split(/\s*(?:,|;|\bet\b|\s)\s*/).filter(Boolean);
+  if (!morceaux.every((m) => /^\d{1,2}$/.test(m))) return null;
+  const jours = [...new Set(morceaux.map(Number))];
+  return jours.every((j) => j >= 1 && j <= 60) && jours.length <= 5 ? jours : null;
+}
+
+/** Une relance par semaine, au plus `max` fois : `dejaEnvoyees` sont les jours des relances précédentes. */
+export function relanceHebdomadaireDue(dejaEnvoyees: string[], jour: string, max: number): boolean {
+  return dejaEnvoyees.length < max && dejaEnvoyees.every((d) => ecartJours(d, jour) >= 7);
+}

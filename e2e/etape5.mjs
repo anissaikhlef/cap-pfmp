@@ -25,11 +25,13 @@ await dir.goto(BASE + "/messages");
 t = await dir.textContent("main");
 ok(t.includes("documents à transmettre") && t.includes("Simulé"), "les relances apparaissent dans les messages");
 
-// Campagne de rentrée
+// Campagne de rentrée (une campagne a déjà été envoyée le 12 octobre : on en envoie une nouvelle)
 await dir.goto(BASE + "/campagne");
+ok((await dir.textContent("main")).includes("En ligne, par M. Lambert"), "les réponses de la campagne précédente s'affichent");
+await dir.click("summary:has-text('Nouvelle campagne')");
 const msg = await dir.inputValue("#message");
 ok(msg.includes("2nde MS") && msg.includes("16 novembre 2026"), "le message reprend les dates de PFMP du calendrier");
-await dir.click("button:has-text('Envoyer la campagne')");
+await dir.click("button:has-text('Envoyer une nouvelle campagne')");
 ok(await visible(dir.getByText("Campagne envoyée à")), "envoie la campagne");
 const atlas = dir.locator("tr", { hasText: "Atlas Sûreté" });
 await atlas.locator("input[type=number]").first().fill("2");

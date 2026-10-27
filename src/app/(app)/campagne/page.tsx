@@ -56,7 +56,11 @@ export default async function Campagne() {
             <h2>Réponses à la campagne du {dateCourte(c.envoyeeLe!.toISOString().slice(0, 10))}</h2>
             <form action={relancerCampagne}><ChampRetour /><button className="btn" disabled={!sansReponse}>Relancer les {sansReponse} entreprise(s) sans réponse</button></form>
           </div>
-          <p className="sub">Saisissez les places annoncées par chaque entreprise : l&apos;annuaire et les suggestions faites aux élèves se mettent à jour.</p>
+          <p className="sub">
+            Chaque entreprise a reçu un lien personnel pour répondre en ligne, sans compte
+            {ctx.etab.reglages.relances.campagne.length > 0 && <> ; sans réponse, elle est relancée automatiquement {ctx.etab.reglages.relances.campagne.slice().sort((x, y) => x - y).join(" et ")} jours après l&apos;envoi</>}.
+            Vous pouvez aussi saisir les places annoncées par téléphone : l&apos;annuaire et les suggestions faites aux élèves se mettent à jour.
+          </p>
           <div className="panel tbl">
             <table>
               <thead><tr><th>Entreprise</th><th>Statut</th>{classes.map((cl) => <th key={cl.id}>{cl.libelle}</th>)}<th></th></tr></thead>
@@ -64,7 +68,11 @@ export default async function Campagne() {
                 {reponses.map(({ r, e }) => (
                   <tr key={e.id}>
                     <td><b>{e.nom}</b><div className="sub">{e.email ?? "pas d'e-mail"}</div></td>
-                    <td>{r.reponduLe ? <Pill ton="ok">Réponse reçue</Pill> : <Pill ton="warn">{r.relanceLe ? "Relancée" : "En attente"}</Pill>}</td>
+                    <td>
+                      {r.reponduLe ? <Pill ton="ok">Réponse reçue</Pill> : <Pill ton="warn">{r.relanceLe ? "Relancée" : "En attente"}</Pill>}
+                      {r.repondant && <div className="sub">En ligne, par {r.repondant}</div>}
+                      {r.commentaire && <div className="sub">« {r.commentaire} »</div>}
+                    </td>
                     {classes.map((cl) => (
                       <td key={cl.id}><input form={`f-${e.id}`} className="inp num" type="number" min={0} max={20} name={`places_${cl.id}`} defaultValue={r.placesParClasse?.[cl.id] ?? ""} aria-label={`Places ${cl.libelle} chez ${e.nom}`} style={{ width: 64 }} /></td>
                     ))}
