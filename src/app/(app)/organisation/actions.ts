@@ -36,6 +36,8 @@ const Schema = z.object({
   eleveRechercheJours: z.coerce.number().int().min(0, "Rappel des élèves : entre 0 et 180 jours").max(180, "Rappel des élèves : entre 0 et 180 jours"),
   entrepriseIntervalle: z.coerce.number().int().min(0, "Rappel des entreprises : entre 0 et 30 jours").max(30, "Rappel des entreprises : entre 0 et 30 jours"),
   entrepriseMax: z.coerce.number().int().min(1, "Rappels des entreprises : entre 1 et 20 fois").max(20, "Rappels des entreprises : entre 1 et 20 fois"),
+  accueilAvant: z.coerce.number().int().min(0, "Mail d'accueil : entre 0 et 30 jours").max(30, "Mail d'accueil : entre 0 et 30 jours"),
+  remerciementApres: z.coerce.number().int().min(0, "Remerciements : entre 0 et 30 jours").max(30, "Remerciements : entre 0 et 30 jours"),
 });
 
 export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Etat> {
@@ -60,6 +62,7 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
       convention, absences, piecesMax: v.relancePiecesMax,
       eleveQuotidien: v.eleveQuotidien === "oui", eleveRechercheJours: v.eleveRechercheJours,
       entrepriseIntervalle: v.entrepriseIntervalle, entrepriseMax: v.entrepriseMax,
+      accueilAvant: v.accueilAvant, remerciementApres: v.remerciementApres,
     },
   };
   await db.update(schema.etablissements).set({ nom: v.nom, anneeScolaire: v.anneeScolaire, reglages }).where(eq(schema.etablissements.id, ctx.etab.id));

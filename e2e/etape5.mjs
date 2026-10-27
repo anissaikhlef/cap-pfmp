@@ -16,14 +16,14 @@ let t = await dir.textContent("main");
 ok(t.includes("À faire") && t.includes("document(s) déposé(s) à vérifier") && t.includes("ordre(s) de mission à signer"), "le tableau de bord liste ce qui est à faire");
 await dir.screenshot({ path: `${OUT}/e5-tableau.png`, fullPage: true });
 
-// Relances du jour : la 1re a fini son stage il y a 3 jours, des documents manquent
+// Relances du jour : la 1re a fini son stage vendredi ; lundi, les entreprises reçoivent les remerciements et le lien pour déposer les documents
 await dir.click("button:has-text('Envoyer les relances du jour')");
 ok(await visible(dir.getByText("relance(s) envoyée(s)")), "envoie les relances du jour");
 await dir.click("button:has-text('Envoyer les relances du jour')");
 ok(await visible(dir.getByText("Aucune relance à envoyer")), "n'envoie pas deux fois la même relance");
 await dir.goto(BASE + "/messages");
 t = await dir.textContent("main");
-ok(t.includes("documents à transmettre") && t.includes("Simulé"), "les relances apparaissent dans les messages");
+ok(t.includes("Merci d'avoir accueilli") && t.includes("/deposer/") && t.includes("Simulé"), "les remerciements aux entreprises apparaissent dans les messages, avec le lien de dépôt");
 
 // Campagne de rentrée (une campagne a déjà été envoyée le 12 octobre : on en envoie une nouvelle)
 await dir.goto(BASE + "/campagne");

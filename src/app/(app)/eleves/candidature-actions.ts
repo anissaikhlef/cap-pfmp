@@ -101,7 +101,7 @@ export async function envoyerCandidature(_: Etat, fd: FormData): Promise<Etat> {
   let entreprise: { id: string | null; nom: string; email: string } | null = null;
   if (p.data.entrepriseId) {
     const ent = await entrepriseDuLycee(ctx, p.data.entrepriseId);
-    if (!ent) return { erreur: "Entreprise introuvable." };
+    if (!ent || ent.ecarteeLe) return { erreur: "Cette entreprise n'est plus proposée par le lycée. Choisissez-en une autre." };
     const email = p.data.autreEmail || ent.representantEmail || ent.email;
     if (!email) return { erreur: `${ent.nom} n'a pas d'adresse e-mail dans l'annuaire : indiquez-la ci-dessous.` };
     entreprise = { id: ent.id, nom: ent.nom, email };

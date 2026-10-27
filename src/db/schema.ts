@@ -57,6 +57,10 @@ export type Reglages = {
     entrepriseIntervalle: number;
     /** Au plus ce nombre de rappels pour une même demande ; ensuite, le lycée est prévenu pour appeler l'entreprise. */
     entrepriseMax: number;
+    /** Mail d'accueil à l'entreprise, ce nombre de jours avant le début du stage (0 : pas de mail). */
+    accueilAvant: number;
+    /** Remerciements à l'entreprise, avec le lien pour l'attestation et le livret, ce nombre de jours après la fin (0 : pas de mail). */
+    remerciementApres: number;
   };
 };
 
@@ -71,7 +75,7 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   compteRendu: true,
   calendrierPublic: false,
   regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2, reglesMineurs: true },
-  relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5 },
+  relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1 },
 };
 
 /** Réglages enregistrés complétés par les valeurs par défaut : un lycée créé avant l'ajout d'un réglage le reçoit ainsi. */
@@ -147,6 +151,13 @@ export const entreprises = pgTable("entreprises", {
   representantFonction: text("representant_fonction"),
   representantEmail: text("representant_email"),
   notesInternes: text("notes_internes"),
+  /**
+   * Entreprise écartée par le DDFPT ou la direction : plus proposée aux élèves, plus de nouveau stage.
+   * Le motif reste interne au lycée, jamais visible par l'entreprise, les élèves ni les familles.
+   */
+  ecarteeLe: timestamp("ecartee_le", { withTimezone: true }),
+  ecarteeMotif: text("ecartee_motif"),
+  ecarteeParId: uuid("ecartee_par_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("entreprises_etab_idx").on(t.etablissementId)]);
 
@@ -276,10 +287,11 @@ export const stages = pgTable("stages", {
 }, (t) => [uniqueIndex("stages_eleve_periode_idx").on(t.eleveId, t.periodeId), index("stages_entreprise_idx").on(t.entrepriseId)]);
 
 /**
- * Liens personnels envoyés par mail ou SMS : signer une convention ou répondre à la campagne de rentrée sans compte,
- * se connecter sans mot de passe (élèves, parents, entreprises). Seule l'empreinte du jeton est enregistrée ; le lien expire.
+ * Liens personnels envoyés par mail ou SMS : signer une convention, répondre à la campagne de rentrée ou déposer
+ * l'attestation et le livret sans compte, se connecter sans mot de passe (élèves, parents, entreprises).
+ * Seule l'empreinte du jeton est enregistrée ; le lien expire.
  */
-export type ObjetLien = "signature" | "campagne" | "connexion";
+export type ObjetLien = "signature" | "campagne" | "connexion" | "documents";
 
 export const liensAcces = pgTable("liens_acces", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -390,6 +402,19 @@ export const notesEleves = pgTable("notes_eleves", {
   texte: text("texte").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("notes_eleves_eleve_idx").on(t.eleveId, t.createdAt)]);
+
+/** Souci signalé avec une entreprise (par un professeur ou la gestion) : compte dans sa note de partenariat. Jamais visible par l'entreprise. */
+export type CategorieSouci = "horaires" | "securite" | "comportement" | "taches" | "documents" | "autre";
+export const soucisEntreprises = pgTable("soucis_entreprises", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  entrepriseId: uuid("entreprise_id").notNull().references(() => entreprises.id, { onDelete: "cascade" }),
+  eleveId: uuid("eleve_id").references(() => eleves.id, { onDelete: "set null" }),
+  auteurId: uuid("auteur_id").references(() => users.id, { onDelete: "set null" }),
+  categorie: text("categorie").$type<CategorieSouci>().notNull(),
+  description: text("description").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("soucis_entreprise_idx").on(t.entrepriseId)]);
 
 /* ------------------------------------------------------------------ */
 /* Campagne de rentrée et messages sortants                             */

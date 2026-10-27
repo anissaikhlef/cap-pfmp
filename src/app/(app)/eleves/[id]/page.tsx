@@ -100,7 +100,7 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
               <label className="f" htmlFor="s-ent">Entreprise
                 <select id="s-ent" name="entrepriseId" defaultValue={d.entreprise?.id ?? ""} required>
                   <option value="" disabled>— Choisir dans l&apos;annuaire —</option>
-                  {entreprises.map((x) => <option key={x.id} value={x.id}>{x.nom}{x.ville ? ` (${x.ville})` : ""}</option>)}
+                  {entreprises.map((x) => <option key={x.id} value={x.id} disabled={!!x.ecarteeLe && x.id !== d.entreprise?.id}>{x.nom}{x.ville ? ` (${x.ville})` : ""}{x.ecarteeLe ? " · écartée" : ""}</option>)}
                 </select>
               </label>
               <p className="sub" style={{ margin: 0 }}>L&apos;entreprise n&apos;est pas dans la liste ? <a href="/entreprises/nouvelle">Ajoutez-la à l&apos;annuaire</a>.</p>
@@ -128,7 +128,7 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
 
       <div className="panel pad section">
         <h2>Démarches de l&apos;élève</h2>
-        <Demarches eleveId={e.id} demarches={dem} entreprises={entreprises} />
+        <Demarches eleveId={e.id} demarches={dem} entreprises={entreprises.filter((x) => !x.ecarteeLe)} />
       </div>
 
       <div className="grid2">

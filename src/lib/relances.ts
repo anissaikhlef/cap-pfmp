@@ -2,16 +2,17 @@ import "server-only";
 import { and, eq, gte, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { envoyer } from "./messages";
-import { ageAu, ajouterJours, aujourdhui, dateLongue, ecartJours, jourDe, texteDates } from "./dates";
+import { ageAu, ajouterJours, aujourdhui, dateLongue, ecartJours, jourDe, JOURS, texteDates } from "./dates";
 import { chargerConventionEtab } from "./convention";
 import { inviterASigner } from "./invitations";
 import { adresseDuSite } from "./liens";
+import { contactDuStage, documentsManquants, lienDeDepot } from "./entreprises-accueil";
 import { responsablesDe } from "./alertes";
 import { piecesAllocation } from "./allocations";
 import { candidaturesDe } from "./candidatures";
 import { campagneDe, relancerEntreprise, reponsesCampagne } from "./campagne";
 import { referentDe } from "./requetes";
-import { estJourOuvre, jourDeRelance, piecesManquantes, relanceCyclique, relanceHebdomadaireDue, tachesEleve } from "./regles";
+import { estJourOuvre, jourDeRelance, piecesManquantes, relanceCyclique, relanceHebdomadaireDue, tachesEleve, texteJour } from "./regles";
 import { completerReglages, type Reglages, type Signataire } from "@/db/schema";
 
 type Etab = typeof schema.etablissements.$inferSelect;
@@ -142,24 +143,53 @@ export async function relancesDuJour(etab: Etab, opts: { classes?: string[]; use
       }
     }
 
-    // 2. Attestation et livret : l'entreprise, tous les N jours après la fin du stage.
-    if (l.p.fin < jour && l.ent.email) {
+    // Le tuteur reçoit les mails de l'entreprise ; à défaut, l'adresse de l'entreprise.
+    const contact = contactDuStage(l.s, l.ent);
+
+    // 2. Mail d'accueil au tuteur, quelques jours avant le début du stage ; un stage enregistré plus tard le reçoit
+    //    au premier jour ouvré qui suit, jusqu'au premier jour du stage.
+    if (R.accueilAvant > 0 && contact && avant >= 0 && avant <= R.accueilAvant && !journal.fait(`accueil:${l.s.id}`)) {
+      await envoyer(ctx, {
+        canal: "mail", destinataire: contact, sujet: `Accueil de ${l.e.prenom} ${l.e.nom} en stage à partir du ${dateLongue(l.p.debut)}`, eleveId: l.e.id, entrepriseId: l.ent.id,
+        corps: await mailDAccueil(etab, l),
+      });
+      await journal.noter("stage", `accueil:${l.s.id}`);
+      n++;
+    }
+
+    // 3. Attestation et livret : remerciements le lendemain de la fin, puis un rappel tous les N jours tant qu'ils manquent,
+    //    chaque fois avec un lien personnel pour les déposer sans compte.
+    if (l.p.fin < jour && contact) {
       const demande = `fin:${l.s.id}`;
-      const action = relanceCyclique({ ...cycle, depuis: l.p.fin, dejaEnvoyees: journal.dates(demande) });
-      if (action && !(action === "appeler" && journal.fait(`${demande}:appel`))) {
-        const recus = await db.select({ type: schema.documents.type }).from(schema.documents)
-          .where(and(eq(schema.documents.stageId, l.s.id), sql`${schema.documents.statut} in ('valide', 'a_verifier')`));
-        const manquent = (["attestation", "livret"] as const).filter((t) => !recus.some((r) => r.type === t));
+      const merci = R.remerciementApres > 0 && jourDeRelance(jour, [ajouterJours(l.p.fin, R.remerciementApres)]) && !journal.fait(`merci:${l.s.id}`);
+      const action = merci ? null : relanceCyclique({ ...cycle, depuis: l.p.fin, dejaEnvoyees: journal.dates(demande) });
+      if (merci || (action && !(action === "appeler" && journal.fait(`${demande}:appel`)))) {
+        const manquent = await documentsManquants(l.s.id);
         const quoi = manquent.map((t) => (t === "attestation" ? "l'attestation de stage" : "le livret de compétences")).join(" et ");
-        if (manquent.length && action === "relancer") {
+        const pluriel = manquent.length > 1;
+        // Accord : l'attestation (féminin), le livret, ou les deux
+        const accord = pluriel ? "s" : manquent[0] === "attestation" ? "e" : "";
+        const pronom = pluriel ? "les" : manquent[0] === "attestation" ? "la" : "le";
+        const lien = manquent.length ? await lienDeDepot(etab.id, l.s.id, contact, base) : null;
+        const depot = lien ? `Merci de nous transmettre ${quoi}, complété${accord} et signé${accord}. Vous pouvez ${pronom} déposer en ligne, sans créer de compte, avec ce lien personnel (valable jusqu'au ${lien.jusquau}) :\n${lien.url}` : "";
+        if (merci) {
           await envoyer(ctx, {
-            canal: "mail", destinataire: l.ent.email, sujet: `Fin du stage de ${l.e.prenom} ${l.e.nom} : documents à transmettre`, eleveId: l.e.id, entrepriseId: l.ent.id,
-            corps: `Madame, Monsieur,\n\nLe stage de ${l.e.prenom} ${l.e.nom} s'est terminé le ${dateLongue(l.p.fin)}. Merci de nous transmettre ${quoi}, complété${manquent.length > 1 ? "s" : ""} et signé${manquent.length > 1 ? "s" : ""}, en ${manquent.length > 1 ? "les" : "le"} déposant sur Cap PFMP ou en répondant à ce message.\n\nMerci pour l'accueil de notre élève.\n${etab.nom}`,
+            canal: "mail", destinataire: contact, sujet: `Merci d'avoir accueilli ${l.e.prenom} ${l.e.nom}`, eleveId: l.e.id, entrepriseId: l.ent.id,
+            corps: `${l.s.tuteur?.nom ? `Bonjour ${l.s.tuteur.nom}` : "Madame, Monsieur"},\n\nLe stage de ${l.e.prenom} ${l.e.nom} s'est terminé le ${dateLongue(l.p.fin)}. Merci pour votre accueil et votre accompagnement pendant ces semaines.${depot ? `\n\n${depot}` : ""}\n\n${etab.nom}`,
+          });
+          await journal.noter("stage", `merci:${l.s.id}`);
+          // Les rappels repartent de ce mail : le prochain, N jours plus tard.
+          if (manquent.length) await journal.noter("stage", `${demande}:${jour}`, { manquent, remerciements: true });
+          n++;
+        } else if (manquent.length && action === "relancer") {
+          await envoyer(ctx, {
+            canal: "mail", destinataire: contact, sujet: `Fin du stage de ${l.e.prenom} ${l.e.nom} : documents à transmettre`, eleveId: l.e.id, entrepriseId: l.ent.id,
+            corps: `Madame, Monsieur,\n\nLe stage de ${l.e.prenom} ${l.e.nom} s'est terminé le ${dateLongue(l.p.fin)}. ${depot}\nVous pouvez aussi répondre à ce message avec les documents.\n\nMerci pour l'accueil de notre élève.\n${etab.nom}`,
           });
           await journal.noter("stage", `${demande}:${jour}`, { manquent });
           n++;
-        } else if (manquent.length) {
-          appels.ajouter(await equipeDuStage(equipe, l.e), `${l.ent.nom}${l.ent.telephone ? ` (${l.ent.telephone})` : ""} : ${quoi} de ${l.e.prenom} ${l.e.nom} (${l.c.libelle}) pas encore reçu${manquent.length > 1 ? "s" : ""}.`);
+        } else if (manquent.length && action === "appeler") {
+          appels.ajouter(await equipeDuStage(equipe, l.e), `${l.ent.nom}${l.ent.telephone ? ` (${l.ent.telephone})` : ""} : ${quoi} de ${l.e.prenom} ${l.e.nom} (${l.c.libelle}) pas encore reçu${accord}.`);
           await journal.noter("stage", `${demande}:appel`);
         }
       }
@@ -173,6 +203,14 @@ export async function relancesDuJour(etab: Etab, opts: { classes?: string[]; use
   if (opts.campagne ?? !opts.classes) n += await relancerCampagne(ctx, etabC, journal, appels, equipe, cycle, base);
   n += await appels.envoyer(ctx);
   return n;
+}
+
+/** Le mail d'accueil : l'élève, les dates, les horaires prévus et le professeur à contacter. */
+async function mailDAccueil(etab: Etab, l: { s: typeof schema.stages.$inferSelect; e: Eleve; p: typeof schema.periodes.$inferSelect; c: typeof schema.classes.$inferSelect; ent: typeof schema.entreprises.$inferSelect }) {
+  const refId = await referentDe(l.e);
+  const [ref] = refId ? await db.select().from(schema.users).where(eq(schema.users.id, refId)).limit(1) : [];
+  const horaires = JOURS.map((j, i) => [j, texteJour(l.s.horaires, i)] as const).filter(([, t]) => t).map(([j, t]) => `- ${j} : ${t}`).join("\n");
+  return `${l.s.tuteur?.nom ? `Bonjour ${l.s.tuteur.nom}` : "Madame, Monsieur"},\n\n${l.e.prenom} ${l.e.nom}, élève de ${l.c.libelle}${l.c.filiere ? ` (${l.c.filiere})` : ""} au ${etab.nom}, commence son stage chez ${l.ent.nom} le ${dateLongue(l.p.debut)}, jusqu'au ${dateLongue(l.p.fin)}.\n\nHoraires prévus :\n${horaires}\n\n${ref ? `Son professeur référent : ${ref.prenom} ${ref.nom}, ${ref.email}${ref.telephone ? `, ${ref.telephone}` : ""}. En cas d'absence ou de difficulté, prévenez-le, ou répondez simplement à ce message.` : "En cas d'absence ou de difficulté, répondez simplement à ce message."}\n\nMerci de l'accueillir.\n${etab.nom}`;
 }
 
 /** Les comptes actifs de l'équipe du lycée (gestion des PFMP, référents, direction). */
@@ -289,7 +327,7 @@ async function relancerCampagne(ctx: Expediteur, etab: EtabC, journal: Journal, 
   const quiAppelle = auteur.length ? auteur : equipe.filter((u) => u.roles.includes("gestionnaire") || u.roles.includes("direction"));
   let n = 0;
   for (const { r, e } of await reponsesCampagne(c.id)) {
-    if (r.reponduLe || !e.email) continue;
+    if (r.reponduLe || !e.email || e.ecarteeLe) continue;
     const demande = `campagne:${c.id}:${e.id}`;
     const action = relanceCyclique({ ...cycle, depuis: jourDe(c.envoyeeLe), dejaEnvoyees: journal.dates(demande) });
     if (action === "relancer" && (await relancerEntreprise(ctx, c, e, base))) {

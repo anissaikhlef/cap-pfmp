@@ -29,7 +29,7 @@ export async function BlocCandidature({ ctx, eleve }: { ctx: Contexte; eleve: ty
   const envois = await candidaturesEnvoyees(eleve.id);
   const d = estEleve ? await dossierStage(ctx, eleve) : null;
   // Seulement les entreprises où le stage serait permis par la règle de la classe (secteur, dominante)
-  const entreprises = d ? (await entreprisesDuLycee(ctx)).filter((x) => compatibleAvecLaClasse(x, d)) : [];
+  const entreprises = d ? (await entreprisesDuLycee(ctx)).filter((x) => !x.ecarteeLe && compatibleAvecLaClasse(x, d)) : [];
   const messageParDefaut = d
     ? `Madame, Monsieur,\n\nÉlève${d.classe ? ` en ${d.classe.libelle}${d.classe.filiere ? ` (${d.classe.filiere})` : ""}` : ""} au ${ctx.etab.nom}, je recherche un stage${d.periode ? ` du ${dateLongue(d.periode.debut)} au ${dateLongue(d.periode.fin)}` : ""}. Vous trouverez ci-joint mon CV et ma lettre de motivation.\nJe reste à votre disposition pour un entretien.\n\nCordialement,\n${eleve.prenom} ${eleve.nom}`
     : "";

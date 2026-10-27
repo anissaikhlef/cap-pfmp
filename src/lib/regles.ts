@@ -481,3 +481,61 @@ export function tachesEleve(x: {
   }
   return taches;
 }
+
+/* ------------------------------------------------------------------ */
+/* Partenariat avec les entreprises                                     */
+/* ------------------------------------------------------------------ */
+
+/** Les faits qui comptent pour juger un partenariat ; un total à 0 veut dire « pas encore de recul » sur ce point. */
+export type FaitsPartenariat = {
+  /** Années scolaires où l'entreprise a accueilli au moins un élève. */
+  annees: number;
+  /** Réponse à la campagne de rentrée de l'année : null si l'entreprise n'a pas été interrogée. */
+  campagneRepondue: boolean | null;
+  conventionsATemps: number; conventionsTotal: number;
+  documentsRendus: number; documentsAttendus: number;
+  /** Avis « Accueil et encadrement par l'entreprise » des comptes rendus de visite. */
+  avisVisites: string[];
+  soucis: number;
+};
+
+const VALEUR_AVIS: Record<string, number> = { "Très satisfaisant": 1, Satisfaisant: 0.75, "À améliorer": 0.4, Insuffisant: 0 };
+
+/**
+ * Note de partenariat sur 5, calculée seulement à partir de faits, avec ses raisons en clair :
+ * fidélité (20 points), réponse à la campagne (15), conventions signées avant le départ (25),
+ * attestations et livrets rendus (25), avis des professeurs après la visite (15). Chaque souci signalé retire 1,25 point sur 5.
+ * Un point sans recul ne compte pas, et une entreprise qui n'a encore accueilli aucun élève n'a pas de note.
+ * « Partenaire fiable » : 4 sur 5 au moins et aucun souci.
+ */
+export function notePartenariat(f: FaitsPartenariat): { note: number | null; fiable: boolean; raisons: string[] } {
+  let points = 0, sur = 0;
+  const raisons: string[] = [];
+  if (f.annees > 0) {
+    points += f.annees >= 2 ? 20 : 12; sur += 20;
+    raisons.push(f.annees >= 2 ? `Accueille des élèves depuis ${f.annees} ans` : "A déjà accueilli des élèves cette année ou l'an dernier");
+  }
+  if (f.campagneRepondue !== null) {
+    sur += 15;
+    if (f.campagneRepondue) { points += 15; raisons.push("A répondu à la campagne de rentrée"); }
+    else raisons.push("N'a pas encore répondu à la campagne de rentrée");
+  }
+  if (f.conventionsTotal > 0) {
+    points += (25 * f.conventionsATemps) / f.conventionsTotal; sur += 25;
+    raisons.push(`Conventions signées avant le départ : ${f.conventionsATemps} sur ${f.conventionsTotal}`);
+  }
+  if (f.documentsAttendus > 0) {
+    points += (25 * f.documentsRendus) / f.documentsAttendus; sur += 25;
+    raisons.push(`Attestations et livrets rendus : ${f.documentsRendus} sur ${f.documentsAttendus}`);
+  }
+  const avis = f.avisVisites.filter((a) => a in VALEUR_AVIS);
+  if (avis.length) {
+    points += (15 * avis.reduce((t, a) => t + VALEUR_AVIS[a], 0)) / avis.length; sur += 15;
+    raisons.push(`Avis des professeurs après la visite : ${avis.join(", ").toLowerCase()}`);
+  }
+  if (f.soucis > 0) raisons.push(`${f.soucis} souci${f.soucis > 1 ? "s" : ""} signalé${f.soucis > 1 ? "s" : ""}`);
+  // Sans élève accueilli, pas de note : une campagne sans réponse ne suffit pas à juger une entreprise.
+  if (f.annees === 0) return { note: null, fiable: false, raisons: ["Pas encore d'historique avec le lycée", ...raisons] };
+  const note = Math.max(0, Math.round(((5 * points) / sur - 1.25 * f.soucis) * 10) / 10);
+  return { note, fiable: note >= 4 && f.soucis === 0, raisons };
+}

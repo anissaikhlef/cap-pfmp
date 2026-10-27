@@ -113,7 +113,7 @@ export default async function Visite({ params }: { params: Promise<{ id: string 
               <dl className="kv">
                 <dt>Date</dt><dd>{dateLongue(cr.date)} · {cr.mode === "presentiel" ? "sur place" : "à distance"}</dd>
                 <dt>Personne rencontrée</dt><dd>{cr.personneRencontree}</dd>
-                {CRITERES.map(([k, lib]) => <Fragment key={k}><dt>{lib}</dt><dd>{cr.criteres[k]}</dd></Fragment>)}
+                {CRITERES.map(([k, lib]) => <Fragment key={k}><dt>{lib}</dt><dd>{cr.criteres[k] ?? "Non évalué"}</dd></Fragment>)}
                 <dt>Suite à donner</dt><dd>{SUITES.find(([k]) => k === cr.suite)?.[1]}</dd>
               </dl>
               {cr.observations && <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{cr.observations}</p>}

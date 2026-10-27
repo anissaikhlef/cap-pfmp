@@ -12,6 +12,7 @@ import { chargerConvention, qualitesSignature } from "@/lib/convention";
 import { enregistrerSignature } from "@/lib/signature";
 import { inviterASigner } from "@/lib/invitations";
 import { adresseDuSite } from "@/lib/liens";
+import { contactDuStage, lienDeDepot } from "@/lib/entreprises-accueil";
 import { SIGNATAIRES, libelleSignataire } from "@/lib/regles";
 import type { Etat } from "@/components/Formulaire";
 import { revenirAvec } from "@/lib/retour";
@@ -153,6 +154,17 @@ export async function refuser(_: Etat, fd: FormData): Promise<Etat> {
       canal: "mail", destinataire: u.email, sujet: "Document à déposer de nouveau", eleveId: x.e.id,
       corps: `Bonjour ${u.prenom},\n\nLe document « ${x.d.nomFichier} » concernant ${x.e.prenom} ${x.e.nom} n'a pas pu être accepté : ${motif}.\nMerci d'en déposer une nouvelle version sur Cap PFMP.\n\n${ctx.etab.nom}`,
     });
+  } else if (x.d.stageId && (x.d.type === "attestation" || x.d.type === "livret")) {
+    // Déposé par l'entreprise avec son lien personnel : elle reçoit le motif et un nouveau lien.
+    const cv = await chargerConvention(ctx, x.d.stageId);
+    const contact = cv ? contactDuStage(cv.s, cv.ent) : null;
+    if (cv && contact) {
+      const lien = await lienDeDepot(ctx.etab.id, cv.s.id, contact);
+      await envoyer(ctx, {
+        canal: "mail", destinataire: contact, sujet: `Document à déposer de nouveau : stage de ${x.e.prenom} ${x.e.nom}`, eleveId: x.e.id, entrepriseId: cv.ent.id,
+        corps: `Madame, Monsieur,\n\nLe document « ${x.d.nomFichier} » (stage de ${x.e.prenom} ${x.e.nom}) n'a pas pu être accepté : ${motif}.\nMerci d'en déposer une nouvelle version avec ce lien personnel (valable jusqu'au ${lien.jusquau}) :\n${lien.url}\nVous pouvez aussi répondre à ce message avec le document.\n\n${ctx.etab.nom}`,
+      });
+    }
   }
   await journaliser(ctx, "document_refuse", "document", x.d.id, { motif });
   rafraichir(x.e.id);
@@ -175,11 +187,13 @@ export async function relancer(fd: FormData) {
     revenirAvec(fd, r.messages ? `Relance envoyée (${libelleSignataire(cible).toLowerCase()}).` : `Aucune adresse ni aucun numéro pour : ${libelleSignataire(cible).toLowerCase()}.`, r.messages ? "ok" : "err");
   }
   const objet = cible === "attestation" ? "l'attestation de stage" : "le livret de compétences";
-  const email = cv.ent.email;
+  // Le tuteur, à défaut l'entreprise ; avec un lien personnel pour déposer le document sans compte.
+  const email = contactDuStage(cv.s, cv.ent);
   if (email) {
+    const lien = await lienDeDepot(ctx.etab.id, cv.s.id, email);
     await envoyer(ctx, {
       canal: "mail", destinataire: email, sujet: `Rappel : ${objet} de ${cv.e.prenom} ${cv.e.nom}`, eleveId: cv.e.id, entrepriseId: cv.ent.id,
-      corps: `Bonjour ${cv.s.tuteur?.nom ?? cv.ent.tuteurNom ?? "Madame, Monsieur"},\n\nNous attendons encore ${objet} de ${cv.e.prenom} ${cv.e.nom} (${cv.c.libelle}). Vous pouvez le déposer directement sur Cap PFMP.\n\nMerci,\n${ctx.etab.nom}`,
+      corps: `Bonjour ${cv.s.tuteur?.nom ?? cv.ent.tuteurNom ?? "Madame, Monsieur"},\n\nNous attendons encore ${objet} de ${cv.e.prenom} ${cv.e.nom} (${cv.c.libelle}). Vous pouvez ${cible === "attestation" ? "la" : "le"} déposer en ligne, sans créer de compte, avec ce lien personnel (valable jusqu'au ${lien.jusquau}) :\n${lien.url}\nVous pouvez aussi répondre à ce message avec le document.\n\nMerci,\n${ctx.etab.nom}`,
     });
   }
   await journaliser(ctx, "relance", "stage", stageId, { cible, n: email ? 1 : 0 });

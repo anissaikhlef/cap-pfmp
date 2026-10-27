@@ -270,3 +270,21 @@ Le résultat est présenté à Anissa avant 6. la formation incluse et 7. les ag
 2. **Fiches** : un élève sans adresse e-mail n'a pas de compte ; il est signalé pour que sa fiche soit complétée. Un parent de plusieurs élèves de la classe reçoit une seule fiche.
 3. **Calendrier public** (« Organisation ») : désactivé par défaut ; activé, il montre les dates des classes, jamais un nom d'élève ni un rattrapage.
 4. **Démonstration** : un compte DDFPT fictif (`ddfpt@demo.cap-pfmp.example`) ; les élèves du CAP ont une adresse e-mail pour essayer les fiches.
+
+## 27 octobre 2026 : réalisation de l'étape 4 (entreprises)
+
+- **Note de partenariat** (« Entreprises », visible seulement par l'équipe du lycée) : une note sur 5 calculée à partir de faits, avec ses raisons en clair : élèves accueillis au fil des années, réponse à la campagne de rentrée, conventions signées avant le départ, attestations et livrets rendus, avis du professeur après la visite (nouveau critère du compte rendu : « Accueil et encadrement par l'entreprise »). Badge « Partenaire fiable » ; filtres « Partenaires fiables » et « Écartées ».
+- **Soucis** : depuis la fiche d'une entreprise, un professeur, le DDFPT ou la direction signale un souci (horaires, sécurité de l'élève, comportement, tâches sans rapport avec la formation, documents jamais rendus, autre), avec des faits. Le DDFPT et la direction sont prévenus par mail. Le souci compte dans la note.
+- **Entreprises écartées** : seul le DDFPT, ou la direction, écarte une entreprise, avec un motif interne. Elle n'est plus proposée aux élèves, ne reçoit plus la campagne de rentrée et on ne peut plus y enregistrer de stage. « Lever l'écartement » la rétablit.
+- **Message aux entreprises d'accueil** (« Entreprises », bouton « Écrire aux entreprises d'accueil ») : le DDFPT écrit en une fois à toutes les entreprises qui accueillent les élèves d'une période ; chacune reçoit son nom et la liste de ses élèves.
+- **Mails automatiques** : un mail d'accueil au tuteur 3 jours avant le début du stage (dates, horaires, professeur référent à contacter), des remerciements le lendemain de la fin, avec un lien personnel pour déposer l'attestation et le livret s'ils manquent.
+- **Dépôt sans compte** : avec ce lien, l'entreprise dépose les documents (PDF ou photo) depuis son ordinateur ou son téléphone ; ils arrivent dans les documents « à vérifier » du lycée. Les rappels suivants, et le rappel envoyé à la main depuis la fiche de l'élève, contiennent aussi un lien.
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Calcul de la note** : élèves accueillis 20 points (12 la première année), campagne 15, conventions 25, documents 25, avis des professeurs 15 ; un point sans recul ne compte pas. Chaque souci retire 1,25 point sur 5. Pas de note tant que l'entreprise n'a accueilli aucun élève. L'attestation et le livret comptent deux semaines après la fin du stage. « Partenaire fiable » : 4 sur 5 au moins et aucun souci.
+2. **Soucis** : jamais visibles de l'entreprise, des élèves ni des familles ; il est demandé de rester factuel (la personne concernée peut demander à consulter ce qui la concerne).
+3. **Entreprise écartée** : les stages déjà enregistrés chez elle restent modifiables ; la décision se lève à tout moment.
+4. **Mails d'accueil et de remerciement** : 3 jours avant et le lendemain (jamais le week-end), jours réglables ou désactivables dans « Organisation ». Un stage enregistré moins de 3 jours avant le départ reçoit le mail d'accueil le jour ouvré suivant, au plus tard le premier jour du stage. Les remerciements comptent comme la première demande de documents : ensuite, un rappel tous les 3 jours, 5 au plus, puis le lycée appelle.
+5. **Lien de dépôt** : valable 30 jours et une seule fois ; il ne propose que les documents qui manquent. Un document refusé par le lycée est redemandé à l'entreprise, avec le motif et un nouveau lien.
+6. **Démonstration** : une entreprise fictive écartée (« Vigil'Express ») et un souci signalé avec Garde Ouest Services.

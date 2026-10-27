@@ -53,6 +53,8 @@ export async function enregistrerStage(_: Etat, fd: FormData): Promise<Etat> {
   const tuteur = lireTuteur(fd, ent);
   if (typeof tuteur === "string") return { erreur: tuteur };
   const [existant] = await db.select().from(schema.stages).where(and(eq(schema.stages.eleveId, eleveId), eq(schema.stages.periodeId, x.p.id))).limit(1);
+  // Entreprise écartée par le DDFPT : plus de nouveau stage chez elle (un stage déjà enregistré reste modifiable).
+  if (ent.ecarteeLe && existant?.entrepriseId !== ent.id) return { erreur: `${ent.nom} a été écartée par le lycée : choisissez une autre entreprise.` };
   const occ = await placesOccupees(ent.id, x.p.debut, x.p.fin, eleveId);
   const avertissement = occ >= ent.placesParDefaut ? ` Attention : ${ent.nom} accueille déjà ${occ} élève(s) sur cette période pour ${ent.placesParDefaut} place(s) annoncée(s).` : "";
   if (existant) {
@@ -135,7 +137,8 @@ export async function contacterSuggestion(fd: FormData) {
   const entrepriseId = z.string().uuid().parse(fd.get("entrepriseId"));
   const e = await peutTenirDemarches(ctx, eleveId);
   const ent = await entrepriseDuLycee(ctx, entrepriseId);
-  if (!e || !ent) return;
+  // Une entreprise écartée n'est plus proposée (page restée ouverte avant l'écartement).
+  if (!e || !ent || ent.ecarteeLe) return;
   await db.insert(schema.demarches).values({ eleveId, entrepriseNom: ent.nom, entrepriseId: ent.id, date: aujourdhui(), reponse: "attente" });
   await journaliser(ctx, "demarche_ajoutee", "eleve", eleveId);
   revalidatePath("/mon-stage");

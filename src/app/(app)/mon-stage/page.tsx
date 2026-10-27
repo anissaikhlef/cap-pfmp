@@ -36,7 +36,7 @@ export default async function MonStage() {
           <div className="section">
             <h2>Mes démarches</h2>
             <p className="sub">Notez chaque entreprise contactée. Sans réponse au bout de 7 jours, relancez-la par téléphone ou en vous déplaçant.</p>
-            <Demarches eleveId={e.id} demarches={dem} entreprises={ents.map((x) => ({ id: x.id, nom: x.nom }))} />
+            <Demarches eleveId={e.id} demarches={dem} entreprises={ents.filter((x) => !x.ecarteeLe).map((x) => ({ id: x.id, nom: x.nom }))} />
           </div>
           <div className="section">
             <h2>Entreprises qui peuvent vous accueillir</h2>

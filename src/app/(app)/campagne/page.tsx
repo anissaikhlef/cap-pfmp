@@ -18,7 +18,8 @@ export default async function Campagne() {
   if (!(await estGestionnaire(ctx))) redirect("/");
   const c = await campagneEnCours(ctx);
   const modele = await messageParDefaut(ctx);
-  const ents = await entreprisesDuLycee(ctx);
+  // Les entreprises écartées par le DDFPT ne reçoivent pas la campagne.
+  const ents = (await entreprisesDuLycee(ctx)).filter((e) => !e.ecarteeLe);
   const classes = modele.classes;
   const effectifs = classes.length ? await db.select({ classeId: schema.eleves.classeId, n: sql<number>`count(*)::int` }).from(schema.eleves)
     .where(and(inArray(schema.eleves.classeId, classes.map((x) => x.id)), eq(schema.eleves.archive, false))).groupBy(schema.eleves.classeId) : [];

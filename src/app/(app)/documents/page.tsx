@@ -40,7 +40,7 @@ export default async function Documents({ searchParams }: { searchParams: Promis
             <div key={d.id} className="row">
               <div className="main">
                 <div className="name">{LIBELLES_DOC[d.type]} · <Link href={`/eleves/${e.id}`}>{e.prenom} {e.nom}</Link> <span className="cls">{d.classeLibelle}</span></div>
-                <div className="meta">{d.nomFichier} · {Math.round(d.taille / 1024)} Ko · déposé {u ? `par ${u.prenom} ${u.nom} ` : ""}le {dateCourte(d.deposeLe.toISOString().slice(0, 10))}</div>
+                <div className="meta">{d.nomFichier} · {Math.round(d.taille / 1024)} Ko · déposé {u ? `par ${u.prenom} ${u.nom} ` : d.type === "attestation" || d.type === "livret" ? "par l'entreprise, avec son lien personnel, " : ""}le {dateCourte(d.deposeLe.toISOString().slice(0, 10))}</div>
               </div>
               <a className="btn small" href={`/fichiers/${d.id}`} target="_blank" rel="noopener">Ouvrir</a>
               <details>

@@ -20,6 +20,7 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | Lot 2.4 | Relances automatiques réglables : places des entreprises (réponse en ligne avec un lien personnel), conventions, pièces de l'allocation et absences non justifiées | Fait |
 | Rappels | Rappel quotidien de l'élève (ce qui lui reste à faire), rappel des entreprises tous les 3 jours (5 fois au plus, puis le lycée appelle), jamais le week-end | Fait |
 | Accès | Comptes et mots de passe réservés au DDFPT, fiches de connexion par classe avec QR code, connexion sans mot de passe par lien, calendrier des PFMP pour tous, rattrapages vus par les professeurs de la classe | Fait |
+| Entreprises | Note de partenariat et badge « Partenaire fiable », soucis signalés par l'équipe, entreprises écartées par le DDFPT, message groupé aux entreprises d'accueil, mails d'accueil et de remerciement, dépôt de l'attestation et du livret par lien personnel, sans compte | Fait |
 
 Les décisions de conception d'Anissa Ikhlef sont consignées, avec leur date, dans [JOURNAL_DE_CONCEPTION.md](JOURNAL_DE_CONCEPTION.md).
 
@@ -76,6 +77,7 @@ node e2e/organisations.mjs
 node e2e/lot1.mjs
 node e2e/lot2.mjs
 node e2e/acces.mjs
+node e2e/entreprises.mjs
 node e2e/mobile.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
 ```
 
@@ -100,6 +102,8 @@ Les parcours sont écrits pour le 26 octobre 2026 : lancez l'application avec `C
 - `src/lib/periodes.ts` : période de référence d'une classe ou d'un élève en rattrapage (fonctions pures, testées)
 - `src/lib/repartition.ts` : répartition des visites et nombre de visites selon les heures de face à face (fonctions pures, testées)
 - `src/lib/acces.ts` : qui peut voir et faire quoi ; **toute** lecture ou écriture passe par ces fonctions
+- `src/lib/partenariats.ts` : faits et note de partenariat de chaque entreprise (calcul dans `regles.ts`, testé)
+- `src/lib/entreprises-accueil.ts` : entreprises d'une période, adresse à utiliser pour un stage, lien de dépôt de l'attestation et du livret
 - `src/lib/auth.ts` : connexion, sessions, mots de passe
 - `src/app/(app)/` : les écrans, chacun avec ses actions serveur
 - `scripts/` : migrations et données de démonstration (`version-demo.ts` : à augmenter quand les données de démonstration changent)

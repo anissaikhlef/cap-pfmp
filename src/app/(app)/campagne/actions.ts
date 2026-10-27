@@ -20,7 +20,7 @@ export async function lancerCampagne(_: Etat, fd: FormData): Promise<Etat> {
   if (!sujet || message.length < 20) return { erreur: "Le message est vide." };
   const ids = fd.getAll("entreprises").map(String).filter((x) => /^[0-9a-f-]{36}$/.test(x));
   if (!ids.length) return { erreur: "Cochez au moins une entreprise." };
-  const ents = await db.select().from(schema.entreprises).where(and(eq(schema.entreprises.etablissementId, ctx.etab.id), inArray(schema.entreprises.id, ids)));
+  const ents = await db.select().from(schema.entreprises).where(and(eq(schema.entreprises.etablissementId, ctx.etab.id), inArray(schema.entreprises.id, ids), isNull(schema.entreprises.ecarteeLe)));
   const sansMail = ents.filter((e) => !e.email);
   // Les liens de la campagne précédente encore ouverts ne valent plus : la réponse porte sur la nouvelle campagne.
   await db.delete(schema.liensAcces).where(and(eq(schema.liensAcces.etablissementId, ctx.etab.id), eq(schema.liensAcces.objet, "campagne"), isNull(schema.liensAcces.utiliseLe)));
@@ -63,7 +63,7 @@ export async function relancerCampagne(fd: FormData) {
   const base = await adresseDuSite();
   let n = 0;
   for (const { r, e } of await reponsesCampagne(c.id)) {
-    if (!r.reponduLe && (await relancerEntreprise(ctx, c, e, base))) n++;
+    if (!r.reponduLe && !e.ecarteeLe && (await relancerEntreprise(ctx, c, e, base))) n++;
   }
   await journaliser(ctx, "campagne_relance", "campagne", c.id, { n });
   revalidatePath("/campagne");

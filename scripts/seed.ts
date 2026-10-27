@@ -47,6 +47,8 @@ function fauxPdf(texte: string): Buffer {
 const sig = (...qui: (keyof Signatures)[]): Signatures =>
   Object.fromEntries(qui.map((k) => [k, { le: "2026-10-01T10:00:00.000Z", par: null, mode: "papier" as const }]));
 const TOUS = sig("eleve", "parent", "entreprise", "tuteur", "professeur", "direction");
+// Conventions de l'an dernier, signées avant leur stage de novembre 2025
+const TOUS_2025: Signatures = Object.fromEntries(Object.entries(TOUS).map(([k, v]) => [k, { ...v, le: "2025-11-03T10:00:00.000Z" }]));
 
 async function main() {
   if (process.env.NODE_ENV === "production" && process.env.AUTORISER_SEED !== "oui") {
@@ -270,7 +272,7 @@ async function main() {
   const [pAncienne] = await db.insert(schema.periodes).values({ classeId: ancienne.id, libelle: "PFMP 1", debut: "2025-11-17", fin: "2025-12-12" }).returning();
   const terminales = await db.select().from(schema.eleves).where(eq(schema.eleves.classeId, ter.c.id));
   for (const [i, t] of terminales.entries()) {
-    const [st] = await db.insert(schema.stages).values({ eleveId: t.id, periodeId: pAncienne.id, entrepriseId: ents[(i + 2) % ents.length].id, horaires: STD, signatures: TOUS, tuteur: tuteurDe(ents[(i + 2) % ents.length].nom) }).returning();
+    const [st] = await db.insert(schema.stages).values({ eleveId: t.id, periodeId: pAncienne.id, entrepriseId: ents[(i + 2) % ents.length].id, horaires: STD, signatures: TOUS_2025, tuteur: tuteurDe(ents[(i + 2) % ents.length].nom) }).returning();
     for (const ty of ["convention", "attestation", "livret"] as const) await doc(t.nom, ty, "valide", "2025-2026", "1re MS", st.id);
   }
   // Pièces de l'allocation déposées l'an dernier : toujours valables cette année
@@ -290,6 +292,24 @@ async function main() {
         .where(and(eq(schema.campagneReponses.campagneId, c.id), eq(schema.campagneReponses.entrepriseId, ent(n))));
     await repondre("Atlas", [[sec, 2], [pre, 1], [ter, 1], [cap, 2]], "2026-10-14");
     await repondre("Héliance", [[pre, 2], [ter, 1]], "2026-10-15", { repondant: "M. Lambert", commentaire: "Plutôt des élèves de 1re et de terminale, pour le poste SSIAP." });
+  }
+
+  // Partenariats : un souci signalé, et une entreprise écartée par le DDFPT (motif interne, jamais visible des familles)
+  {
+    const [noah] = await db.select().from(schema.eleves).where(and(eq(schema.eleves.nom, "PETIT"), eq(schema.eleves.etablissementId, E))).limit(1);
+    await db.insert(schema.soucisEntreprises).values({
+      etablissementId: E, entrepriseId: ent("Garde Ouest"), eleveId: noah.id, auteurId: martin.id, categorie: "horaires",
+      description: "Horaires de nuit prévus pour un élève mineur de 2nde : à corriger avant le départ.", createdAt: new Date("2026-10-20T16:00:00+02:00"),
+    });
+    const [vigil] = await db.insert(schema.entreprises).values({
+      etablissementId: E, nom: "Vigil'Express", secteur: "prive", domaine: "Sûreté / gardiennage", ville: "Ville-démo", tuteurNom: "T. Martel",
+      email: `contact@vigil-express.${DOMAINE}`, telephone: "06 39 98 00 09", placesParDefaut: 2,
+      ecarteeLe: new Date("2026-09-15T10:00:00+02:00"), ecarteeMotif: "Élève laissé seul en poste de nuit en 2025-2026 ; tâches sans rapport avec la formation", ecarteeParId: direction.id,
+    }).returning();
+    await db.insert(schema.soucisEntreprises).values({
+      etablissementId: E, entrepriseId: vigil.id, auteurId: direction.id, categorie: "securite",
+      description: "Élève de 1re laissé seul en poste de nuit, sans tuteur sur place (PFMP de mars 2026).", createdAt: new Date("2026-03-20T10:00:00+01:00"),
+    });
   }
 
   // Repère pour scripts/preparer.ts : ces données de démonstration sont à jour.

@@ -107,7 +107,8 @@ export function compatibleAvecLaClasse(e: Entreprise, d: Pick<Awaited<ReturnType
 /** Entreprises partenaires compatibles avec la règle de la classe, qui ont encore de la place sur la période. */
 export async function suggestions(ctx: Contexte, d: Awaited<ReturnType<typeof dossierStage>>, eleveId: string) {
   if (!d.classe || !d.periode) return [];
-  const compatibles = (await entreprisesDuLycee(ctx)).filter((e) => compatibleAvecLaClasse(e, d));
+  // Une entreprise écartée par le DDFPT n'est plus proposée aux élèves.
+  const compatibles = (await entreprisesDuLycee(ctx)).filter((e) => !e.ecarteeLe && compatibleAvecLaClasse(e, d));
   const res: (Entreprise & { restantes: number })[] = [];
   for (const e of compatibles) {
     const occ = await placesOccupees(e.id, d.periode.debut, d.periode.fin, eleveId);
