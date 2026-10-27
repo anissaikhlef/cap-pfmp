@@ -89,3 +89,27 @@ Lot réalisé dans la nuit du 26 au 27/10/2026 et mis en ligne sur le site de d�
 6. **Confidentialité** : la vie scolaire ne voit ni les conventions, ni les livrets, ni les comptes rendus de visite ; seulement ce dont elle a besoin (présence, lieux, horaires, absences, justificatifs). L'entreprise ne voit jamais un justificatif d'absence. La double authentification est demandée à la vie scolaire, comme à la direction et à la gestion.
 7. **Un jour effectué** est un jour où l'élève a des horaires prévus et n'est pas absent, quel que soit le nombre d'heures ce jour-là.
 8. **Formulaires** : après un message d'erreur, les champs déjà remplis restent en place (auparavant, ils se vidaient).
+
+---
+
+## 27 octobre 2026 : décisions pour le lot 2
+
+Réponses d'Anissa Ikhlef aux questions de l'assistant, une à une, puis « commence ».
+
+1. **Deux modèles de signature** : la signature simple dans l'application (case « J'ai lu », puis bouton « Je signe ») et la signature manuscrite dessinée au doigt sur l'écran, qui apparaît sur le PDF de la convention.
+2. **Qui choisit le modèle** : le lycée autorise l'un, l'autre ou les deux dans « Organisation » ; quand les deux sont autorisés, chaque signataire choisit au moment de signer. La signature sur papier avec dépôt du scan reste possible.
+3. **Comment on signe** : ceux qui ont un compte signent depuis leur espace ; les autres (entreprise, tuteur, parfois les parents) reçoivent un lien personnel par mail ou par SMS, qui expire au bout de quelques jours.
+4. **CV et lettre de motivation** : la relecture (par le référent, plus tard par l'assistant IA) est conseillée, pas obligatoire ; l'élève envoie quand il veut, depuis l'application.
+5. **Pièces de l'allocation** (RIB, pièce d'identité) : déposées par la famille (le parent, ou l'élève majeur) ; le DDFPT peut aussi les déposer lui-même, **sans que les familles le sachent**, pour privilégier le dépôt par la famille. Les pièces sont gardées pour toute la scolarité et peuvent être remplacées.
+6. **Relances à ne pas oublier** : les entreprises, pour qu'elles donnent leur nombre de places ; la signature de la convention ; les parents et les élèves, pour les documents.
+
+Ordre de travail du lot 2 : signatures, horaires et règles des mineurs ; CV et lettre ; allocations ; relances.
+
+## 27 octobre 2026 : une équipe d'agents IA (lot 4 élargi)
+
+Anissa Ikhlef précise ce qu'elle attend de l'assistant IA :
+
+- **Un agent administratif**, capable de comprendre les enjeux et immergé dans l'éducation : il identifie les opportunités et les affecte aux stagiaires, rédige les mails aux parties intéressées, établit le classement des priorités et détecte toute modification, comme une **veille réglementaire**.
+- **Un agent de prospection et de partenariat avec les entreprises**, qui gère l'**agenda des rencontres**. Les rencontres sont ensuite finalisées par **une personne physique chargée des interactions**, en visio ou en face à face ; cette personne est aidée par **un agent qui s'occupe de ses courriels**.
+
+Les questions de détail (sources des opportunités, validation humaine avant l'envoi des mails, coût, protection des données) seront posées après la livraison du lot 2.
