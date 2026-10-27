@@ -14,7 +14,7 @@ import { modeleDuLycee } from "@/lib/modeles-documents";
 import type { Etat } from "@/components/Formulaire";
 import type { ChampPdf, PersonnalisationModele, TypeModele } from "@/db/schema";
 
-const TYPES = ["convention", "ordre_mission"] as const;
+const TYPES = ["convention", "ordre_mission", "attestation"] as const;
 /** Documents dont le lycée peut déposer son propre PDF (avec des champs) : la convention, pour l'instant. */
 const TYPES_PDF = ["convention"] as const;
 const REFUS = "Seuls le DDFPT et la direction adaptent les modèles de documents.";
@@ -69,7 +69,9 @@ export async function enregistrerPersonnalisation(_: Etat, fd: FormData): Promis
   }
   await enregistrerModele(ctx, type, { personnalisation: p });
   await journaliser(ctx, "modele_adapte", "etablissement", ctx.etab.id, { type });
-  return { ok: type === "convention" ? "Modèle enregistré. Il s'applique aux conventions qui ne sont pas encore signées." : "Modèle enregistré." };
+  return { ok: type === "convention" ? "Modèle enregistré. Il s'applique aux conventions qui ne sont pas encore signées."
+    : type === "attestation" ? "Modèle enregistré. Il s'applique aux attestations remplies à partir de maintenant ; celles déjà signées ne changent pas."
+    : "Modèle enregistré." };
 }
 
 /** Dépôt du PDF du lycée (un « PDF modifiable », avec ses champs) : chaque champ reçoit une donnée proposée. */

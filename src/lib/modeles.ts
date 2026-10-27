@@ -1,4 +1,4 @@
-import type { ChampPdf } from "@/db/schema";
+import type { ChampPdf, RempliePar } from "@/db/schema";
 import { SIGNATAIRES } from "./regles";
 
 /**
@@ -199,6 +199,15 @@ export function completeParQualite(qualite: string): "famille" | "entreprise" | 
 /* ------------------------------------------------------------------ */
 
 /** Textes du modèle Cap PFMP de l'ordre de mission, que le lycée peut remplacer. */
+export const TITRE_ATTESTATION = "Attestation de période de formation en milieu professionnel";
+export const INTRO_ATTESTATION = "L'entreprise atteste que l'élève désigné ci-dessous a effectué sa période de formation en milieu professionnel dans les conditions indiquées.";
+/** Qui a rempli l'attestation, tel qu'il est écrit sur le document. */
+export const REMPLIE_PAR: Record<RempliePar, string> = {
+  tuteur_eleve_professeur: "le tuteur, avec l'élève et le professeur",
+  tuteur_eleve: "le tuteur, avec l'élève",
+  tuteur: "le tuteur",
+};
+
 export const TITRE_ORDRE_MISSION = "Compte rendu de visite et ordre de mission";
 export const INTRO_ORDRE_MISSION = "Cet ordre de mission est signé avant la visite en entreprise. Après la visite, il est complété avec la signature ou le cachet de l'entreprise visitée.";
 

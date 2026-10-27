@@ -4,7 +4,7 @@ import { and, desc, eq, ne } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
 import { grilleEtQuestions, modeleDuLycee } from "@/lib/modeles-documents";
-import { ENGAGEMENTS_CONVENTION, INTRO_ORDRE_MISSION, SOURCES_CONVENTION, SOURCES_SPECIALES, texteGrille, TITRE_CONVENTION, TITRE_ORDRE_MISSION } from "@/lib/modeles";
+import { ENGAGEMENTS_CONVENTION, INTRO_ATTESTATION, INTRO_ORDRE_MISSION, SOURCES_CONVENTION, SOURCES_SPECIALES, texteGrille, TITRE_ATTESTATION, TITRE_CONVENTION, TITRE_ORDRE_MISSION } from "@/lib/modeles";
 import { Formulaire } from "@/components/Formulaire";
 import { ChampRetour } from "@/components/ChampRetour";
 import { Entete } from "@/components/ui";
@@ -17,6 +17,7 @@ export const metadata = { title: "Modèle de document" };
 const DOCUMENTS = {
   convention: { titre: "Modèle de convention", sous: "Le document que signent l'élève, sa famille, l'entreprise et le lycée.", pdf: true, titreDefaut: TITRE_CONVENTION, introDefaut: "" },
   ordre_mission: { titre: "Modèle d'ordre de mission", sous: "Ordre de mission signé avant la visite, puis compte rendu de visite.", pdf: false, titreDefaut: TITRE_ORDRE_MISSION, introDefaut: INTRO_ORDRE_MISSION },
+  attestation: { titre: "Modèle d'attestation de stage", sous: "Remplie et signée en ligne par le tuteur, avec l'élève et le professeur quand c'est possible.", pdf: false, titreDefaut: TITRE_ATTESTATION, introDefaut: INTRO_ATTESTATION },
 } as const;
 
 const NB_RUBRIQUES = 5;
@@ -43,7 +44,7 @@ function ChoixSource({ c, i }: { c: ChampPdf; i: number }) {
 /** Le modèle d'un document : modèle Cap PFMP adapté, ou PDF du lycée avec ce que Cap PFMP écrit dans chaque champ. */
 export default async function ModeleDocument({ params }: { params: Promise<{ type: string }> }) {
   const { type } = await params;
-  if (type !== "convention" && type !== "ordre_mission") notFound();
+  if (type !== "convention" && type !== "ordre_mission" && type !== "attestation") notFound();
   const doc = DOCUMENTS[type];
   const ctx = await contexte({ roles: ["direction", "gestionnaire"] });
   const m = await modeleDuLycee(ctx.etab.id, type);
@@ -94,7 +95,9 @@ export default async function ModeleDocument({ params }: { params: Promise<{ typ
         <h2>Modèle Cap PFMP adapté</h2>
         <p className="sub" style={{ margin: 0 }}>{type === "convention"
           ? "Les parties, les dates, les horaires et les signatures sont toujours remplis par Cap PFMP."
-          : "L'élève, le stage, l'entreprise, l'appel, la visite et les signatures sont toujours remplis par Cap PFMP."} Vous choisissez le titre, les textes, et vous ajoutez vos rubriques. Le logo se dépose dans <Link href="/organisation/documents#logo">Modèles de documents</Link>.</p>
+          : type === "attestation"
+            ? "L'élève, l'entreprise, la période, les jours effectués, les activités, l'appréciation et la signature du tuteur sont toujours remplis en ligne."
+            : "L'élève, le stage, l'entreprise, l'appel, la visite et les signatures sont toujours remplis par Cap PFMP."} Vous choisissez le titre, les textes, et vous ajoutez vos rubriques. Le logo se dépose dans <Link href="/organisation/documents#logo">Modèles de documents</Link>.</p>
         <Formulaire action={enregistrerPersonnalisation} bouton="Enregistrer le modèle">
           <input type="hidden" name="type" value={type} />
           <label className="f" htmlFor="mp-titre">Titre<input id="mp-titre" name="titre" defaultValue={p.titre ?? ""} placeholder={doc.titreDefaut} maxLength={200} /></label>
@@ -123,6 +126,7 @@ export default async function ModeleDocument({ params }: { params: Promise<{ typ
         </Formulaire>
         {type === "convention" && ex && <Link className="btn small" href={`/conventions/${ex.id}?apercu=cap`} target="_blank">Voir une convention avec ce modèle</Link>}
         {type === "ordre_mission" && om && <Link className="btn small" href={`/ordres-mission/${om.id}`} target="_blank">Voir un ordre de mission avec ce modèle</Link>}
+        {type === "attestation" && ex && <a className="btn small" href={`/organisation/documents/attestation/apercu?stage=${ex.id}`} target="_blank" rel="noopener">Voir une attestation avec ce modèle</a>}
       </div>
 
       {doc.pdf && <div className="panel pad section" id="pdf">

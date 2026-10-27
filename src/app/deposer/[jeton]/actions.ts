@@ -6,6 +6,7 @@ import { chargerConventionEtab } from "@/lib/convention";
 import { etablissementDuLien, lienValide, marquerUtilise } from "@/lib/liens";
 import { enregistrerFichier } from "@/lib/stockage";
 import { documentsManquants } from "@/lib/entreprises-accueil";
+import { enregistrerAttestation } from "@/lib/attestation";
 import type { Etat } from "@/components/Formulaire";
 
 /**
@@ -34,6 +35,24 @@ export async function deposerParLien(_: Etat, fd: FormData): Promise<Etat> {
   }
   await marquerUtilise(lien.id);
   await db.insert(schema.journal).values({ etablissementId: etab.id, action: "documents_deposes_par_lien", entite: "stage", entiteId: cv.s.id, details: { types: fichiers.map((x) => x.type) } });
+  for (const p of [`/eleves/${cv.e.id}`, "/documents", "/"]) revalidatePath(p);
+  redirect(`/deposer/${jeton}`);
+}
+
+/**
+ * L'entreprise remplit et signe l'attestation en ligne avec son lien personnel. Le lien sert encore pour déposer
+ * le livret s'il manque ; sinon, il a fini de servir.
+ */
+export async function remplirAttestationParLien(_: Etat, fd: FormData): Promise<Etat> {
+  const jeton = String(fd.get("jeton") ?? "");
+  const lien = await lienValide(jeton, "documents");
+  if (!lien?.stageId) return { erreur: "Ce lien a expiré ou a déjà servi. Répondez simplement au mail du lycée." };
+  const etab = await etablissementDuLien(lien.etablissementId);
+  const cv = etab ? await chargerConventionEtab(etab, lien.stageId) : null;
+  if (!etab || !cv) return { erreur: "Stage introuvable." };
+  const r = await enregistrerAttestation(etab, cv, fd, { depuis: "lien", parId: null });
+  if ("erreur" in r) return r;
+  if (!(await documentsManquants(cv.s.id)).length) await marquerUtilise(lien.id);
   for (const p of [`/eleves/${cv.e.id}`, "/documents", "/"]) revalidatePath(p);
   redirect(`/deposer/${jeton}`);
 }

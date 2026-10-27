@@ -370,3 +370,23 @@ Demande d'Anissa : « rajoute prise de rdv pour visite de stage avec deux option
 2. **Visio** : Cap PFMP ne crée pas la réunion ; le professeur colle le lien de son outil habituel, ou donne un numéro de téléphone.
 3. **Lien valable 14 jours**, pour une seule prise de rendez-vous ; pour changer de date ensuite, l'entreprise répond au professeur, qui renvoie de nouveaux créneaux.
 4. **Changement de visiteur** : les créneaux de l'ancien visiteur restés sans réponse sont annulés, et son lien ne sert plus.
+
+## 27 octobre 2026 : réalisation du lot 3.4 (attestation de stage en ligne)
+
+Sur la décision d'Anissa : « deux options : tuteur avec élève et prof quand c'est possible, ou tuteur et élève, et si ce n'est pas possible le tuteur seul ».
+
+- **Trois façons de la remplir**, toujours par le tuteur, qui indique qui la remplit avec lui :
+  - **Avec le professeur** : sur la page de la visite, le tuteur la remplit sur le téléphone du professeur, avec l'élève, et signe en dessinant avec le doigt.
+  - **Dans son compte** (« Mes stagiaires », bloc « Fin de stage »).
+  - **Avec son lien personnel**, sans compte : le lien reçu par mail sert à remplir l'attestation en ligne ou à déposer le document signé, et à déposer le livret.
+- **Ce qui est rempli** : les jours de stage effectués et d'absence (proposés par Cap PFMP : jours prévus moins absences signalées au lycée), les activités réalisées, une appréciation, le nom et la fonction de la personne qui signe. Le document indique qui l'a remplie.
+- **Quand** : à partir de 2 jours avant la fin du stage (réglable dans « Organisation »), pour la remplir avec l'élève encore présent ; le tuteur reçoit alors son lien par mail. Les remerciements de fin de stage proposent aussi l'attestation en ligne.
+- **Le PDF** suit le modèle Cap PFMP adapté par le lycée (« Modèles de documents » › « Attestation de stage » : titre, introduction, rubriques, pied de page, logo), avec un aperçu. Il est rangé dans le dossier de l'élève.
+- **Vérification** : l'attestation est validée d'office quand les jours déclarés sont ceux de Cap PFMP ; sinon, elle arrive « à vérifier » chez la gestion des PFMP, avec l'écart affiché (jours déclarés, jours comptés par Cap PFMP).
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Validation d'office** quand les jours concordent, pour ne pas ajouter de travail au DDFPT ; un écart (absence non signalée, stage écourté) est toujours vérifié.
+2. **Signature** : dessinée sur le téléphone du professeur ; dans le compte du tuteur ou avec son lien, simple ou dessinée, selon le réglage du lycée.
+3. **Ouverture 2 jours avant la fin** : l'élève est encore là pour la remplir avec son tuteur ; le lycée peut changer ce nombre de jours.
+4. **Le PDF de son lycée** (attestation sans champs) : en attente de la réponse d'Anissa sur la façon de remplir ses PDF (1, 2 ou 3) ; d'ici là, le modèle Cap PFMP adapté.

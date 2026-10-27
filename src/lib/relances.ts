@@ -12,7 +12,7 @@ import { piecesAllocation } from "./allocations";
 import { candidaturesDe } from "./candidatures";
 import { campagneDe, relancerEntreprise, reponsesCampagne } from "./campagne";
 import { referentDe } from "./requetes";
-import { estJourOuvre, jourDeRelance, piecesManquantes, relanceCyclique, relanceHebdomadaireDue, tachesEleve, texteJour } from "./regles";
+import { estJourOuvre, jourDeRelance, ouvertureAttestation, piecesManquantes, relanceCyclique, relanceHebdomadaireDue, tachesEleve, texteJour } from "./regles";
 import { completerReglages, type Reglages, type Signataire } from "@/db/schema";
 
 type Etab = typeof schema.etablissements.$inferSelect;
@@ -157,7 +157,21 @@ export async function relancesDuJour(etab: Etab, opts: { classes?: string[]; use
       n++;
     }
 
-    // 3. Attestation et livret : remerciements le lendemain de la fin, puis un rappel tous les N jours tant qu'ils manquent,
+    // 3. Attestation de stage en ligne : quelques jours avant la fin, le tuteur reçoit son lien pour la remplir avec l'élève
+    //    encore présent (au premier jour ouvré de cette fenêtre, jusqu'au dernier jour du stage).
+    const ouverture = ouvertureAttestation(l.p.debut, l.p.fin, R.attestationAvant);
+    if (R.attestationAvant > 0 && contact && jour >= ouverture && jour <= l.p.fin && !journal.fait(`attestation:${l.s.id}`)
+      && (await documentsManquants(l.s.id)).includes("attestation")) {
+      const lien = await lienDeDepot(etab.id, l.s.id, contact, base);
+      await envoyer(ctx, {
+        canal: "mail", destinataire: contact, sujet: `Attestation de stage de ${l.e.prenom} ${l.e.nom} à remplir`, eleveId: l.e.id, entrepriseId: l.ent.id,
+        corps: `${l.s.tuteur?.nom ? `Bonjour ${l.s.tuteur.nom}` : "Madame, Monsieur"},\n\nLe stage de ${l.e.prenom} ${l.e.nom} se termine le ${dateLongue(l.p.fin)}. Merci de remplir son attestation de stage, avec ${l.e.prenom} si possible, avant son départ : en ligne, sans créer de compte, avec ce lien personnel (valable jusqu'au ${lien.jusquau}) :\n${lien.url}\n\nRien à imprimer ni à scanner : l'attestation signée arrive directement au lycée.\n\n${etab.nom}`,
+      });
+      await journal.noter("stage", `attestation:${l.s.id}`);
+      n++;
+    }
+
+    // 4. Attestation et livret : remerciements le lendemain de la fin, puis un rappel tous les N jours tant qu'ils manquent,
     //    chaque fois avec un lien personnel pour les déposer sans compte.
     if (l.p.fin < jour && contact) {
       const demande = `fin:${l.s.id}`;
@@ -171,7 +185,10 @@ export async function relancesDuJour(etab: Etab, opts: { classes?: string[]; use
         const accord = pluriel ? "s" : manquent[0] === "attestation" ? "e" : "";
         const pronom = pluriel ? "les" : manquent[0] === "attestation" ? "la" : "le";
         const lien = manquent.length ? await lienDeDepot(etab.id, l.s.id, contact, base) : null;
-        const depot = lien ? `Merci de nous transmettre ${quoi}, complété${accord} et signé${accord}. Vous pouvez ${pronom} déposer en ligne, sans créer de compte, avec ce lien personnel (valable jusqu'au ${lien.jusquau}) :\n${lien.url}` : "";
+        // L'attestation se remplit et se signe en ligne avec le même lien ; le livret se dépose.
+        const comment = !manquent.includes("attestation") ? `Vous pouvez ${pronom} déposer en ligne`
+          : pluriel ? "Vous pouvez remplir et signer l'attestation en ligne, et déposer le livret" : "Vous pouvez la remplir et la signer en ligne, ou la déposer";
+        const depot = lien ? `Merci de nous transmettre ${quoi}, complété${accord} et signé${accord}. ${comment}, sans créer de compte, avec ce lien personnel (valable jusqu'au ${lien.jusquau}) :\n${lien.url}` : "";
         if (merci) {
           await envoyer(ctx, {
             canal: "mail", destinataire: contact, sujet: `Merci d'avoir accueilli ${l.e.prenom} ${l.e.nom}`, eleveId: l.e.id, entrepriseId: l.ent.id,

@@ -65,6 +65,11 @@ export type Reglages = {
     accueilAvant: number;
     /** Remerciements à l'entreprise, avec le lien pour l'attestation et le livret, ce nombre de jours après la fin (0 : pas de mail). */
     remerciementApres: number;
+    /**
+     * Attestation de stage : elle se remplit en ligne à partir de ce nombre de jours avant la fin du stage, et le tuteur reçoit
+     * alors son lien, pour la remplir avec l'élève encore présent (0 : à partir du dernier jour, sans ce mail).
+     */
+    attestationAvant: number;
   };
 };
 
@@ -81,7 +86,7 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   calendrierPublic: false,
   frais: { kilometrique: [], repas: 0, nuitees: [], consignes: "" },
   regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2, reglesMineurs: true },
-  relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1 },
+  relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1, attestationAvant: 2 },
 };
 
 /** Réglages enregistrés complétés par les valeurs par défaut : un lycée créé avant l'ajout d'un réglage le reçoit ainsi. */
@@ -307,6 +312,30 @@ export const demarches = pgTable("demarches", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("demarches_eleve_idx").on(t.eleveId)]);
 
+/** Qui a rempli l'attestation : le tuteur avec l'élève et le professeur quand c'est possible, sinon avec l'élève, sinon seul (décision d'Anissa). */
+export type RempliePar = "tuteur_eleve_professeur" | "tuteur_eleve" | "tuteur";
+
+/** L'attestation de stage remplie en ligne : ce que le tuteur déclare et signe, et ce que Cap PFMP comptait au même moment. */
+export type AttestationStage = {
+  rempliePar: RempliePar;
+  /** Le professeur présent, quand il y en a un. */
+  professeur: string | null;
+  joursEffectues: number;
+  joursAbsence: number;
+  /** Jours prévus moins les absences signalées dans Cap PFMP : un écart avec la déclaration du tuteur est à vérifier. */
+  joursCalcules: number;
+  absencesCalculees: number;
+  activites: string;
+  appreciation: string | null;
+  signataire: { nom: string; fonction: string | null };
+  signature: { modele: "simple" | "dessinee"; image?: string };
+  le: string;
+  /** Remplie sur le téléphone du professeur, dans le compte du tuteur, ou avec le lien personnel de l'entreprise. */
+  depuis: "professeur" | "compte" | "lien";
+  parId: string | null;
+  documentId: string;
+};
+
 export const stages = pgTable("stages", {
   id: uuid("id").primaryKey().defaultRandom(),
   eleveId: uuid("eleve_id").notNull().references(() => eleves.id, { onDelete: "cascade" }),
@@ -325,6 +354,8 @@ export const stages = pgTable("stages", {
   complements: jsonb("complements").$type<Complements>().notNull().default({}),
   /** Modèle figé à la première signature : une convention signée ne change plus si le lycée modifie son modèle ensuite. */
   modeles: jsonb("modeles").$type<ModelesFiges>().notNull().default({}),
+  /** Attestation de stage remplie en ligne par le tuteur ; le PDF produit est rangé dans les documents de l'élève. */
+  attestation: jsonb("attestation").$type<AttestationStage>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("stages_eleve_periode_idx").on(t.eleveId, t.periodeId), index("stages_entreprise_idx").on(t.entrepriseId)]);
 
@@ -511,8 +542,8 @@ export const soucisEntreprises = pgTable("soucis_entreprises", {
 /* Modèles de documents propres à chaque lycée                          */
 /* ------------------------------------------------------------------ */
 
-/** Documents dont le lycée choisit le modèle (les autres suivront : attestation, livret, ordre de mission). */
-export type TypeModele = "convention" | "ordre_mission";
+/** Documents dont le lycée choisit le modèle (le livret suivra). */
+export type TypeModele = "convention" | "ordre_mission" | "attestation";
 
 /**
  * Un champ du PDF du lycée et ce qu'on y écrit. `source` : une donnée de Cap PFMP (ex. « eleve.nomPrenom »),

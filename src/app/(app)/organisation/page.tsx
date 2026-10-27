@@ -145,6 +145,7 @@ export default async function Organisation() {
             <label className="f" htmlFor="entrepriseMax">Au plus (rappels par demande ; ensuite, le lycée est prévenu pour appeler l&apos;entreprise)<input id="entrepriseMax" name="entrepriseMax" type="number" min={1} max={20} defaultValue={r.relances.entrepriseMax} /></label>
             <label className="f" htmlFor="accueilAvant">Mail d&apos;accueil au tuteur (élève, dates, horaires, professeur à contacter) : jours avant le début du stage, 0 pour aucun<input id="accueilAvant" name="accueilAvant" type="number" min={0} max={30} defaultValue={r.relances.accueilAvant} /></label>
             <label className="f" htmlFor="remerciementApres">Remerciements, avec le lien pour l&apos;attestation et le livret : jours après la fin du stage, 0 pour aucun<input id="remerciementApres" name="remerciementApres" type="number" min={0} max={30} defaultValue={r.relances.remerciementApres} /></label>
+            <label className="f" htmlFor="attestationAvant">Attestation de stage en ligne : le tuteur la remplit, avec l&apos;élève encore présent, à partir de (jours avant la fin du stage ; il reçoit alors son lien, 0 pour le dernier jour sans ce mail)<input id="attestationAvant" name="attestationAvant" type="number" min={0} max={10} defaultValue={r.relances.attestationAvant} /></label>
           </div>
           <b>Conventions et familles</b>
           <p className="sub" style={{ margin: 0 }}>Indiquez les jours séparés par des virgules ; laissez vide pour ne pas relancer.</p>

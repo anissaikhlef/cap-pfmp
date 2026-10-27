@@ -64,9 +64,9 @@ function PaveSignature({ onChange, consigne = "Dessinez votre signature dans le 
 
 /**
  * Champs de signature : modèle (simple ou dessiné, selon ce que le lycée autorise), cadre de dessin,
- * et case « J'ai lu la convention ». Envoie modele, image et lu.
+ * et case d'engagement (« J'ai lu la convention », par défaut). Envoie modele, image et lu.
  */
-export function ChoixSignature({ modeles }: { modeles: ("simple" | "dessinee")[] }) {
+export function ChoixSignature({ modeles, engagement = "J'ai lu la convention et j'accepte ses conditions." }: { modeles: ("simple" | "dessinee")[]; engagement?: string }) {
   const [modele, setModele] = useState(modeles[0]);
   const [image, setImage] = useState("");
   return (
@@ -79,7 +79,7 @@ export function ChoixSignature({ modeles }: { modeles: ("simple" | "dessinee")[]
       ) : <input type="hidden" name="modele" value={modele} />}
       {modele === "dessinee" && <PaveSignature onChange={setImage} />}
       <input type="hidden" name="image" value={modele === "dessinee" ? image : ""} />
-      <label className="check"><input type="checkbox" name="lu" /> J&apos;ai lu la convention et j&apos;accepte ses conditions.</label>
+      <label className="check"><input type="checkbox" name="lu" /> {engagement}</label>
     </>
   );
 }

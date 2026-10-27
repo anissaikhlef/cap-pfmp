@@ -20,7 +20,10 @@ import { texteMode } from "@/lib/rendez-vous";
 import { LienVisio } from "@/components/LienVisio";
 import { demanderRemboursement } from "../../frais/actions";
 import { ZoneSignature } from "@/components/ChoixSignature";
-import { choisirCreneau, demanderOrdreMission, deposerPhotoOrdreMission, enregistrerAppel, enregistrerCompteRendu, proposerCreneaux, signerCachet } from "../actions";
+import { choisirCreneau, demanderOrdreMission, deposerPhotoOrdreMission, enregistrerAppel, enregistrerCompteRendu, proposerCreneaux, remplirAttestationVisite, signerCachet } from "../actions";
+import { chargerConvention } from "@/lib/convention";
+import { etatAttestation } from "@/lib/attestation";
+import { FormulaireAttestation, ResumeAttestation } from "@/components/attestation";
 
 const ADEQUATION = { oui: "Oui", en_partie: "En partie", non: "Non" } as const;
 
@@ -55,6 +58,9 @@ export default async function Visite({ params }: { params: Promise<{ id: string 
   const [dernier] = visiteur && !frais ? await db.select({ vehicule: schema.fraisDeplacement.vehicule }).from(schema.fraisDeplacement)
     .where(and(eq(schema.fraisDeplacement.professeurId, ctx.user.id), isNotNull(schema.fraisDeplacement.vehicule))).orderBy(desc(schema.fraisDeplacement.createdAt)).limit(1) : [];
   const dernierVehicule = dernier?.vehicule ?? null;
+  // Attestation de stage : le tuteur peut la remplir sur le téléphone du professeur, avec l'élève, à la fin du stage.
+  const cvAtt = peutAgir ? await chargerConvention(ctx, l.s.id) : null;
+  const att = cvAtt ? await etatAttestation(ctx.etab, cvAtt) : null;
   const qui = r.signatairesOrdreMission.length > 1 ? "la direction ou la gestion des PFMP" : r.signatairesOrdreMission[0] === "direction" ? "la direction" : "la gestion des PFMP";
   return (
     <>
@@ -265,6 +271,24 @@ export default async function Visite({ params }: { params: Promise<{ id: string 
               <label className="f" htmlFor="cr-ent">Commentaires sur l&apos;entreprise (facultatif)<textarea id="cr-ent" name="commentaireEntreprise" rows={2} maxLength={2000} /></label>
               <label className="f" htmlFor="cr-suite">Suite à donner<select id="cr-suite" name="suite" defaultValue="aucune">{SUITES.map(([k, lib]) => <option key={k} value={k}>{lib}</option>)}</select></label>
             </Formulaire>
+          )}
+        </div>
+      )}
+      {cvAtt && att && (
+        <div className="panel pad section" id="attestation">
+          <h2>Attestation de stage</h2>
+          {att.remplie ? (
+            <>
+              <ResumeAttestation att={att.remplie} />
+              <div><a className="btn small" href={`/fichiers/${att.remplie.documentId}`} target="_blank" rel="noopener">Ouvrir l&apos;attestation</a></div>
+            </>
+          ) : !att.aRemplir ? (
+            <p className="sub" style={{ margin: 0 }}>L&apos;attestation de ce stage est déjà déposée : elle est dans le dossier de l&apos;élève.</p>
+          ) : att.ouverte ? (
+            <FormulaireAttestation action={remplirAttestationVisite} cv={cvAtt} etat={att} cache={{ visiteId: l.v.id }} modeles={["dessinee"]} rempliePar="tuteur_eleve_professeur"
+              consigne="Le tuteur vérifie l'attestation avec vous et l'élève, puis signe dans le cadre, avec le doigt." />
+          ) : (
+            <p className="sub" style={{ margin: 0 }}>À partir du {dateLongue(att.ouverture)}, le tuteur la remplit ici avec vous et l&apos;élève, ou en ligne avec le lien qu&apos;il reçoit.</p>
           )}
         </div>
       )}

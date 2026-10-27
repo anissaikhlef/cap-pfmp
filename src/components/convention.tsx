@@ -14,7 +14,9 @@ import { ChampsACompleter } from "./ChampsACompleter";
 import { modeleDeLaConvention, utiliseLePdf } from "@/lib/modeles-documents";
 import { Pill } from "./ui";
 import { VisitesDuDossier } from "./visites";
-import { deposer, envoyerPourSignature, relancer, signer } from "@/app/(app)/documents/actions";
+import { deposer, envoyerPourSignature, relancer, remplirAttestationCompte, signer } from "@/app/(app)/documents/actions";
+import { etatAttestation } from "@/lib/attestation";
+import { FormulaireAttestation, ResumeAttestation } from "./attestation";
 import type { TypeDocument } from "@/db/schema";
 
 const LIBELLES_DOC: Record<TypeDocument, string> = {
@@ -140,10 +142,11 @@ export async function BlocFinDeStage({ ctx, stageId }: { ctx: Contexte; stageId:
   const termine = aujourdhui() > cv.p.fin;
   // Le professeur référent dépose aussi un document reçu sur papier ou par courrier.
   const peutDeposer = gestion || tuteur || (await estReferentDe(ctx, cv.e));
+  const att = await etatAttestation(ctx.etab, cv);
   return (
-    <div className="panel pad section">
+    <div className="panel pad section" id="fin-de-stage">
       <h2>Fin de stage</h2>
-      {!termine && <p className="sub" style={{ margin: 0 }}>À déposer après le {dateCourte(cv.p.fin)}, dernier jour du stage.</p>}
+      {!termine && <p className="sub" style={{ margin: 0 }}>L&apos;attestation se remplit en ligne à partir du {dateCourte(att.ouverture)} ; le livret se dépose après le {dateCourte(cv.p.fin)}, dernier jour du stage.</p>}
       <div className="grid2">
         {(["attestation", "livret"] as const).map((t) => {
           const d = docs.find((x) => x.type === t);
@@ -151,6 +154,13 @@ export async function BlocFinDeStage({ ctx, stageId }: { ctx: Contexte; stageId:
             <div key={t} className="card">
               <div className="actions" style={{ justifyContent: "space-between" }}><b>{LIBELLES_DOC[t]}</b><EtatDoc d={d} /></div>
               {d && <a href={`/fichiers/${d.id}`} target="_blank" rel="noopener" className="sub">{d.nomFichier}</a>}
+              {t === "attestation" && att.remplie && <ResumeAttestation att={att.remplie} />}
+              {t === "attestation" && tuteur && att.aRemplir && att.ouverte && (
+                <details open>
+                  <summary className="btn small primary">Remplir l&apos;attestation en ligne</summary>
+                  <FormulaireAttestation action={remplirAttestationCompte} cv={cv} etat={att} cache={{ stageId }} modeles={modelesAutorises(ctx.etab.reglages)} rempliePar="tuteur_eleve" />
+                </details>
+              )}
               {peutDeposer && d?.statut !== "valide" && <Depot stageId={stageId} type={t} libelle={d ? "Remplacer le fichier" : "Déposer le document signé"} />}
               {gestion && termine && !d && (
                 <form action={relancer}><input type="hidden" name="stageId" value={stageId} /><input type="hidden" name="cible" value={t} /><button className="btn small">Relancer l&apos;entreprise</button></form>

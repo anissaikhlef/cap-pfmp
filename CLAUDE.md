@@ -9,7 +9,7 @@
 - Règles métier : fonctions pures dans `src/lib/regles.ts`, avec tests dans `tests/`.
 - Après une modification : `npm run lint`, `npm test`, `npx next build`, puis le parcours `e2e/` concerné.
 - Données de démonstration uniquement fictives (domaine `demo.cap-pfmp.example`, numéros 06 39 98 xx xx).
-- Parcours de test : `e2e/etape1.mjs` à `etape5.mjs`, `organisations.mjs`, `lot1.mjs`, `lot2.mjs`, `acces.mjs`, `entreprises.mjs`, `modeles.mjs`, `ordre-mission.mjs`, `frais.mjs`, `rendez-vous.mjs` et `mobile.mjs`, chacun sur des données fraîches (`npm run db:seed`), application sur le port 3100 lancée avec `CAP_PFMP_DATE_DU_JOUR=2026-10-26` (date pour laquelle les parcours sont écrits).
+- Parcours de test : `e2e/etape1.mjs` à `etape5.mjs`, `organisations.mjs`, `lot1.mjs`, `lot2.mjs`, `acces.mjs`, `entreprises.mjs`, `modeles.mjs`, `ordre-mission.mjs`, `frais.mjs`, `rendez-vous.mjs`, `attestation.mjs` et `mobile.mjs`, chacun sur des données fraîches (`npm run db:seed`), application sur le port 3100 lancée avec `CAP_PFMP_DATE_DU_JOUR=2026-10-26` (date pour laquelle les parcours sont écrits).
 - Données de démonstration modifiées (`scripts/seed.ts`) : augmenter `VERSION_DONNEES_DEMO` dans `scripts/version-demo.ts`, pour que le site de démonstration les recharge au déploiement.
 - Chaque décision d'Anissa est consignée, avec sa date, dans `JOURNAL_DE_CONCEPTION.md`.
 - Une période avec `eleveId` est un rattrapage (propre à un élève) : les périodes d'une classe se lisent avec `eleveId` vide.
@@ -17,6 +17,7 @@
 - Signatures : enregistrées par `enregistrerSignature()` (src/lib/signature.ts) ; invitations et liens par `inviterASigner()` (src/lib/invitations.ts).
 - Messages de confirmation après une action : `revenirAvec()` (src/lib/retour.ts) et le bandeau commun ; dans un formulaire simple, ajouter `<ChampRetour />`.
 - Documents : le modèle de chaque lycée (Cap PFMP adapté ou PDF du lycée) se lit avec `modeleDuLycee()` / `modeleDeLaConvention()` (src/lib/modeles-documents.ts) ; une convention signée garde son modèle figé (`stages.modeles`) ; jamais de texte de document codé en dur ailleurs.
+- Attestation de stage en ligne : remplie par le tuteur (avec l'élève et le professeur quand c'est possible, sinon avec l'élève, sinon seul) et enregistrée par `enregistrerAttestation()` (src/lib/attestation.ts), qui produit le PDF au modèle du lycée ; elle s'ouvre `reglages.relances.attestationAvant` jours avant la fin du stage.
 - Frais de visite : le barème est celui du lycée (`reglages.frais`), calculé par `calculFrais()` (src/lib/regles.ts) ; jamais de taux codé en dur.
 - Mails et SMS : toujours via `envoyer()` (src/lib/messages.ts), jamais directement.
 - RIB et pièce d'identité (allocation) : visibles seulement de la gestion des PFMP, de l'élève et de ses responsables (`peutVoirDocument`) ; rien ne doit indiquer aux familles que la gestion peut les déposer elle-même (décision d'Anissa).

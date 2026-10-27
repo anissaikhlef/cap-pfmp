@@ -10,17 +10,28 @@ import { dateCourte } from "@/lib/dates";
 import { Formulaire } from "@/components/Formulaire";
 import { HORS_DOSSIER, LIBELLES_DOC } from "@/components/convention";
 import { refuser, valider } from "./actions";
+import type { AttestationStage, TypeDocument } from "@/db/schema";
 
 export const metadata = { title: "Documents" };
+
+/** Qui a déposé le document (ou rempli l'attestation en ligne), pour la liste à vérifier. */
+function deposant(type: TypeDocument, u: { prenom: string; nom: string } | null, enLigne: AttestationStage | null) {
+  if (enLigne) {
+    return enLigne.depuis === "professeur" ? `remplie en ligne par le tuteur, avec ${u ? `${u.prenom} ${u.nom}` : "le professeur"}, `
+      : enLigne.depuis === "compte" && u ? `remplie en ligne par ${u.prenom} ${u.nom} ` : "remplie en ligne par l'entreprise, avec son lien personnel, ";
+  }
+  return `déposé ${u ? `par ${u.prenom} ${u.nom} ` : type === "attestation" || type === "livret" ? "par l'entreprise, avec son lien personnel, " : ""}`;
+}
 
 export default async function Documents({ searchParams }: { searchParams: Promise<{ classe?: string }> }) {
   const ctx = await contexte();
   if (!(await estGestionnaire(ctx))) redirect("/");
   const sp = await searchParams;
   const ids = await idsElevesGeres(ctx);
-  const attente = ids.length ? await db.select({ d: schema.documents, e: schema.eleves, u: schema.users }).from(schema.documents)
+  const attente = ids.length ? await db.select({ d: schema.documents, e: schema.eleves, u: schema.users, att: schema.stages.attestation }).from(schema.documents)
     .innerJoin(schema.eleves, eq(schema.eleves.id, schema.documents.eleveId))
     .leftJoin(schema.users, eq(schema.users.id, schema.documents.deposeParId))
+    .leftJoin(schema.stages, eq(schema.stages.id, schema.documents.stageId))
     // Le CV et la lettre se relisent sur la fiche de l'élève, pas dans cette boîte.
     .where(and(inArray(schema.documents.eleveId, ids), eq(schema.documents.statut, "a_verifier"), notInArray(schema.documents.type, ["cv", "lettre"])))
     .orderBy(desc(schema.documents.deposeLe)) : [];
@@ -36,11 +47,15 @@ export default async function Documents({ searchParams }: { searchParams: Promis
         <h2>À vérifier ({attente.length})</h2>
         <div className="panel rows">
           {attente.length === 0 && <div className="empty">Aucun document en attente.</div>}
-          {attente.map(({ d, e, u }) => (
+          {attente.map(({ d, e, u, att }) => {
+            // Attestation remplie en ligne : elle attend une vérification parce que les jours déclarés diffèrent de ceux de Cap PFMP.
+            const enLigne = d.type === "attestation" && att?.documentId === d.id ? att : null;
+            return (
             <div key={d.id} className="row">
               <div className="main">
                 <div className="name">{LIBELLES_DOC[d.type]} · <Link href={`/eleves/${e.id}`}>{e.prenom} {e.nom}</Link> <span className="cls">{d.classeLibelle}</span></div>
-                <div className="meta">{d.nomFichier} · {Math.round(d.taille / 1024)} Ko · déposé {u ? `par ${u.prenom} ${u.nom} ` : d.type === "attestation" || d.type === "livret" ? "par l'entreprise, avec son lien personnel, " : ""}le {dateCourte(d.deposeLe.toISOString().slice(0, 10))}</div>
+                <div className="meta">{d.nomFichier} · {Math.round(d.taille / 1024)} Ko · {deposant(d.type, u, enLigne)}le {dateCourte(d.deposeLe.toISOString().slice(0, 10))}</div>
+                {enLigne && <div className="meta">Jours déclarés par l&apos;entreprise : {enLigne.joursEffectues} effectué(s), {enLigne.joursAbsence} d&apos;absence · d&apos;après Cap PFMP : {enLigne.joursCalcules} effectué(s), {enLigne.absencesCalculees} d&apos;absence.</div>}
               </div>
               <a className="btn small" href={`/fichiers/${d.id}`} target="_blank" rel="noopener">Ouvrir</a>
               <details>
@@ -52,7 +67,8 @@ export default async function Documents({ searchParams }: { searchParams: Promis
               </details>
               <form action={valider}><input type="hidden" name="id" value={d.id} /><button className="btn small primary">Valider</button></form>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
       <div className="section">

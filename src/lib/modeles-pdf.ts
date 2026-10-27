@@ -60,7 +60,7 @@ export async function lireChampsPdf(octets: Uint8Array): Promise<ChampPdf[] | st
 }
 
 /** Garde seulement les caractères que la police du PDF sait écrire (les accents français passent). */
-function lisible(police: PDFFont, s: string) {
+export function lisible(police: PDFFont, s: string) {
   const permis = new Set(police.getCharacterSet());
   return [...s.replace(/[–—]/g, "-").replace(/ | /g, " ")].filter((ch) => ch === "\n" || permis.has(ch.codePointAt(0)!)).join("");
 }

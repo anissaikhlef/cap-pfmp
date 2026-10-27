@@ -593,3 +593,22 @@ export function modeRetenu(
   if (proposes === "les2") return choix === "presentiel" || choix === "distanciel" ? choix : null;
   return proposes ?? actuel;
 }
+
+/* ------------------------- Attestation de stage en ligne ------------------------- */
+
+/**
+ * Premier jour où l'attestation se remplit en ligne : `avant` jours avant la fin du stage (0 : le dernier jour),
+ * pour que le tuteur la remplisse avec l'élève encore présent ; jamais avant le début du stage.
+ */
+export function ouvertureAttestation(debut: string, fin: string, avant: number): string {
+  const d = ajouterJours(fin, -Math.max(0, avant));
+  return d < debut ? debut : d;
+}
+
+/**
+ * L'attestation remplie en ligne est validée d'office quand le tuteur déclare les mêmes jours que Cap PFMP (jours prévus
+ * moins absences signalées) ; sinon, la gestion des PFMP vérifie l'écart (absence non signalée, stage écourté…).
+ */
+export function statutAttestation(declare: { effectues: number; absences: number }, calcule: { effectues: number; absences: number }): "valide" | "a_verifier" {
+  return declare.effectues === calcule.effectues && declare.absences === calcule.absences ? "valide" : "a_verifier";
+}

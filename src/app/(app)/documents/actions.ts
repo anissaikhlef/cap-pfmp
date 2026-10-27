@@ -16,10 +16,26 @@ import { contactDuStage, lienDeDepot } from "@/lib/entreprises-accueil";
 import { SIGNATAIRES, libelleSignataire } from "@/lib/regles";
 import type { Etat } from "@/components/Formulaire";
 import { revenirAvec } from "@/lib/retour";
+import { enregistrerAttestation } from "@/lib/attestation";
 import type { Signataire, Signatures, TypeDocument } from "@/db/schema";
 
 function rafraichir(eleveId: string) {
   for (const p of [`/eleves/${eleveId}`, "/documents", "/mon-stage", "/mon-enfant", "/stagiaires", "/a-signer", "/allocations", "/"]) revalidatePath(p);
+}
+
+/* -------------------------- Attestation de stage en ligne -------------------------- */
+
+/** Le tuteur remplit et signe l'attestation de son stagiaire depuis son compte. */
+export async function remplirAttestationCompte(_: Etat, fd: FormData): Promise<Etat> {
+  const ctx = await contexte({ roles: ["entreprise"] });
+  const cv = await chargerConvention(ctx, z.string().uuid().parse(fd.get("stageId")));
+  if (!cv || !ctx.user.entrepriseId || ctx.user.entrepriseId !== cv.s.entrepriseId) return { erreur: "Stage introuvable." };
+  const r = await enregistrerAttestation(ctx.etab, cv, fd, { depuis: "compte", parId: ctx.user.id });
+  if ("erreur" in r) return r;
+  rafraichir(cv.e.id);
+  revenirAvec(fd, r.statut === "valide"
+    ? `Attestation de ${cv.e.prenom} ${cv.e.nom} signée et transmise au lycée. Merci !`
+    : `Attestation de ${cv.e.prenom} ${cv.e.nom} signée et transmise : le lycée vérifie les jours indiqués.`);
 }
 
 /* -------------------------- Signature en ligne -------------------------- */

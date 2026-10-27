@@ -18,6 +18,8 @@ import type { Etat } from "@/components/Formulaire";
 import type { AppelTuteur, CachetEntreprise, CompteRendu } from "@/db/schema";
 import { NIVEAUX } from "@/lib/constantes-visites";
 import { grilleEtQuestions } from "@/lib/modeles-documents";
+import { enregistrerAttestation } from "@/lib/attestation";
+import { chargerConvention } from "@/lib/convention";
 import { enregistrerFichier, enregistrerSignatureDessinee } from "@/lib/stockage";
 
 function rafraichir() {
@@ -164,6 +166,27 @@ export async function choisirCreneau(fd: FormData) {
   await journaliser(ctx, "creneau_choisi", "visite", visiteId, { creneau: l.v.creneauxProposes[i], mode, par: tuteur ? "entreprise" : "professeur" });
   rafraichir();
   revenirAvec(fd, `Visite confirmée ${quand}.`);
+}
+
+/* ------------------------- Attestation de stage, remplie avec le professeur ------------------------- */
+
+/**
+ * Le tuteur remplit l'attestation sur le téléphone du professeur (pendant la visite ou à la fin du stage), avec l'élève
+ * quand il est là ; il signe en dessinant.
+ */
+export async function remplirAttestationVisite(_: Etat, fd: FormData): Promise<Etat> {
+  const ctx = await contexte();
+  const visiteId = z.string().uuid().parse(fd.get("visiteId"));
+  const l = await visiteDuVisiteur(ctx, visiteId);
+  const cv = l?.v ? await chargerConvention(ctx, l.s.id) : null;
+  if (!l?.v || !cv) return { erreur: "Visite introuvable." };
+  const r = await enregistrerAttestation(ctx.etab, cv, fd, { depuis: "professeur", parId: ctx.user.id, professeur: `${ctx.user.prenom} ${ctx.user.nom}` });
+  if ("erreur" in r) return r;
+  rafraichir();
+  for (const p of [`/visites/${visiteId}`, `/eleves/${l.e.id}`, "/documents"]) revalidatePath(p);
+  revenirAvec(fd, r.statut === "valide"
+    ? "Attestation signée par le tuteur : elle est rangée dans le dossier de l'élève."
+    : "Attestation signée par le tuteur. Les jours indiqués diffèrent de ceux de Cap PFMP : la gestion des PFMP la vérifie.");
 }
 
 /* ------------------------- Appel au tuteur, première semaine ------------------------- */

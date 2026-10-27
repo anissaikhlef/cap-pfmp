@@ -144,7 +144,7 @@ describe("relances automatiques", () => {
   });
   it("un lycée enregistré avant les relances reçoit les délais par défaut", () => {
     const r = completerReglages({ gestion: "ddfpt" } as Partial<Reglages>);
-    expect(r.relances).toEqual({ convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1 });
+    expect(r.relances).toEqual({ convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1, attestationAvant: 2 });
     expect(completerReglages({ relances: { entrepriseIntervalle: 4 } } as unknown as Partial<Reglages>).relances).toMatchObject({ entrepriseIntervalle: 4, entrepriseMax: 5 });
   });
 });
