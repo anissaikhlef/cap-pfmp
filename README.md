@@ -23,6 +23,7 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | Entreprises | Note de partenariat et badge « Partenaire fiable », soucis signalés par l'équipe, entreprises écartées par le DDFPT, message groupé aux entreprises d'accueil, mails d'accueil et de remerciement, dépôt de l'attestation et du livret par lien personnel, sans compte | Fait |
 | Lot 3.1 | Modèles de documents : convention au modèle Cap PFMP adapté (logo, textes, rubriques) ou PDF du lycée rempli à l'identique, champs complétés en signant par la famille et l'entreprise, convention figée à la première signature | Fait |
 | Lot 3.2 | Ordre de mission et compte rendu de visite sur le modèle du lycée : appel au tuteur la première semaine, mode de transport, signature avant la visite (direction ou gestion des PFMP, au choix du lycée), signature de l'entreprise pendant la visite ou photo du document tamponné, grille des attitudes professionnelles adaptable | Fait |
+| Lot 3.3 | Frais de visite : barème propre à chaque lycée (tranches de kilomètres annuels par véhicule, repas, nuitées), demande de remboursement du professeur après la visite, validation par la gestion des PFMP, export pour un tableur | Fait |
 
 Les décisions de conception d'Anissa Ikhlef sont consignées, avec leur date, dans [JOURNAL_DE_CONCEPTION.md](JOURNAL_DE_CONCEPTION.md).
 
@@ -82,6 +83,7 @@ node e2e/acces.mjs
 node e2e/entreprises.mjs
 node e2e/modeles.mjs
 node e2e/ordre-mission.mjs
+node e2e/frais.mjs
 node e2e/mobile.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
 ```
 
@@ -108,6 +110,7 @@ Les parcours sont écrits pour le 26 octobre 2026 : lancez l'application avec `C
 - `src/lib/acces.ts` : qui peut voir et faire quoi ; **toute** lecture ou écriture passe par ces fonctions
 - `src/lib/modeles.ts` : modèles de documents, partie pure (données que l'on peut écrire dans un champ, donnée proposée d'après le nom du champ, option d'une liste déroulante), testée
 - `src/lib/modeles-pdf.ts` et `src/lib/modeles-documents.ts` : lecture et remplissage du PDF du lycée ([pdf-lib](https://pdf-lib.js.org)), modèle de chaque lycée, modèle figé à la première signature
+- `src/lib/frais.ts` : kilomètres déjà parcourus dans l'année (le calcul du barème est dans `regles.ts`, testé)
 - `src/lib/partenariats.ts` : faits et note de partenariat de chaque entreprise (calcul dans `regles.ts`, testé)
 - `src/lib/entreprises-accueil.ts` : entreprises d'une période, adresse à utiliser pour un stage, lien de dépôt de l'attestation et du livret
 - `src/lib/auth.ts` : connexion, sessions, mots de passe

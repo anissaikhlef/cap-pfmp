@@ -30,6 +30,8 @@ export type Reglages = {
   compteRendu: boolean;
   /** Calendrier des PFMP consultable sans compte, avec un lien public (sans aucun nom d'élève). */
   calendrierPublic: boolean;
+  /** Frais de visite des professeurs : le barème du lycée (décision d'Anissa : « chaque lycée applique son calcul »). */
+  frais: BaremeFrais;
   regles: {
     heuresMin: number;
     heuresMax: number;
@@ -77,11 +79,26 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   signatairesOrdreMission: ["direction", "gestionnaire"],
   compteRendu: true,
   calendrierPublic: false,
+  frais: { kilometrique: [], repas: 0, nuitees: [], consignes: "" },
   regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2, reglesMineurs: true },
   relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1 },
 };
 
 /** Réglages enregistrés complétés par les valeurs par défaut : un lycée créé avant l'ajout d'un réglage le reçoit ainsi. */
+/** Une tranche du barème kilométrique : jusqu'à `jusqua` km parcourus dans l'année (null : au-delà), montant = km × taux + fixe. */
+export type TrancheBareme = { jusqua: number | null; taux: number; fixe: number };
+/** Une ligne du barème kilométrique : un véhicule et sa puissance (ex. « Voiture 5 CV »), en tranches. */
+export type LigneBareme = { vehicule: string; tranches: TrancheBareme[] };
+export type BaremeFrais = {
+  kilometrique: LigneBareme[];
+  /** Montant d'un repas, en euros. */
+  repas: number;
+  /** Montant d'une nuitée selon le lieu (ex. Paris et petite couronne, autres départements), en euros. */
+  nuitees: { zone: string; montant: number }[];
+  /** Ce qui ne se calcule pas : trajet retenu, billet de train hors de la région, justificatifs… */
+  consignes: string;
+};
+
 export function completerReglages(r: Partial<Reglages> | null | undefined): Reglages {
   return {
     ...REGLAGES_PAR_DEFAUT, ...(r ?? {}),
@@ -384,6 +401,43 @@ export const visites = pgTable("visites", {
   /** Signature de l'entreprise visitée (à défaut, la photo du document tamponné est rangée dans le dossier). */
   cachet: jsonb("cachet").$type<CachetEntreprise>(),
 }, (t) => [uniqueIndex("visites_stage_idx").on(t.stageId)]);
+
+/**
+ * Demande de remboursement des frais d'une visite, préparée par le professeur et validée par la gestion des PFMP.
+ * Montants en centimes ; le calcul suit le barème du lycée au moment de la demande.
+ */
+export const fraisDeplacement = pgTable("frais_deplacement", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  visiteId: uuid("visite_id").notNull().references(() => visites.id, { onDelete: "cascade" }),
+  professeurId: uuid("professeur_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  /** Jour de la visite. */
+  date: date("date").notNull(),
+  transport: text("transport").$type<"vehicule" | "commun">().notNull(),
+  /** Ligne du barème choisie (véhicule et puissance). */
+  vehicule: text("vehicule"),
+  /** Kilomètres du trajet, aller et retour. */
+  km: real("km").notNull().default(0),
+  /** Kilomètres déjà parcourus dans l'année avant ce trajet : le barème s'applique par tranches annuelles. */
+  cumulAvant: real("cumul_avant").notNull().default(0),
+  montantKm: integer("montant_km").notNull().default(0),
+  peage: integer("peage").notNull().default(0),
+  /** Billets de train, de bus… sur justificatif. */
+  billets: integer("billets").notNull().default(0),
+  repas: integer("repas").notNull().default(0),
+  montantRepas: integer("montant_repas").notNull().default(0),
+  nuitees: integer("nuitees").notNull().default(0),
+  zoneNuitee: text("zone_nuitee"),
+  montantNuitees: integer("montant_nuitees").notNull().default(0),
+  total: integer("total").notNull().default(0),
+  commentaire: text("commentaire"),
+  statut: text("statut").$type<"envoyee" | "validee" | "refusee">().notNull().default("envoyee"),
+  motifRefus: text("motif_refus"),
+  valideParId: uuid("valide_par_id").references(() => users.id, { onDelete: "set null" }),
+  valideLe: timestamp("valide_le", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  majLe: timestamp("maj_le", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("frais_visite_idx").on(t.visiteId), index("frais_prof_idx").on(t.professeurId, t.date)]);
 
 /** Heures de face à face hebdomadaires d'un professeur dans une classe : servent à répartir les visites. */
 export const heuresClasses = pgTable("heures_classes", {

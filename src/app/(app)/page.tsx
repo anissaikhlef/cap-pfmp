@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { contexte } from "@/lib/auth";
-import { a, estGestionnaire, idsElevesReferent } from "@/lib/acces";
+import { a, estGestionnaire, idsElevesReferent, peutAdministrer, peutSignerOrdreMission } from "@/lib/acces";
 import { elevesSuivis, classesAvecPeriodes, texteperiode, periodeDeReference } from "@/lib/requetes";
 import { STATUTS, problemes, type Statut } from "@/lib/regles";
 import { aujourdhui, dateLongue } from "@/lib/dates";
@@ -53,7 +53,9 @@ export default async function Accueil() {
   const sansVisiteur = visites.filter((v) => !v.v?.visiteurId && v.p.fin >= aujourdhui()).length;
   const crAFaire = ctx.etab.reglages.compteRendu ? visites.filter((v) => v.v?.visiteurId && v.v.date && v.v.date < aujourdhui() && !v.v.compteRendu).length : 0;
   const direction = a(ctx, "direction");
-  const ordres = direction && ctx.etab.reglages.ordreMission ? (await listeOrdresASigner(ctx)).length : 0;
+  const ordres = peutSignerOrdreMission(ctx) ? (await listeOrdresASigner(ctx)).length : 0;
+  const [{ frais }] = peutAdministrer(ctx) ? await db.select({ frais: sql<number>`count(*)::int` }).from(schema.fraisDeplacement)
+    .where(and(eq(schema.fraisDeplacement.etablissementId, ctx.etab.id), eq(schema.fraisDeplacement.statut, "envoyee"))) : [{ frais: 0 }];
   const absencesNonJustifiees = lignes.reduce((t, l) => t + l.absencesNonJustifiees, 0);
   const avecStage = lignes.filter((l) => l.stage).map((l) => l.eleve.id);
   const pieces = await piecesAllocation(avecStage);
@@ -66,6 +68,7 @@ export default async function Accueil() {
     [sansVisiteur, "élève(s) en stage ou sur le départ sans visiteur", "/visites"],
     [crAFaire, "compte(s) rendu(s) de visite non rédigé(s)", "/visites"],
     [ordres, "ordre(s) de mission à signer", "/a-signer"],
+    [frais, "demande(s) de remboursement de frais à valider", "/frais"],
   ] as [number, string, string][]).filter(([n]) => n > 0);
 
   const priorites = lignes

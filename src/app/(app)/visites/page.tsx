@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { contexte } from "@/lib/auth";
-import { estGestionnaire } from "@/lib/acces";
+import { estGestionnaire, peutAdministrer } from "@/lib/acces";
 import { repartitionParHeures, visiteursPossibles, visitesAOrganiser } from "@/lib/visites";
 import { aujourdhui, dateCourte } from "@/lib/dates";
 import { ChampRetour } from "@/components/ChampRetour";
@@ -88,13 +88,16 @@ export default async function Visites() {
   const parHeures = ctx.etab.reglages.repartition === "heures";
   return (
     <>
-      <div>
-        <h1>Visites de stage</h1>
-        <p className="sub">
-          Une visite par élève, faite par {ctx.etab.reglages.visiteurs === "pro" ? "les professeurs de l'enseignement professionnel" : "toute l'équipe pédagogique"}.
-          {ctx.etab.reglages.ordreMission && " Chaque visite demande un ordre de mission signé par la direction."}
-          {parHeures && " Le nombre de visites de chacun suit ses heures de face à face ; les rattrapages s'attribuent directement dans la liste."}
-        </p>
+      <div className="actions" style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
+        <div>
+          <h1>Visites de stage</h1>
+          <p className="sub">
+            Une visite par élève, faite par {ctx.etab.reglages.visiteurs === "pro" ? "les professeurs de l'enseignement professionnel" : "toute l'équipe pédagogique"}.
+            {ctx.etab.reglages.ordreMission && " Chaque visite demande un ordre de mission signé avant la visite."}
+            {parHeures && " Le nombre de visites de chacun suit ses heures de face à face ; les rattrapages s'attribuent directement dans la liste."}
+          </p>
+        </div>
+        {peutAdministrer(ctx) && <Link className="btn" href="/frais">Frais de déplacement</Link>}
       </div>
       {parHeures && <RepartitionParHeures ctx={ctx} />}
       {!parHeures && <div className="panel pad section">

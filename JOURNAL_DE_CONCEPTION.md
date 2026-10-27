@@ -339,3 +339,19 @@ Sur le modèle transmis par Anissa Ikhlef (« Compte rendu de visite / Ordre de 
 4. **Signature de l'entreprise** : proposée à partir du jour de la visite ; un compte rendu ou un appel déjà rédigé garde les questions et la grille avec lesquelles il a été rempli.
 5. **Question en attente** : son ordre de mission, son attestation et son livret sont des PDF sans champs ; la façon de les remplir à l'identique lui a été demandée (placer les zones dans Cap PFMP, modèle Cap PFMP d'abord, ou PDF à champs fabriqué par le lycée).
 
+## 27 octobre 2026 : réalisation du lot 3.3 (frais de visite)
+
+« Chaque lycée applique son calcul » :
+
+- **Barème du lycée** (« Organisation » › « Barème des frais ») : le DDFPT ou la direction recopie la méthode de son annexe de remboursement. Une ligne par véhicule (ex. « Voiture 5 CV »), avec jusqu'à 3 tranches de kilomètres parcourus dans l'année : montant = kilomètres × taux + montant fixe ; le montant d'un repas ; les montants de nuitée selon le lieu ; des consignes (trajet retenu, billet de train hors de la région, justificatifs).
+- **Demande du professeur**, sur la page de la visite, une fois la visite passée et l'ordre de mission signé : véhicule personnel (véhicule, kilomètres aller et retour, péage) ou transport en commun (billets), repas, nuitées, commentaire. Cap PFMP calcule le montant avec le barème du lycée.
+- **Validation** (« Visites » › « Frais de déplacement ») : la gestion des PFMP valide la demande, ou la renvoie avec un motif ; le professeur est prévenu par mail et corrige sa demande. Récapitulatif par professeur et export pour un tableur.
+- **Démonstration** : un barème d'exemple sur le modèle du barème kilométrique fiscal (plafonné à 7 CV), que chaque lycée remplace par le sien.
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Tranches annuelles** : les kilomètres de l'année civile s'additionnent d'un déplacement à l'autre, pour que le barème par tranches s'applique comme sur l'année entière.
+2. **Qui valide** : le DDFPT et la direction ; une demande validée ne se modifie plus.
+3. **Justificatifs** (ticket de péage, billet de train) : pour l'instant remis sur papier à la gestion des PFMP ; leur dépôt en photo pourra suivre.
+4. **Ordre de mission obligatoire** avant la demande, quand le lycée utilise les ordres de mission.
+

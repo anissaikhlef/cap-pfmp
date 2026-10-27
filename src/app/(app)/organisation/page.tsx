@@ -31,7 +31,10 @@ export default async function Organisation() {
   return (
     <>
       <Entete titre="Organisation du lycée" sous="Chaque lycée s'organise à sa façon. Ces réglages adaptent les rôles, les validations et les étapes de toute l'application.">
-        <Link className="btn" href="/organisation/documents">Modèles de documents</Link>
+        <div className="actions">
+          <Link className="btn" href="/organisation/documents">Modèles de documents</Link>
+          <Link className="btn" href="/organisation/frais">Barème des frais</Link>
+        </div>
       </Entete>
       <Formulaire action={enregistrerOrganisation} bouton="Enregistrer l'organisation">
         <div className="panel pad section">

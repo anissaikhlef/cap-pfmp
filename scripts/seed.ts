@@ -51,6 +51,26 @@ const TOUS = sig("eleve", "parent", "entreprise", "tuteur", "professeur", "direc
 // Conventions de l'an dernier, signées avant leur stage de novembre 2025
 const TOUS_2025: Signatures = Object.fromEntries(Object.entries(TOUS).map(([k, v]) => [k, { ...v, le: "2025-11-03T10:00:00.000Z" }]));
 
+/**
+ * Barème des frais de visite du lycée fictif, sur le modèle du barème kilométrique fiscal (par tranches de kilomètres
+ * parcourus dans l'année, plafonné à 7 CV) : un exemple que chaque lycée remplace par sa propre méthode.
+ */
+const voiture = (vehicule: string, t1: number, t2: number, f2: number, t3: number) =>
+  ({ vehicule, tranches: [{ jusqua: 5000, taux: t1, fixe: 0 }, { jusqua: 20000, taux: t2, fixe: f2 }, { jusqua: null, taux: t3, fixe: 0 }] });
+const deuxRoues = (vehicule: string, t1: number, t2: number, f2: number, t3: number) =>
+  ({ vehicule, tranches: [{ jusqua: 3000, taux: t1, fixe: 0 }, { jusqua: 6000, taux: t2, fixe: f2 }, { jusqua: null, taux: t3, fixe: 0 }] });
+const FRAIS_EXEMPLE = {
+  kilometrique: [
+    voiture("Voiture 3 CV", 0.529, 0.316, 1065, 0.37), voiture("Voiture 4 CV", 0.606, 0.34, 1330, 0.407), voiture("Voiture 5 CV", 0.636, 0.357, 1395, 0.427),
+    voiture("Voiture 6 CV", 0.665, 0.374, 1457, 0.447), voiture("Voiture 7 CV et plus", 0.697, 0.394, 1515, 0.47),
+    deuxRoues("Deux-roues de moins de 50 cm³", 0.315, 0.079, 711, 0.198), deuxRoues("Moto 1 à 2 CV", 0.395, 0.099, 891, 0.248),
+    deuxRoues("Moto 3 à 5 CV", 0.468, 0.082, 1158, 0.275), deuxRoues("Moto de plus de 5 CV", 0.606, 0.079, 1583, 0.343),
+  ],
+  repas: 20.2,
+  nuitees: [{ zone: "Paris et petite couronne", montant: 72.5 }, { zone: "Autres départements", montant: 53.8 }],
+  consignes: "Exemple du lycée de démonstration : le trajet retenu est celui entre le lycée et le lieu de stage, aller et retour. Péage sur justificatif. Hors de la région : remboursement sur la base d'un billet de train en 2nde classe.",
+};
+
 async function main() {
   if (process.env.NODE_ENV === "production" && process.env.AUTORISER_SEED !== "oui") {
     throw new Error("Refus : données de démonstration en production. Définissez AUTORISER_SEED=oui pour forcer.");
@@ -68,7 +88,7 @@ async function main() {
 
   // Le lycée pilote répartit les visites selon les heures de face à face ; signature simple ou dessinée ; le référent signe en dernier.
   const [etab] = await db.insert(schema.etablissements).values({
-    nom: NOM_LYCEE, ville: "Ville-démo", anneeScolaire: "2026-2027", reglages: { ...REGLAGES_PAR_DEFAUT, repartition: "heures", signatureModele: "les2", dernierSignataire: "professeur" },
+    nom: NOM_LYCEE, ville: "Ville-démo", anneeScolaire: "2026-2027", reglages: { ...REGLAGES_PAR_DEFAUT, repartition: "heures", signatureModele: "les2", dernierSignataire: "professeur", frais: FRAIS_EXEMPLE },
   }).returning();
   const E = etab.id;
   const hash = await bcrypt.hash(MOT_DE_PASSE_DEMO, 12);

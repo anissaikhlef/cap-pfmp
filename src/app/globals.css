@@ -159,3 +159,14 @@ details[open] > summary { margin-bottom: 10px; }
 .grille-attitudes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .grille-attitudes table { margin: 0; }
 .grille-attitudes td.croix { width: 44px; text-align: center; font-weight: 700; }
+
+/* Frais de déplacement : barème (tranches) et demande du professeur */
+.bareme-ligne { align-items: flex-end; gap: 8px; }
+.tranche { border: 1px solid var(--line); border-radius: 8px; padding: 2px 8px 8px; margin: 0; display: flex; gap: 6px; flex: 1; min-width: 230px; }
+.tranche legend { font-size: 12px; color: var(--muted); padding: 0 4px; }
+.tranche label.f { flex: 1; min-width: 60px; font-size: 12px; white-space: nowrap; }
+.form-frais:has(input[name=transport][value=commun]:checked) .si-vehicule,
+.form-frais:has(input[name=transport][value=vehicule]:checked) .si-commun { display: none; }
+.recap-frais { width: auto; min-width: min(420px, 100%); border-collapse: collapse; }
+.recap-frais td, .recap-frais th { padding: 4px 12px 4px 0; text-align: left; }
+.recap-frais .num { text-align: right; }

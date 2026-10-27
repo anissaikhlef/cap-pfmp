@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Fragment } from "react";
 import { notFound } from "next/navigation";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
 import { estReferentDe, peutGererEleve, peutVoirEleve } from "@/lib/acces";
@@ -14,6 +14,9 @@ import { CRITERES, NIVEAUX, SUITES } from "@/lib/constantes-visites";
 import { Formulaire } from "@/components/Formulaire";
 import { ChampRetour } from "@/components/ChampRetour";
 import { EtatVisite } from "@/components/visites";
+import { Pill } from "@/components/ui";
+import { euros } from "@/lib/regles";
+import { demanderRemboursement } from "../../frais/actions";
 import { ZoneSignature } from "@/components/ChoixSignature";
 import { choisirCreneau, demanderOrdreMission, deposerPhotoOrdreMission, enregistrerAppel, enregistrerCompteRendu, proposerCreneaux, signerCachet } from "../actions";
 
@@ -45,6 +48,11 @@ export default async function Visite({ params }: { params: Promise<{ id: string 
   const imageCachet = l.v.cachet ? await imageSignature(l.v.cachet.image) : null;
   const [photo] = await db.select({ id: schema.documents.id }).from(schema.documents)
     .where(and(eq(schema.documents.stageId, l.s.id), eq(schema.documents.type, "ordre_mission"))).orderBy(desc(schema.documents.deposeLe)).limit(1);
+  // Frais de déplacement du visiteur pour cette visite, et le dernier véhicule qu'il a déclaré
+  const [frais] = visiteur ? await db.select().from(schema.fraisDeplacement).where(eq(schema.fraisDeplacement.visiteId, l.v.id)).limit(1) : [];
+  const [dernier] = visiteur && !frais ? await db.select({ vehicule: schema.fraisDeplacement.vehicule }).from(schema.fraisDeplacement)
+    .where(and(eq(schema.fraisDeplacement.professeurId, ctx.user.id), isNotNull(schema.fraisDeplacement.vehicule))).orderBy(desc(schema.fraisDeplacement.createdAt)).limit(1) : [];
+  const dernierVehicule = dernier?.vehicule ?? null;
   const qui = r.signatairesOrdreMission.length > 1 ? "la direction ou la gestion des PFMP" : r.signatairesOrdreMission[0] === "direction" ? "la direction" : "la gestion des PFMP";
   return (
     <>
@@ -245,6 +253,56 @@ export default async function Visite({ params }: { params: Promise<{ id: string 
           )}
         </div>
       )}
+      {visiteur && visitePassee && (
+        <div className="panel pad section" id="frais">
+          <h2>Frais de déplacement</h2>
+          {frais && (
+            <>
+              <table className="recap-frais"><tbody>
+                {frais.transport === "vehicule"
+                  ? <tr><td>{frais.km.toLocaleString("fr-FR")} km aller et retour · {frais.vehicule}</td><td className="num">{euros(frais.montantKm)}</td></tr>
+                  : <tr><td>Billets de transport</td><td className="num">{euros(frais.billets)}</td></tr>}
+                {frais.peage > 0 && <tr><td>Péage</td><td className="num">{euros(frais.peage)}</td></tr>}
+                {frais.repas > 0 && <tr><td>{frais.repas} repas</td><td className="num">{euros(frais.montantRepas)}</td></tr>}
+                {frais.nuitees > 0 && <tr><td>{frais.nuitees} nuitée(s) · {frais.zoneNuitee}</td><td className="num">{euros(frais.montantNuitees)}</td></tr>}
+                <tr><th>Total</th><th className="num">{euros(frais.total)}</th></tr>
+              </tbody></table>
+              <p style={{ margin: 0 }}>
+                {frais.statut === "validee" ? <Pill ton="ok">Validée le {dateCourte(frais.valideLe!.toISOString().slice(0, 10))}</Pill>
+                  : frais.statut === "refusee" ? <Pill ton="bad">À reprendre : {frais.motifRefus}</Pill>
+                  : <Pill ton="warn">Envoyée, en attente de validation</Pill>}
+              </p>
+            </>
+          )}
+          {frais?.statut !== "validee" && (r.ordreMission && l.v.ordreMission !== "signe" ? <p className="sub" style={{ margin: 0 }}>Votre demande de remboursement sera possible une fois l&apos;ordre de mission signé.</p> : (
+            <details open={!frais || frais.statut === "refusee"}>
+              <summary className="btn small">{frais ? "Modifier la demande" : "Demander le remboursement"}</summary>
+              {r.frais.consignes && <p className="note" style={{ whiteSpace: "pre-wrap" }}>{r.frais.consignes}</p>}
+              <Formulaire action={demanderRemboursement} className="stack form-frais" bouton={frais ? "Renvoyer la demande" : "Envoyer la demande"}>
+                <input type="hidden" name="visiteId" value={l.v.id} />
+                <div className="choices" role="radiogroup" aria-label="Mode de transport" style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                  <label className="choice"><input type="radio" name="transport" value="vehicule" defaultChecked={(frais?.transport ?? l.v.transport ?? "vehicule") === "vehicule"} /> Véhicule personnel</label>
+                  <label className="choice"><input type="radio" name="transport" value="commun" defaultChecked={(frais?.transport ?? l.v.transport) === "commun"} /> Transport en commun</label>
+                </div>
+                {!r.frais.kilometrique.length && <p className="sub si-vehicule" style={{ margin: 0 }}>Votre lycée n&apos;a pas encore saisi son barème kilométrique : prévenez la gestion des PFMP.</p>}
+                <div className="grid3 si-vehicule">
+                  <label className="f" htmlFor="fr-vehicule">Véhicule<select id="fr-vehicule" name="vehicule" defaultValue={frais?.vehicule ?? dernierVehicule ?? ""}><option value="">— Choisir —</option>{r.frais.kilometrique.map((x) => <option key={x.vehicule}>{x.vehicule}</option>)}</select></label>
+                  <label className="f" htmlFor="fr-km">Kilomètres, aller et retour<input id="fr-km" name="km" inputMode="decimal" defaultValue={frais?.km ? String(frais.km).replace(".", ",") : ""} /></label>
+                  <label className="f" htmlFor="fr-peage">Péage (€)<input id="fr-peage" name="peage" inputMode="decimal" defaultValue={frais?.peage ? String(frais.peage / 100).replace(".", ",") : ""} /></label>
+                </div>
+                <label className="f si-commun" htmlFor="fr-billets" style={{ maxWidth: 260 }}>Billets de transport (€)<input id="fr-billets" name="billets" inputMode="decimal" defaultValue={frais?.billets ? String(frais.billets / 100).replace(".", ",") : ""} /></label>
+                <div className="grid3">
+                  <label className="f" htmlFor="fr-repas">Repas{r.frais.repas ? ` (${euros(Math.round(r.frais.repas * 100))} chacun)` : ""}<input id="fr-repas" name="repas" type="number" min={0} max={10} defaultValue={frais?.repas ?? 0} /></label>
+                  <label className="f" htmlFor="fr-nuitees">Nuitées<input id="fr-nuitees" name="nuitees" type="number" min={0} max={10} defaultValue={frais?.nuitees ?? 0} /></label>
+                  <label className="f" htmlFor="fr-zone">Lieu de la nuitée<select id="fr-zone" name="zoneNuitee" defaultValue={frais?.zoneNuitee ?? ""}><option value="">—</option>{r.frais.nuitees.map((x) => <option key={x.zone} value={x.zone}>{x.zone} ({euros(Math.round(x.montant * 100))})</option>)}</select></label>
+                </div>
+                <label className="f" htmlFor="fr-com">Commentaire (facultatif)<textarea id="fr-com" name="commentaire" rows={2} maxLength={1000} defaultValue={frais?.commentaire ?? ""} /></label>
+              </Formulaire>
+            </details>
+          ))}
+        </div>
+      )}
+
       {gestion && <Link href={`/eleves/${l.e.id}`} className="btn" style={{ alignSelf: "flex-start" }}>Fiche de l&apos;élève</Link>}
     </>
   );

@@ -53,6 +53,8 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
   const signatairesOrdreMission = (["direction", "gestionnaire"] as const).filter((r) => fd.getAll("signatairesOrdreMission").includes(r));
   if (v.ordreMission === "oui" && !signatairesOrdreMission.length) return { erreur: "Ordre de mission : cochez qui le signe (la direction, la gestion des PFMP, ou les deux)." };
   const reglages: Reglages = {
+    // Ce qui se règle ailleurs (barème des frais) est gardé tel quel.
+    frais: ctx.etab.reglages.frais,
     gestion: v.gestion, visiteurs: v.visiteurs, repartition: v.repartition, signature: v.signature,
     signatureModele: v.signatureModele, dernierSignataire: v.dernierSignataire,
     ordreMission: v.ordreMission === "oui", signatairesOrdreMission: signatairesOrdreMission.length ? [...signatairesOrdreMission] : ["direction"],

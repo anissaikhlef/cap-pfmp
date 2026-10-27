@@ -2,7 +2,7 @@
  * Moteur de règles PFMP (cahier des charges, section 5).
  * Fonctions pures, sans accès à la base : faciles à tester et réutilisées partout.
  */
-import type { Horaires, Plage, Reglages, Signataire, Signatures } from "@/db/schema";
+import type { BaremeFrais, Horaires, Plage, Reglages, Signataire, Signatures, TrancheBareme } from "@/db/schema";
 import { ajouterJours, dateLongue, ecartJours, jourSemaine } from "./dates";
 
 export type ResultatRegle = { code: string; ok: boolean; libelle: string };
@@ -538,4 +538,43 @@ export function notePartenariat(f: FaitsPartenariat): { note: number | null; fia
   if (f.annees === 0) return { note: null, fiable: false, raisons: ["Pas encore d'historique avec le lycée", ...raisons] };
   const note = Math.max(0, Math.round(((5 * points) / sur - 1.25 * f.soucis) * 10) / 10);
   return { note, fiable: note >= 4 && f.soucis === 0, raisons };
+}
+
+/* ------------------------------------------------------------------ */
+/* Frais de visite : le barème de chaque lycée                          */
+/* ------------------------------------------------------------------ */
+
+/** Montant du barème pour d km parcourus dans l'année : la tranche qui contient d, puis d × taux + fixe. */
+export function montantBareme(tranches: TrancheBareme[], d: number): number {
+  if (d <= 0 || !tranches.length) return 0;
+  const t = tranches.find((x) => x.jusqua === null || d <= x.jusqua) ?? tranches[tranches.length - 1];
+  return d * t.taux + t.fixe;
+}
+
+/**
+ * Remboursement d'un trajet de km kilomètres quand cumulAvant km ont déjà été parcourus dans l'année :
+ * f(cumul + km) − f(cumul), au centime. Ainsi le barème par tranches annuelles (barème fiscal, barème de la fonction
+ * publique…) s'applique trajet par trajet, comme sur l'année entière.
+ */
+export function montantKilometrique(tranches: TrancheBareme[], cumulAvant: number, km: number): number {
+  if (km <= 0) return 0;
+  return Math.max(0, Math.round((montantBareme(tranches, cumulAvant + km) - montantBareme(tranches, cumulAvant)) * 100) / 100);
+}
+
+/** Les montants d'une demande de remboursement, en centimes. */
+export function calculFrais(x: {
+  bareme: BaremeFrais; vehicule: string | null; km: number; cumulAvant: number;
+  peage: number; billets: number; repas: number; nuitees: number; zoneNuitee: string | null;
+}): { montantKm: number; montantRepas: number; montantNuitees: number; total: number } {
+  const ligne = x.vehicule ? x.bareme.kilometrique.find((l) => l.vehicule === x.vehicule) : undefined;
+  const montantKm = ligne ? Math.round(montantKilometrique(ligne.tranches, x.cumulAvant, x.km) * 100) : 0;
+  const montantRepas = Math.round(x.repas * x.bareme.repas * 100);
+  const zone = x.bareme.nuitees.find((n) => n.zone === x.zoneNuitee);
+  const montantNuitees = zone ? Math.round(x.nuitees * zone.montant * 100) : 0;
+  return { montantKm, montantRepas, montantNuitees, total: montantKm + Math.round(x.peage * 100) + Math.round(x.billets * 100) + montantRepas + montantNuitees };
+}
+
+/** 1234 centimes → « 12,34 € ». */
+export function euros(centimes: number): string {
+  return (centimes / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
 }
