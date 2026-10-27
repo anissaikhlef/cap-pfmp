@@ -5,7 +5,7 @@ import type { ChampPdf, ModeleFige, Reglages, TypeModele } from "@/db/schema";
 import type { ContexteConvention } from "./convention";
 import { ageAu, aujourdhui } from "./dates";
 import { lireFichier } from "./stockage";
-import { choisirOption, JOURS_HORAIRES, SOURCES_SPECIALES } from "./modeles";
+import { choisirOption, GRILLE_ATTITUDES, JOURS_HORAIRES, QUESTIONS_APPEL, SOURCES_SPECIALES } from "./modeles";
 import { remplirPdf } from "./modeles-pdf";
 import { fmtHeures, heuresHebdo, joursPrevus, plagesDuJour, SIGNATAIRES } from "./regles";
 
@@ -17,6 +17,12 @@ export async function modeleDuLycee(etabId: string, type: TypeModele): Promise<M
   const [m] = await db.select().from(schema.modelesDocuments)
     .where(and(eq(schema.modelesDocuments.etablissementId, etabId), eq(schema.modelesDocuments.type, type))).limit(1);
   return m ?? { id: "", etablissementId: etabId, type, mode: "cap_pfmp", personnalisation: {}, pdfCle: null, pdfNom: null, champs: [], majLe: new Date(0), majParId: null };
+}
+
+/** Questions de l'appel de la première semaine et grille des attitudes : celles du lycée, sinon celles de Cap PFMP. */
+export async function grilleEtQuestions(etabId: string) {
+  const p = (await modeleDuLycee(etabId, "ordre_mission")).personnalisation;
+  return { questions: p.questions?.length ? p.questions : QUESTIONS_APPEL, grille: p.grille?.length ? p.grille : GRILLE_ATTITUDES };
 }
 
 /** Le PDF du lycée est-il utilisé pour ce document ? */

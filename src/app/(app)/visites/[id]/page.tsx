@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { Fragment } from "react";
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
-import { peutGererEleve, peutVoirEleve } from "@/lib/acces";
+import { estReferentDe, peutGererEleve, peutVoirEleve } from "@/lib/acces";
+import { grilleEtQuestions } from "@/lib/modeles-documents";
+import { imageSignature } from "@/lib/stockage";
 import { chargerVisite } from "@/lib/visites";
 import { dateProposee } from "@/lib/repartition";
 import { ajouterJours, aujourdhui, dateCourte, dateLongue } from "@/lib/dates";
@@ -12,7 +14,10 @@ import { CRITERES, NIVEAUX, SUITES } from "@/lib/constantes-visites";
 import { Formulaire } from "@/components/Formulaire";
 import { ChampRetour } from "@/components/ChampRetour";
 import { EtatVisite } from "@/components/visites";
-import { choisirCreneau, demanderOrdreMission, enregistrerCompteRendu, proposerCreneaux } from "../actions";
+import { ZoneSignature } from "@/components/ChoixSignature";
+import { choisirCreneau, demanderOrdreMission, deposerPhotoOrdreMission, enregistrerAppel, enregistrerCompteRendu, proposerCreneaux, signerCachet } from "../actions";
+
+const ADEQUATION = { oui: "Oui", en_partie: "En partie", non: "Non" } as const;
 
 export const metadata = { title: "Visite de stage" };
 
@@ -33,6 +38,14 @@ export default async function Visite({ params }: { params: Promise<{ id: string 
   const r = ctx.etab.reglages;
   const cr = l.v.compteRendu;
   const visitePassee = !!l.v.date && l.v.date <= jour;
+  // L'appel de la première semaine : le visiteur, le professeur référent ou la gestion des PFMP.
+  const peutAppeler = peutAgir || (await estReferentDe(ctx, l.e));
+  const { questions, grille } = await grilleEtQuestions(ctx.etab.id);
+  const [auteurAppel] = l.v.appel?.parId ? await db.select().from(schema.users).where(eq(schema.users.id, l.v.appel.parId)).limit(1) : [];
+  const imageCachet = l.v.cachet ? await imageSignature(l.v.cachet.image) : null;
+  const [photo] = await db.select({ id: schema.documents.id }).from(schema.documents)
+    .where(and(eq(schema.documents.stageId, l.s.id), eq(schema.documents.type, "ordre_mission"))).orderBy(desc(schema.documents.deposeLe)).limit(1);
+  const qui = r.signatairesOrdreMission.length > 1 ? "la direction ou la gestion des PFMP" : r.signatairesOrdreMission[0] === "direction" ? "la direction" : "la gestion des PFMP";
   return (
     <>
       <div className="actions" style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
@@ -87,36 +100,112 @@ export default async function Visite({ params }: { params: Promise<{ id: string 
         )}
       </div>
 
+      {peutAppeler && (
+        <div className="panel pad section" id="appel">
+          <h2>Appel au tuteur, première semaine</h2>
+          {l.v.appel ? (
+            <>
+              <p className="sub" style={{ margin: 0 }}>Appel du {dateLongue(l.v.appel.date)}{auteurAppel ? ` par ${auteurAppel.prenom} ${auteurAppel.nom}` : ""}.</p>
+              <dl className="kv">{l.v.appel.reponses.map((x) => <Fragment key={x.question}><dt>{x.question}</dt><dd>{x.reponse === "oui" ? "Oui" : "Non"}</dd></Fragment>)}</dl>
+              {l.v.appel.commentaire && <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{l.v.appel.commentaire}</p>}
+            </>
+          ) : <p className="sub" style={{ margin: 0 }}>{l.p.debut > jour ? `À faire pendant la première semaine de stage, à partir du ${dateLongue(l.p.debut)}.` : "Téléphonez au tuteur pour vérifier que tout se passe bien, puis notez ses réponses."}</p>}
+          <details open={!l.v.appel && l.p.debut <= jour}>
+            <summary className="btn small">{l.v.appel ? "Modifier l'appel" : "Noter l'appel"}</summary>
+            <Formulaire action={enregistrerAppel} bouton="Enregistrer l'appel">
+              <input type="hidden" name="visiteId" value={l.v.id} />
+              <label className="f" htmlFor="ap-date" style={{ maxWidth: 220 }}>Date de l&apos;appel<input id="ap-date" name="date" type="date" defaultValue={l.v.appel?.date ?? jour} max={jour} required /></label>
+              {questions.map((q, i) => {
+                const avant = l.v!.appel?.reponses.find((x) => x.question === q)?.reponse;
+                return (
+                  <fieldset key={q} className="question-appel">
+                    <legend>{q}</legend>
+                    <label className="check"><input type="radio" name={`q_${i}`} value="oui" defaultChecked={avant === "oui"} required /> Oui</label>
+                    <label className="check"><input type="radio" name={`q_${i}`} value="non" defaultChecked={avant === "non"} /> Non</label>
+                  </fieldset>
+                );
+              })}
+              <label className="f" htmlFor="ap-com">Commentaire (facultatif)<textarea id="ap-com" name="commentaire" rows={2} defaultValue={l.v.appel?.commentaire ?? ""} maxLength={1000} /></label>
+            </Formulaire>
+          </details>
+        </div>
+      )}
+
       {r.ordreMission && peutAgir && l.v.visiteurId && (
-        <div className="panel pad section">
+        <div className="panel pad section" id="ordre-mission">
           <h2>Ordre de mission</h2>
           {l.v.ordreMission === "aucun" && (
             l.v.date ? (
-              <form action={demanderOrdreMission} className="actions">
+              <form action={demanderOrdreMission} className="stack">
                 <ChampRetour /><input type="hidden" name="visiteId" value={l.v.id} />
-                <button className="btn primary">Créer l&apos;ordre de mission</button>
-                <span className="sub">Il sera transmis à la direction pour signature.</span>
+                <div className="choices" role="radiogroup" aria-label="Mode de transport" style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                  <label className="choice"><input type="radio" name="transport" value="vehicule" required /> Véhicule personnel</label>
+                  <label className="choice"><input type="radio" name="transport" value="commun" /> Transport en commun</label>
+                </div>
+                <div className="actions">
+                  <button className="btn primary">Créer l&apos;ordre de mission</button>
+                  <span className="sub">Il sera signé avant la visite par {qui}.</span>
+                </div>
               </form>
             ) : <p className="sub">Fixez d&apos;abord la date de la visite.</p>
           )}
-          {l.v.ordreMission === "a_signer" && <p className="sub">Transmis à la direction, en attente de signature.</p>}
-          {l.v.ordreMission === "signe" && <p className="sub">Signé le {dateCourte(l.v.ordreMissionSigneLe!.toISOString().slice(0, 10))}.</p>}
+          {l.v.ordreMission === "a_signer" && <p className="sub">Transmis pour signature à {qui}.</p>}
+          {l.v.ordreMission === "signe" && <p className="sub">Signé le {dateLongue(l.v.ordreMissionSigneLe!.toISOString().slice(0, 10))}.</p>}
+          {l.v.transport && <p className="sub" style={{ margin: 0 }}>Mode de transport : {l.v.transport === "vehicule" ? "véhicule personnel" : "transport en commun"}.</p>}
           {l.v.ordreMission !== "aucun" && <Link className="btn small" href={`/ordres-mission/${l.v.id}`} target="_blank">Voir l&apos;ordre de mission</Link>}
         </div>
       )}
 
+      {peutAgir && l.v.visiteurId && visitePassee && (
+        <div className="panel pad section" id="cachet">
+          <h2>Pendant la visite : signature de l&apos;entreprise</h2>
+          {l.v.cachet ? (
+            <>
+              <p className="sub" style={{ margin: 0 }}>Signé par {l.v.cachet.nom}{l.v.cachet.qualite ? `, ${l.v.cachet.qualite}` : ""}, le {dateLongue(l.v.cachet.le.slice(0, 10))}.</p>
+              {imageCachet && <img src={imageCachet} alt={`Signature de ${l.v.cachet.nom}`} className="signature-image" />}
+            </>
+          ) : (
+            <>
+              <p className="sub" style={{ margin: 0 }}>Faites signer le tuteur ou le représentant de l&apos;entreprise sur ce téléphone, ou prenez en photo l&apos;ordre de mission tamponné.</p>
+              <Formulaire action={signerCachet} bouton="Enregistrer la signature">
+                <input type="hidden" name="visiteId" value={l.v.id} />
+                <div className="grid2">
+                  <label className="f" htmlFor="ca-nom">Nom de la personne qui signe<input id="ca-nom" name="nom" defaultValue={l.s.tuteur?.nom ?? l.ent.tuteurNom ?? ""} required maxLength={120} /></label>
+                  <label className="f" htmlFor="ca-qualite">Qualité<input id="ca-qualite" name="qualite" defaultValue={l.s.tuteur?.fonction ?? l.ent.tuteurFonction ?? ""} maxLength={120} placeholder="Ex. chef de poste" /></label>
+                </div>
+                <ZoneSignature consigne="La personne qui représente l'entreprise signe dans le cadre, avec le doigt." />
+              </Formulaire>
+            </>
+          )}
+          {photo ? <a className="btn small" href={`/fichiers/${photo.id}`} target="_blank" rel="noopener">Ouvrir la photo de l&apos;ordre de mission tamponné</a> : (
+            <details>
+              <summary className="btn small">Prendre en photo l&apos;ordre de mission tamponné</summary>
+              <Formulaire action={deposerPhotoOrdreMission} className="actions" bouton="Enregistrer la photo" boutonClasse="btn small primary">
+                <input type="hidden" name="visiteId" value={l.v.id} />
+                <label className="f" htmlFor="ca-photo" style={{ flex: 1, minWidth: 200 }}><span className="vh">Photo</span><input id="ca-photo" name="photo" type="file" accept="image/*,application/pdf" capture="environment" required /></label>
+              </Formulaire>
+            </details>
+          )}
+        </div>
+      )}
+
       {r.compteRendu && (
-        <div className="panel pad section">
+        <div className="panel pad section" id="compte-rendu">
           <h2>Compte rendu de visite</h2>
           {cr ? (
             <>
               <dl className="kv">
                 <dt>Date</dt><dd>{dateLongue(cr.date)} · {cr.mode === "presentiel" ? "sur place" : "à distance"}</dd>
                 <dt>Personne rencontrée</dt><dd>{cr.personneRencontree}</dd>
-                {CRITERES.map(([k, lib]) => <Fragment key={k}><dt>{lib}</dt><dd>{cr.criteres[k] ?? "Non évalué"}</dd></Fragment>)}
+                {cr.evaluations
+                  ? cr.evaluations.map((x) => <Fragment key={x.critere}><dt>{x.critere}</dt><dd>{x.niveau}</dd></Fragment>)
+                  : CRITERES.filter(([k]) => k !== "accueil").map(([k, lib]) => <Fragment key={k}><dt>{lib}</dt><dd>{cr.criteres[k] ?? "Non évalué"}</dd></Fragment>)}
+                {cr.adequation && <><dt>Activités en adéquation avec la formation</dt><dd>{ADEQUATION[cr.adequation]}</dd></>}
+                <dt>Accueil et encadrement par l&apos;entreprise</dt><dd>{cr.criteres.accueil ?? "Non évalué"}</dd>
                 <dt>Suite à donner</dt><dd>{SUITES.find(([k]) => k === cr.suite)?.[1]}</dd>
               </dl>
-              {cr.observations && <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{cr.observations}</p>}
+              {cr.observations && <><b>Commentaires sur le stagiaire</b><p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{cr.observations}</p></>}
+              {cr.commentaireEntreprise && <><b>Commentaires sur l&apos;entreprise</b><p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{cr.commentaireEntreprise}</p></>}
               <p className="sub" style={{ margin: 0 }}>Rédigé le {dateCourte(l.v.compteRenduLe!.toISOString().slice(0, 10))}{u ? ` par ${u.prenom} ${u.nom}` : ""} · rangé dans le dossier de l&apos;élève.</p>
             </>
           ) : !peutAgir ? <p className="sub">Pas encore rédigé.</p> : !visitePassee ? (
@@ -129,14 +218,28 @@ export default async function Visite({ params }: { params: Promise<{ id: string 
                 <label className="f" htmlFor="cr-mode">Modalité<select id="cr-mode" name="mode" defaultValue={l.v.mode}><option value="presentiel">Sur place</option><option value="distanciel">À distance</option></select></label>
                 <label className="f" htmlFor="cr-pers">Personne rencontrée<input id="cr-pers" name="personneRencontree" defaultValue={l.s.tuteur?.nom ?? l.ent.tuteurNom ?? ""} required /></label>
               </div>
+              <b>Attitudes professionnelles</b>
               <div className="grid2">
-                {CRITERES.map(([k, lib]) => (
-                  <label key={k} className="f" htmlFor={`cr-${k}`}>{lib}
-                    <select id={`cr-${k}`} name={`critere_${k}`} defaultValue="Satisfaisant">{NIVEAUX.map((n) => <option key={n}>{n}</option>)}</select>
+                {grille.map((g, i) => (
+                  <label key={g.critere} className="f" htmlFor={`cr-att-${i}`}>{g.critere}
+                    <select id={`cr-att-${i}`} name={`att_${i}`} defaultValue="" required>
+                      <option value="" disabled>— Choisir —</option>
+                      {g.niveaux.map((n) => <option key={n}>{n}</option>)}
+                    </select>
                   </label>
                 ))}
               </div>
-              <label className="f" htmlFor="cr-obs">Observations<textarea id="cr-obs" name="observations" rows={4} placeholder="Activités observées, points forts, axes de progrès" /></label>
+              <label className="f" htmlFor="cr-obs">Commentaires sur le stagiaire<textarea id="cr-obs" name="observations" rows={4} placeholder="Activités observées, points forts, axes de progrès" /></label>
+              <b>L&apos;entreprise</b>
+              <div className="grid2">
+                <label className="f" htmlFor="cr-adequation">Les activités confiées sont-elles en adéquation avec la formation ?
+                  <select id="cr-adequation" name="adequation" defaultValue="" required><option value="" disabled>— Choisir —</option>{Object.entries(ADEQUATION).map(([k, lib]) => <option key={k} value={k}>{lib}</option>)}</select>
+                </label>
+                <label className="f" htmlFor="cr-accueil">Accueil et encadrement par l&apos;entreprise
+                  <select id="cr-accueil" name="accueil" defaultValue="" required><option value="" disabled>— Choisir —</option>{NIVEAUX.map((n) => <option key={n}>{n}</option>)}</select>
+                </label>
+              </div>
+              <label className="f" htmlFor="cr-ent">Commentaires sur l&apos;entreprise (facultatif)<textarea id="cr-ent" name="commentaireEntreprise" rows={2} maxLength={2000} /></label>
               <label className="f" htmlFor="cr-suite">Suite à donner<select id="cr-suite" name="suite" defaultValue="aucune">{SUITES.map(([k, lib]) => <option key={k} value={k}>{lib}</option>)}</select></label>
             </Formulaire>
           )}

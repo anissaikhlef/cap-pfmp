@@ -88,7 +88,11 @@ export default async function Organisation() {
           <h2>Visites</h2>
           <div className="grid2">
             <div className="section"><b>Ordre de mission avant chaque visite</b>
-              <Choix nom="ordreMission" valeur={on(r.ordreMission)} options={[["oui", "Oui, signé par la direction"], ["non", "Non"]]} /></div>
+              <Choix nom="ordreMission" valeur={on(r.ordreMission)} options={[["oui", "Oui, signé avant la visite"], ["non", "Non"]]} />
+              <span className="sub">Signé par :</span>
+              <label className="check"><input type="checkbox" name="signatairesOrdreMission" value="direction" defaultChecked={r.signatairesOrdreMission.includes("direction")} /> la direction (chef d&apos;établissement)</label>
+              <label className="check"><input type="checkbox" name="signatairesOrdreMission" value="gestionnaire" defaultChecked={r.signatairesOrdreMission.includes("gestionnaire")} /> la gestion des PFMP (DDFPT, bureau des entreprises)</label>
+            </div>
             <div className="section"><b>Compte rendu après chaque visite</b>
               <Choix nom="compteRendu" valeur={on(r.compteRendu)} options={[["oui", "Oui, rangé dans le dossier"], ["non", "Non"]]} /></div>
           </div>

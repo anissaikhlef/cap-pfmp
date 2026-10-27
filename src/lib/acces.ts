@@ -46,6 +46,11 @@ export function peutAdministrer(ctx: Contexte): boolean {
   return a(ctx, "direction", "gestionnaire");
 }
 
+/** Signe l'ordre de mission avant la visite : la direction et/ou la gestion des PFMP, selon l'organisation du lycée. */
+export function peutSignerOrdreMission(ctx: Contexte): boolean {
+  return ctx.etab.reglages.ordreMission && ctx.etab.reglages.signatairesOrdreMission.some((r) => a(ctx, r));
+}
+
 /**
  * Créer les comptes, donner les mots de passe et les accès (élèves, parents, entreprises) : seulement le DDFPT
  * (compte « Gestion des PFMP ») et la direction, même dans un lycée où les référents gèrent leurs classes (décision d'Anissa).

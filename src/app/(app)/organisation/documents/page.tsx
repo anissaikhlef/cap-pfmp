@@ -14,6 +14,7 @@ export default async function ModelesDocuments() {
   const ctx = await contexte({ roles: ["direction", "gestionnaire"] });
   const logo = await logoDuLycee(ctx.etab);
   const conv = await modeleDuLycee(ctx.etab.id, "convention");
+  const om = await modeleDuLycee(ctx.etab.id, "ordre_mission");
   return (
     <>
       <Entete titre="Modèles de documents" sous="Pour chaque document, gardez le modèle Cap PFMP en l'adaptant (logo, textes, rubriques), ou déposez le PDF de votre lycée : Cap PFMP le remplit à l'identique.">
@@ -27,8 +28,15 @@ export default async function ModelesDocuments() {
           </div>
           <Pill ton={utiliseLePdf(conv) ? "info" : "muted"}>{utiliseLePdf(conv) ? "PDF du lycée" : "Cap PFMP"}</Pill>
         </Link>
+        <Link className="row" href="/organisation/documents/ordre_mission">
+          <div className="main">
+            <div className="name">Ordre de mission et compte rendu de visite</div>
+            <div className="meta">Modèle Cap PFMP : textes, questions de l&apos;appel de la première semaine, grille des attitudes professionnelles{om.majParId ? ` · modifié le ${dateCourte(om.majLe.toISOString().slice(0, 10))}` : ""}</div>
+          </div>
+          <Pill ton="muted">Cap PFMP</Pill>
+        </Link>
       </div>
-      <p className="sub" style={{ margin: 0 }}>L&apos;attestation de stage, le livret de compétences et l&apos;ordre de mission suivront.</p>
+      <p className="sub" style={{ margin: 0 }}>L&apos;attestation de stage et le livret de compétences suivront.</p>
       <div className="panel pad section" id="logo">
         <h2>Logo du lycée</h2>
         <p className="sub" style={{ margin: 0 }}>En tête des documents du modèle Cap PFMP. Image PNG ou JPG, 1 Mo au plus.</p>

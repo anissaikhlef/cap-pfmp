@@ -150,3 +150,12 @@ details[open] > summary { margin-bottom: 10px; }
 .logo-document { display: block; max-height: 72px; max-width: min(240px, 100%); object-fit: contain; }
 .pied-document { margin-top: 24px; text-align: center; }
 .completer { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 0; }
+
+/* Visites : questions de l'appel, signature de l'entreprise, grille des attitudes */
+.question-appel { border: 0; padding: 0; margin: 0; }
+.question-appel legend { padding: 0; margin-bottom: 4px; font-size: 14px; font-weight: 600; }
+.question-appel label.check { display: inline-flex; margin-right: 18px; }
+.signature-image { display: block; max-height: 90px; max-width: min(320px, 100%); object-fit: contain; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 4px; }
+.grille-attitudes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.grille-attitudes table { margin: 0; }
+.grille-attitudes td.croix { width: 44px; text-align: center; font-weight: 700; }

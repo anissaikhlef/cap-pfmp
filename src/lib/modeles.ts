@@ -193,3 +193,57 @@ export function completeParQualite(qualite: string): "famille" | "entreprise" | 
   if (qualite === "entreprise" || qualite === "tuteur") return "entreprise";
   return null;
 }
+
+/* ------------------------------------------------------------------ */
+/* Ordre de mission et compte rendu de visite                           */
+/* ------------------------------------------------------------------ */
+
+/** Textes du modèle Cap PFMP de l'ordre de mission, que le lycée peut remplacer. */
+export const TITRE_ORDRE_MISSION = "Compte rendu de visite et ordre de mission";
+export const INTRO_ORDRE_MISSION = "Cet ordre de mission est signé avant la visite en entreprise. Après la visite, il est complété avec la signature ou le cachet de l'entreprise visitée.";
+
+/** Questions de l'appel au tuteur la première semaine, tant que le lycée n'a pas les siennes. */
+export const QUESTIONS_APPEL = [
+  "L'élève est-il présent et ponctuel ?",
+  "Son insertion est-elle bonne ?",
+  "A-t-il fourni son livret de stage au tuteur ?",
+  "Les tâches prévues dans le livret pourront-elles être réalisées ?",
+];
+
+/** Grille d'évaluation des attitudes professionnelles, tant que le lycée n'a pas la sienne (niveaux du plus faible au plus fort). */
+export const GRILLE_ATTITUDES: { critere: string; niveaux: string[] }[] = [
+  { critere: "Intérêt porté au travail", niveaux: ["Exécute sans intérêt", "Montre peu d'intérêt", "Montre un intérêt moyen", "Se passionne", "S'intéresse et se perfectionne"] },
+  { critere: "Compréhension", niveaux: ["Comprend difficilement", "Comprend lentement", "Comprend moyennement", "Comprend bien", "Comprend remarquablement"] },
+  { critere: "Esprit d'initiative", niveaux: ["Attend tout des autres", "Esprit d'initiative limité", "Esprit d'initiative moyen", "Esprit d'initiative supérieur", "Très porté à agir, à proposer"] },
+  { critere: "Sens de l'organisation", niveaux: ["Mal organisé", "Peu d'ordre, de méthode", "Moyennement organisé", "Organisation supérieure", "Très organisé"] },
+  { critere: "Niveau d'activité", niveaux: ["Aucune activité", "Activité faible, irrégulière", "Activité moyenne", "Bonne activité", "Très actif, rayonnant"] },
+  { critere: "Habileté", niveaux: ["Maladroit", "Habileté inférieure à la moyenne", "Habileté moyenne", "Habileté supérieure", "Très habile"] },
+  { critere: "Qualité du travail", niveaux: ["Sans qualité", "Niveau de qualité insuffisant", "Niveau de qualité passable", "Bon niveau de qualité", "Excellente qualité"] },
+  { critere: "Sociabilité", niveaux: ["Indiscipliné", "Ne s'intègre pas", "S'intègre difficilement", "Accepte les règles du groupe", "Excellente intégration"] },
+];
+
+/** Niveaux d'un critère saisi sans niveaux. */
+export const NIVEAUX_PAR_DEFAUT = ["Insuffisant", "À améliorer", "Satisfaisant", "Très satisfaisant"];
+
+/**
+ * La grille saisie par le lycée, une ligne par critère : « Critère : niveau 1 / niveau 2 / … » (du plus faible au plus fort).
+ * Un critère sans niveaux reçoit les niveaux par défaut. Au plus 20 critères de 8 niveaux.
+ */
+export function lireGrille(texte: string): { critere: string; niveaux: string[] }[] {
+  return texte.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, 20).map((l) => {
+    const i = l.indexOf(":");
+    const critere = (i < 0 ? l : l.slice(0, i)).trim().slice(0, 120);
+    const niveaux = i < 0 ? [] : l.slice(i + 1).split("/").map((x) => x.trim().slice(0, 120)).filter(Boolean).slice(0, 8);
+    return { critere, niveaux: niveaux.length >= 2 ? niveaux : NIVEAUX_PAR_DEFAUT };
+  }).filter((g) => g.critere);
+}
+
+/** La grille, pour la saisie : une ligne par critère. */
+export function texteGrille(grille: { critere: string; niveaux: string[] }[]): string {
+  return grille.map((g) => `${g.critere} : ${g.niveaux.join(" / ")}`).join("\n");
+}
+
+/** Les questions saisies par le lycée, une par ligne (au plus 10). */
+export function lireQuestions(texte: string): string[] {
+  return texte.split("\n").map((l) => l.trim().slice(0, 200)).filter(Boolean).slice(0, 10);
+}

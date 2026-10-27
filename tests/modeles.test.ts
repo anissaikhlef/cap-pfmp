@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { choisirOption, completeParQualite, normaliser, sourceValable, suggererSource } from "@/lib/modeles";
+import { choisirOption, completeParQualite, GRILLE_ATTITUDES, lireGrille, lireQuestions, NIVEAUX_PAR_DEFAUT, normaliser, sourceValable, suggererSource, texteGrille } from "@/lib/modeles";
 
 describe("modèles de documents : donnée proposée pour un champ du PDF du lycée", () => {
   it("reconnaît les champs de l'élève", () => {
@@ -82,5 +82,21 @@ describe("modèles de documents : sources permises", () => {
     expect(completeParQualite("parent")).toBe("famille");
     expect(completeParQualite("tuteur")).toBe("entreprise");
     expect(completeParQualite("direction")).toBeNull();
+  });
+});
+
+describe("ordre de mission : grille d'attitudes et questions de l'appel du lycée", () => {
+  it("lit une ligne par critère, avec ses niveaux du plus faible au plus fort", () => {
+    expect(lireGrille("Ponctualité : Souvent en retard / Parfois en retard / Toujours à l'heure\n\n  Tenue  ")).toEqual([
+      { critere: "Ponctualité", niveaux: ["Souvent en retard", "Parfois en retard", "Toujours à l'heure"] },
+      { critere: "Tenue", niveaux: NIVEAUX_PAR_DEFAUT },
+    ]);
+  });
+  it("la grille par défaut se relit à l'identique", () => {
+    expect(lireGrille(texteGrille(GRILLE_ATTITUDES))).toEqual(GRILLE_ATTITUDES);
+    expect(GRILLE_ATTITUDES).toHaveLength(8);
+  });
+  it("les questions : une par ligne, sans lignes vides", () => {
+    expect(lireQuestions("L'élève est-il ponctuel ?\n\n A-t-il son livret ? ")).toEqual(["L'élève est-il ponctuel ?", "A-t-il son livret ?"]);
   });
 });

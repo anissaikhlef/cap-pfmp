@@ -22,6 +22,9 @@ await diallo.screenshot({ path: `${OUT}/e4-visites.png`, fullPage: true });
 // Compte rendu de la visite passée de Rayan, avec alerte
 await diallo.goto(BASE + "/mes-visites");
 await Promise.all([diallo.waitForURL(/\/visites\/[0-9a-f-]{36}/), diallo.click("a.row:has-text('MANSOURI')")]);
+for (let i = 0; i < 8; i++) await diallo.selectOption(`#cr-att-${i}`, { index: 4 });
+await diallo.selectOption("#cr-adequation", "oui");
+await diallo.selectOption("#cr-accueil", "Satisfaisant");
 await diallo.fill("#cr-obs", "Bonne intégration, mais horaires dépassés deux jours de suite.");
 await diallo.selectOption("#cr-suite", "alerte");
 await diallo.click("button:has-text('Enregistrer le compte rendu')");
@@ -36,8 +39,9 @@ await diallo.click("button:has-text('Envoyer par SMS')");
 ok(await visible(diallo.getByText("Créneaux envoyés par SMS")), "envoie les créneaux au tuteur par SMS (simulé)");
 await diallo.click("button:has-text('Le tuteur a choisi ce créneau')");
 ok(await visible(diallo.getByText("Visite confirmée")), "enregistre le créneau choisi");
+await diallo.check("input[name=transport][value=vehicule]");
 await diallo.click("button:has-text(\"Créer l'ordre de mission\")");
-ok(await visible(diallo.getByText("transmis à la direction")), "transmet l'ordre de mission à la direction");
+ok(await visible(diallo.getByText("Ordre de mission transmis pour signature")), "transmet l'ordre de mission pour signature, avec le mode de transport");
 
 // Direction : signe l'ordre de mission
 await dir.goto(BASE + "/a-signer");

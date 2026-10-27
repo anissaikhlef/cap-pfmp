@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
+import { redirect } from "next/navigation";
 import { contexte } from "@/lib/auth";
+import { a, peutSignerOrdreMission } from "@/lib/acces";
 import { blocage, chargerConvention } from "@/lib/convention";
 import { dateCourte } from "@/lib/dates";
 import { Formulaire } from "@/components/Formulaire";
@@ -13,7 +15,17 @@ import { listeOrdresASigner, BlocOrdresASigner } from "@/components/visites";
 export const metadata = { title: "À signer" };
 
 export default async function ASigner() {
-  const ctx = await contexte({ roles: ["direction"] });
+  const ctx = await contexte({ roles: ["direction", "gestionnaire"] });
+  // La gestion des PFMP ne signe que les ordres de mission, quand le lycée l'a choisie pour cela.
+  if (!a(ctx, "direction")) {
+    if (!peutSignerOrdreMission(ctx)) redirect("/");
+    return (
+      <>
+        <div><h1>À signer</h1><p className="sub">Les ordres de mission sont signés avant chaque visite.</p></div>
+        <BlocOrdresASigner ordres={await listeOrdresASigner(ctx)} />
+      </>
+    );
+  }
   const stages = await db.select({ id: schema.stages.id, sig: schema.stages.signatures, c: schema.classes })
     .from(schema.stages)
     .innerJoin(schema.periodes, eq(schema.periodes.id, schema.stages.periodeId))
@@ -33,7 +45,7 @@ export default async function ASigner() {
       <div><h1>À signer</h1><p className="sub">{ctx.etab.reglages.dernierSignataire === "direction"
         ? "La direction signe en dernier : une convention n'est signable que lorsque toutes les autres parties l'ont signée et que le stage respecte les règles."
         : "Le professeur référent signe en dernier, après vérification : la direction peut signer à tout moment."}</p></div>
-      {ctx.etab.reglages.ordreMission && <BlocOrdresASigner ordres={ordres} />}
+      {peutSignerOrdreMission(ctx) && <BlocOrdresASigner ordres={ordres} />}
       <div className="section">
         <h2>Conventions ({enAttente.filter((x) => !x.blocage).length} prête(s) à signer)</h2>
         {ctx.etab.reglages.signature === "papier" && <p className="note">Votre lycée signe les conventions sur papier : elles sont validées à leur dépôt dans la boîte « Documents ».</p>}

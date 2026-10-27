@@ -9,12 +9,14 @@ import { enregistrerFichier } from "@/lib/stockage";
 import { journaliser } from "@/lib/journal";
 import { revenirAvec } from "@/lib/retour";
 import { lireChampsPdf } from "@/lib/modeles-pdf";
-import { SOURCES_SPECIALES, sourceValable } from "@/lib/modeles";
+import { lireGrille, lireQuestions, SOURCES_SPECIALES, sourceValable } from "@/lib/modeles";
 import { modeleDuLycee } from "@/lib/modeles-documents";
 import type { Etat } from "@/components/Formulaire";
 import type { ChampPdf, PersonnalisationModele, TypeModele } from "@/db/schema";
 
-const TYPES = ["convention"] as const;
+const TYPES = ["convention", "ordre_mission"] as const;
+/** Documents dont le lycée peut déposer son propre PDF (avec des champs) : la convention, pour l'instant. */
+const TYPES_PDF = ["convention"] as const;
 const REFUS = "Seuls le DDFPT et la direction adaptent les modèles de documents.";
 const NB_RUBRIQUES = 5;
 
@@ -33,6 +35,7 @@ export async function choisirMode(fd: FormData) {
   if (!peutAdministrer(ctx)) revenirAvec(fd, REFUS, "err");
   const type = z.enum(TYPES).parse(fd.get("type"));
   const mode = z.enum(["cap_pfmp", "pdf"]).parse(fd.get("mode"));
+  if (mode === "pdf" && type !== "convention") revenirAvec(fd, "Pour l'instant, seule la convention peut suivre le PDF de votre lycée.", "err");
   if (mode === "pdf" && !(await modeleDuLycee(ctx.etab.id, type)).pdfCle) revenirAvec(fd, "Déposez d'abord le PDF de votre lycée, plus bas sur cette page.", "err");
   await enregistrerModele(ctx, type, { mode });
   await journaliser(ctx, "modele_choisi", "etablissement", ctx.etab.id, { type, mode });
@@ -56,16 +59,24 @@ export async function enregistrerPersonnalisation(_: Etat, fd: FormData): Promis
     ...(rubriques.length ? { rubriques } : {}),
     ...(texte("piedDePage", 500) ? { piedDePage: texte("piedDePage", 500) } : {}),
   };
+  if (type === "ordre_mission") {
+    const questions = lireQuestions(String(fd.get("questions") ?? ""));
+    const grille = lireGrille(String(fd.get("grille") ?? ""));
+    if (!questions.length) return { erreur: "Indiquez au moins une question pour l'appel de la première semaine." };
+    if (!grille.length) return { erreur: "Indiquez au moins un critère dans la grille des attitudes professionnelles." };
+    p.questions = questions;
+    p.grille = grille;
+  }
   await enregistrerModele(ctx, type, { personnalisation: p });
   await journaliser(ctx, "modele_adapte", "etablissement", ctx.etab.id, { type });
-  return { ok: "Modèle enregistré. Il s'applique aux conventions qui ne sont pas encore signées." };
+  return { ok: type === "convention" ? "Modèle enregistré. Il s'applique aux conventions qui ne sont pas encore signées." : "Modèle enregistré." };
 }
 
 /** Dépôt du PDF du lycée (un « PDF modifiable », avec ses champs) : chaque champ reçoit une donnée proposée. */
 export async function deposerPdfModele(_: Etat, fd: FormData): Promise<Etat> {
   const ctx = await contexte();
   if (!peutAdministrer(ctx)) return { erreur: REFUS };
-  const type = z.enum(TYPES).parse(fd.get("type"));
+  const type = z.enum(TYPES_PDF).parse(fd.get("type"));
   const f = fd.get("pdf");
   if (!(f instanceof File) || f.size === 0) return { erreur: "Choisissez le PDF de votre lycée." };
   const champs = await lireChampsPdf(new Uint8Array(await f.arrayBuffer()));
@@ -88,7 +99,7 @@ export async function deposerPdfModele(_: Etat, fd: FormData): Promise<Etat> {
 export async function enregistrerChamps(_: Etat, fd: FormData): Promise<Etat> {
   const ctx = await contexte();
   if (!peutAdministrer(ctx)) return { erreur: REFUS };
-  const type = z.enum(TYPES).parse(fd.get("type"));
+  const type = z.enum(TYPES_PDF).parse(fd.get("type"));
   const m = await modeleDuLycee(ctx.etab.id, type);
   if (!m.pdfCle) return { erreur: "Déposez d'abord le PDF de votre lycée." };
   if (fd.get("cle") !== m.pdfCle) return { erreur: "Le PDF a été remplacé entre-temps : rechargez la page." };

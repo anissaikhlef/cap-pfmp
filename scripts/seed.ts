@@ -13,6 +13,7 @@ import * as schema from "../src/db/schema";
 import { ecrireOctets } from "../src/lib/stockage-brut";
 import { REGLAGES_PAR_DEFAUT, type Horaires, type Signatures, type Role } from "../src/db/schema";
 import { VERSION_DONNEES_DEMO } from "./version-demo";
+import { QUESTIONS_APPEL } from "../src/lib/modeles";
 
 const NOM_LYCEE = "Lycée professionnel de démonstration";
 export const MOT_DE_PASSE_DEMO = "Demo-pfmp-2026";
@@ -220,11 +221,21 @@ async function main() {
   async function visite(nom: string, visiteurId: string, date: string, ordreMission: "aucun" | "a_signer" | "signe", heure: string | null = null) {
     const [el] = await db.select().from(schema.eleves).where(and(eq(schema.eleves.nom, nom), eq(schema.eleves.etablissementId, E))).limit(1);
     const [st] = await db.select().from(schema.stages).where(eq(schema.stages.eleveId, el.id)).limit(1);
-    await db.insert(schema.visites).values({ stageId: st.id, visiteurId, date, heure, ordreMission, ordreMissionSigneParId: ordreMission === "signe" ? direction.id : null, ordreMissionSigneLe: ordreMission === "signe" ? new Date() : null });
+    await db.insert(schema.visites).values({
+      stageId: st.id, visiteurId, date, heure, ordreMission, transport: ordreMission === "aucun" ? null : "vehicule",
+      ordreMissionSigneParId: ordreMission === "signe" ? direction.id : null, ordreMissionSigneLe: ordreMission === "signe" ? new Date() : null,
+    });
+    return st;
   }
-  await visite("LAURENT", leroy.id, "2026-10-28", "signe", "10:00");
+  const emma = await visite("LAURENT", leroy.id, "2026-10-28", "signe", "10:00");
   await visite("FONTAINE", garnier.id, "2026-11-03", "a_signer");
-  await visite("MANSOURI", diallo.id, "2026-10-22", "signe", "14:00");
+  const rayan = await visite("MANSOURI", diallo.id, "2026-10-22", "signe", "14:00");
+  // Appels au tuteur de la première semaine (questions par défaut de Cap PFMP)
+  const appel = (parId: string, date: string, non: number[], commentaire: string) => ({
+    date, parId, commentaire, reponses: QUESTIONS_APPEL.map((question, i) => ({ question, reponse: non.includes(i) ? "non" as const : "oui" as const })),
+  });
+  await db.update(schema.visites).set({ appel: appel(diallo.id, "2026-10-20", [], "Tuteur joint au téléphone : tout se passe bien.") }).where(eq(schema.visites.stageId, rayan.id));
+  await db.update(schema.visites).set({ appel: appel(leroy.id, "2026-10-21", [0], "Deux retards en début de semaine ; le tuteur reste confiant.") }).where(eq(schema.visites.stageId, emma.id));
 
   // Documents : fin de stage des 1re (période terminée) et historique de l'année précédente pour les terminales
   async function doc(eleveNom: string, type: schema.TypeDocument, statut: "valide" | "a_verifier", annee = "2026-2027", classeLibelle?: string, stageId?: string) {

@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 
 /** Cadre où l'on dessine sa signature au doigt (téléphone, tablette) ou à la souris. */
-function PaveSignature({ onChange }: { onChange: (image: string) => void }) {
+function PaveSignature({ onChange, consigne = "Dessinez votre signature dans le cadre, avec le doigt ou la souris." }: { onChange: (image: string) => void; consigne?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const trace = useRef(false);
   useEffect(() => {
@@ -50,7 +50,7 @@ function PaveSignature({ onChange }: { onChange: (image: string) => void }) {
   };
   return (
     <div className="section" style={{ gap: 6 }}>
-      <span className="sub">Dessinez votre signature dans le cadre, avec le doigt ou la souris.</span>
+      <span className="sub">{consigne}</span>
       <canvas
         ref={ref}
         aria-label="Cadre de signature"
@@ -80,6 +80,17 @@ export function ChoixSignature({ modeles }: { modeles: ("simple" | "dessinee")[]
       {modele === "dessinee" && <PaveSignature onChange={setImage} />}
       <input type="hidden" name="image" value={modele === "dessinee" ? image : ""} />
       <label className="check"><input type="checkbox" name="lu" /> J&apos;ai lu la convention et j&apos;accepte ses conditions.</label>
+    </>
+  );
+}
+
+/** Cadre de signature seul, sans case « J'ai lu » (ex. l'entreprise signe sur le téléphone du professeur). Envoie « image ». */
+export function ZoneSignature({ consigne }: { consigne?: string }) {
+  const [image, setImage] = useState("");
+  return (
+    <>
+      <PaveSignature onChange={setImage} consigne={consigne} />
+      <input type="hidden" name="image" value={image} />
     </>
   );
 }

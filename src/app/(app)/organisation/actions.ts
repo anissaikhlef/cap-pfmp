@@ -49,10 +49,14 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
   const jours = [v.relanceConvention, v.relanceAbsences].map(lireJours);
   if (jours.some((j) => j === null)) return { erreur: "Relances : indiquez des nombres de jours entre 1 et 60, séparés par des virgules (ex. 7, 3)." };
   const [convention, absences] = jours as number[][];
+  // Qui signe l'ordre de mission : plusieurs cases (direction, gestion des PFMP)
+  const signatairesOrdreMission = (["direction", "gestionnaire"] as const).filter((r) => fd.getAll("signatairesOrdreMission").includes(r));
+  if (v.ordreMission === "oui" && !signatairesOrdreMission.length) return { erreur: "Ordre de mission : cochez qui le signe (la direction, la gestion des PFMP, ou les deux)." };
   const reglages: Reglages = {
     gestion: v.gestion, visiteurs: v.visiteurs, repartition: v.repartition, signature: v.signature,
     signatureModele: v.signatureModele, dernierSignataire: v.dernierSignataire,
-    ordreMission: v.ordreMission === "oui", compteRendu: v.compteRendu === "oui", calendrierPublic: v.calendrierPublic === "oui",
+    ordreMission: v.ordreMission === "oui", signatairesOrdreMission: signatairesOrdreMission.length ? [...signatairesOrdreMission] : ["direction"],
+    compteRendu: v.compteRendu === "oui", calendrierPublic: v.calendrierPublic === "oui",
     regles: {
       heuresMin: v.heuresMin, heuresMax: v.heuresMax, nuitDebut: v.nuitDebut, nuitFin: v.nuitFin,
       dimancheInterdit: v.dimancheInterdit === "oui", joursReposConsecutifs: v.joursReposConsecutifs,

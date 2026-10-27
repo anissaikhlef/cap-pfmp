@@ -3,7 +3,7 @@ import { contexte } from "@/lib/auth";
 import { a } from "@/lib/acces";
 import { visitesAOrganiser } from "@/lib/visites";
 import { quotasDuProfesseur } from "@/lib/heures";
-import { dateCourte } from "@/lib/dates";
+import { aujourdhui, dateCourte } from "@/lib/dates";
 import { ChampRetour } from "@/components/ChampRetour";
 import { EtatVisite } from "@/components/visites";
 import { Pill } from "@/components/ui";
@@ -74,9 +74,29 @@ async function VisitesAChoisir({ ctx }: { ctx: Awaited<ReturnType<typeof context
 export default async function MesVisites() {
   const ctx = await contexte({ roles: ["professeur", "direction", "gestionnaire"] });
   const lignes = await visitesAOrganiser(ctx, { visiteurId: ctx.user.id });
+  // Stages en cours dont l'appel au tuteur de la première semaine n'est pas encore noté
+  const jour = aujourdhui();
+  const appels = lignes.filter((l) => l.v && !l.v.appel && l.p.debut <= jour && jour <= l.p.fin);
   return (
     <>
       <div><h1>Mes visites</h1><p className="sub">{lignes.length} visite(s) qui vous sont attribuées cette année.</p></div>
+      {appels.length > 0 && (
+        <div className="section">
+          <h2>Appels au tuteur à passer ({appels.length})</h2>
+          <p className="sub" style={{ margin: 0 }}>Pendant la première semaine de stage, téléphonez au tuteur pour vérifier que tout se passe bien, puis notez ses réponses : elles figurent sur l&apos;ordre de mission.</p>
+          <div className="panel rows">
+            {appels.map((l) => (
+              <Link key={l.s.id} href={`/visites/${l.v!.id}#appel`} className="row">
+                <div className="main">
+                  <div className="name">{l.e.prenom} {l.e.nom} <span className="cls">{l.c.libelle}</span></div>
+                  <div className="meta">{l.ent.nom} · tuteur {l.s.tuteur?.nom ?? l.ent.tuteurNom ?? "—"} · stage depuis le {dateCourte(l.p.debut)}</div>
+                </div>
+                <span className="num">{l.s.tuteur?.telephone ?? l.ent.telephone ?? ""}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
       {ctx.etab.reglages.repartition === "heures" && a(ctx, "professeur") && <VisitesAChoisir ctx={ctx} />}
       <div className="section">
         {ctx.etab.reglages.repartition === "heures" && <h2>Mes visites</h2>}

@@ -25,6 +25,8 @@ export type Reglages = {
   /** Qui signe en dernier, après avoir vérifié la convention : le professeur référent ou la direction. */
   dernierSignataire: "professeur" | "direction";
   ordreMission: boolean;
+  /** Qui signe l'ordre de mission avant la visite : la direction, la gestion des PFMP (DDFPT, bureau des entreprises), ou les deux. */
+  signatairesOrdreMission: ("direction" | "gestionnaire")[];
   compteRendu: boolean;
   /** Calendrier des PFMP consultable sans compte, avec un lien public (sans aucun nom d'élève). */
   calendrierPublic: boolean;
@@ -72,6 +74,7 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   signatureModele: "simple",
   dernierSignataire: "direction",
   ordreMission: true,
+  signatairesOrdreMission: ["direction", "gestionnaire"],
   compteRendu: true,
   calendrierPublic: false,
   regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2, reglesMineurs: true },
@@ -114,10 +117,23 @@ export type CompteRendu = {
   date: string;
   mode: "presentiel" | "distanciel";
   personneRencontree: string;
+  /** Critères notés (avant le lot 3.2) ; « accueil » : accueil et encadrement par l'entreprise, compté dans sa note. */
   criteres: Record<string, string>;
+  /** Commentaires sur le stagiaire. */
   observations: string;
   suite: string;
+  /** Attitudes professionnelles, selon la grille du lycée au moment du compte rendu (critère et niveau en toutes lettres). */
+  evaluations?: { critere: string; niveau: string }[];
+  /** Les activités confiées sont-elles en adéquation avec la formation ? */
+  adequation?: "oui" | "en_partie" | "non";
+  commentaireEntreprise?: string;
 };
+
+/** Appel au tuteur pendant la première semaine de stage, avec les questions du modèle du lycée. */
+export type AppelTuteur = { date: string; reponses: { question: string; reponse: "oui" | "non" }[]; commentaire?: string; parId: string | null };
+
+/** Signature de l'entreprise visitée, recueillie sur le téléphone du professeur pendant la visite. */
+export type CachetEntreprise = { nom: string; qualite: string; image: string; le: string; parId: string | null };
 
 /* ------------------------------------------------------------------ */
 /* Établissements, comptes, sessions                                    */
@@ -361,6 +377,12 @@ export const visites = pgTable("visites", {
   ordreMissionSigneLe: timestamp("ordre_mission_signe_le", { withTimezone: true }),
   compteRendu: jsonb("compte_rendu").$type<CompteRendu>(),
   compteRenduLe: timestamp("compte_rendu_le", { withTimezone: true }),
+  /** Appel au tuteur la première semaine. */
+  appel: jsonb("appel").$type<AppelTuteur>(),
+  /** Mode de transport indiqué sur l'ordre de mission. */
+  transport: text("transport").$type<"vehicule" | "commun">(),
+  /** Signature de l'entreprise visitée (à défaut, la photo du document tamponné est rangée dans le dossier). */
+  cachet: jsonb("cachet").$type<CachetEntreprise>(),
 }, (t) => [uniqueIndex("visites_stage_idx").on(t.stageId)]);
 
 /** Heures de face à face hebdomadaires d'un professeur dans une classe : servent à répartir les visites. */
@@ -430,7 +452,7 @@ export const soucisEntreprises = pgTable("soucis_entreprises", {
 /* ------------------------------------------------------------------ */
 
 /** Documents dont le lycée choisit le modèle (les autres suivront : attestation, livret, ordre de mission). */
-export type TypeModele = "convention";
+export type TypeModele = "convention" | "ordre_mission";
 
 /**
  * Un champ du PDF du lycée et ce qu'on y écrit. `source` : une donnée de Cap PFMP (ex. « eleve.nomPrenom »),
@@ -455,6 +477,10 @@ export type PersonnalisationModele = {
   engagements?: string;
   rubriques?: { titre: string; texte: string }[];
   piedDePage?: string;
+  /** Ordre de mission : questions de l'appel au tuteur la première semaine. */
+  questions?: string[];
+  /** Ordre de mission : grille d'évaluation des attitudes professionnelles (critères et niveaux, du plus faible au plus fort). */
+  grille?: { critere: string; niveaux: string[] }[];
 };
 
 export type Complements = Partial<Record<TypeModele, Record<string, string>>>;

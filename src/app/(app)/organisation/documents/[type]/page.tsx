@@ -1,17 +1,23 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
-import { modeleDuLycee } from "@/lib/modeles-documents";
-import { ENGAGEMENTS_CONVENTION, SOURCES_CONVENTION, SOURCES_SPECIALES, TITRE_CONVENTION } from "@/lib/modeles";
+import { grilleEtQuestions, modeleDuLycee } from "@/lib/modeles-documents";
+import { ENGAGEMENTS_CONVENTION, INTRO_ORDRE_MISSION, SOURCES_CONVENTION, SOURCES_SPECIALES, texteGrille, TITRE_CONVENTION, TITRE_ORDRE_MISSION } from "@/lib/modeles";
 import { Formulaire } from "@/components/Formulaire";
 import { ChampRetour } from "@/components/ChampRetour";
 import { Entete } from "@/components/ui";
 import type { ChampPdf } from "@/db/schema";
 import { choisirMode, deposerPdfModele, enregistrerChamps, enregistrerPersonnalisation } from "../actions";
 
-export const metadata = { title: "Modèle de convention" };
+export const metadata = { title: "Modèle de document" };
+
+/** Les documents dont le lycée adapte le modèle ; le PDF du lycée, rempli à l'identique, pour ceux qui ont des champs. */
+const DOCUMENTS = {
+  convention: { titre: "Modèle de convention", sous: "Le document que signent l'élève, sa famille, l'entreprise et le lycée.", pdf: true, titreDefaut: TITRE_CONVENTION, introDefaut: "" },
+  ordre_mission: { titre: "Modèle d'ordre de mission", sous: "Ordre de mission signé avant la visite, puis compte rendu de visite.", pdf: false, titreDefaut: TITRE_ORDRE_MISSION, introDefaut: INTRO_ORDRE_MISSION },
+} as const;
 
 const NB_RUBRIQUES = 5;
 const SORTES: Record<ChampPdf["type"], string> = { texte: "Zone de texte", case: "Case à cocher", liste: "Liste déroulante", signature: "Signature" };
@@ -37,7 +43,8 @@ function ChoixSource({ c, i }: { c: ChampPdf; i: number }) {
 /** Le modèle d'un document : modèle Cap PFMP adapté, ou PDF du lycée avec ce que Cap PFMP écrit dans chaque champ. */
 export default async function ModeleDocument({ params }: { params: Promise<{ type: string }> }) {
   const { type } = await params;
-  if (type !== "convention") notFound();
+  if (type !== "convention" && type !== "ordre_mission") notFound();
+  const doc = DOCUMENTS[type];
   const ctx = await contexte({ roles: ["direction", "gestionnaire"] });
   const m = await modeleDuLycee(ctx.etab.id, type);
   const p = m.personnalisation;
@@ -47,16 +54,23 @@ export default async function ModeleDocument({ params }: { params: Promise<{ typ
     .innerJoin(schema.classes, eq(schema.classes.id, schema.periodes.classeId))
     .where(and(eq(schema.classes.etablissementId, ctx.etab.id), eq(schema.classes.anneeScolaire, ctx.etab.anneeScolaire)))
     .orderBy(desc(schema.periodes.debut)).limit(1);
+  // Un ordre de mission déjà demandé, pour l'aperçu
+  const [om] = type === "ordre_mission" ? await db.select({ id: schema.visites.id }).from(schema.visites)
+    .innerJoin(schema.stages, eq(schema.stages.id, schema.visites.stageId))
+    .innerJoin(schema.eleves, eq(schema.eleves.id, schema.stages.eleveId))
+    .where(and(eq(schema.eleves.etablissementId, ctx.etab.id), ne(schema.visites.ordreMission, "aucun"))).limit(1) : [];
+  const { questions, grille } = await grilleEtQuestions(ctx.etab.id);
   const rubriques = [...(p.rubriques ?? []), ...Array.from({ length: NB_RUBRIQUES }, () => ({ titre: "", texte: "" }))].slice(0, NB_RUBRIQUES);
   const remplis = m.champs.filter((c) => c.source && c.source !== SOURCES_SPECIALES.famille && c.source !== SOURCES_SPECIALES.entreprise).length;
   const aCompleter = m.champs.filter((c) => c.source === SOURCES_SPECIALES.famille || c.source === SOURCES_SPECIALES.entreprise).length;
   return (
     <>
-      <Entete titre="Modèle de convention" sous="Le document que signent l'élève, sa famille, l'entreprise et le lycée.">
+      <Entete titre={doc.titre} sous={doc.sous}>
         <Link className="btn" href="/organisation/documents">Tous les modèles</Link>
       </Entete>
 
-      <div className="panel pad section" id="mode">
+      {!doc.pdf && <p className="note" style={{ margin: 0 }}>Pour l&apos;instant, ce document suit le modèle Cap PFMP, que vous adaptez ci-dessous.</p>}
+      {doc.pdf && <div className="panel pad section" id="mode">
         <h2>Modèle utilisé</h2>
         <form action={choisirMode} className="stack">
           <ChampRetour />
@@ -74,17 +88,30 @@ export default async function ModeleDocument({ params }: { params: Promise<{ typ
           <div className="actions"><button className="btn primary">Enregistrer le choix</button></div>
         </form>
         <p className="sub" style={{ margin: 0 }}>Une convention déjà signée garde le modèle avec lequel elle a été signée.</p>
-      </div>
+      </div>}
 
       <div className="panel pad section" id="cap-pfmp">
         <h2>Modèle Cap PFMP adapté</h2>
-        <p className="sub" style={{ margin: 0 }}>Les parties, les dates, les horaires et les signatures sont toujours remplis par Cap PFMP. Vous choisissez le titre, les textes, et vous ajoutez vos rubriques. Le logo se dépose dans <Link href="/organisation/documents#logo">Modèles de documents</Link>.</p>
+        <p className="sub" style={{ margin: 0 }}>{type === "convention"
+          ? "Les parties, les dates, les horaires et les signatures sont toujours remplis par Cap PFMP."
+          : "L'élève, le stage, l'entreprise, l'appel, la visite et les signatures sont toujours remplis par Cap PFMP."} Vous choisissez le titre, les textes, et vous ajoutez vos rubriques. Le logo se dépose dans <Link href="/organisation/documents#logo">Modèles de documents</Link>.</p>
         <Formulaire action={enregistrerPersonnalisation} bouton="Enregistrer le modèle">
           <input type="hidden" name="type" value={type} />
-          <label className="f" htmlFor="mp-titre">Titre<input id="mp-titre" name="titre" defaultValue={p.titre ?? ""} placeholder={TITRE_CONVENTION} maxLength={200} /></label>
-          <label className="f" htmlFor="mp-intro">Texte d&apos;introduction (facultatif)<textarea id="mp-intro" name="introduction" rows={3} defaultValue={p.introduction ?? ""} maxLength={2000} /></label>
-          <label className="f" htmlFor="mp-engagements">Engagements des parties (laissé vide : le texte de Cap PFMP)<textarea id="mp-engagements" name="engagements" rows={5} defaultValue={p.engagements ?? ""} placeholder={ENGAGEMENTS_CONVENTION} maxLength={4000} /></label>
-          <p className="sub" style={{ margin: 0 }}>Les règles de votre lycée (travail de nuit, dimanche, élèves mineurs) sont toujours ajoutées aux engagements. Séparez les paragraphes par une ligne vide.</p>
+          <label className="f" htmlFor="mp-titre">Titre<input id="mp-titre" name="titre" defaultValue={p.titre ?? ""} placeholder={doc.titreDefaut} maxLength={200} /></label>
+          <label className="f" htmlFor="mp-intro">Texte d&apos;introduction{doc.introDefaut ? " (laissé vide : le texte de Cap PFMP)" : " (facultatif)"}<textarea id="mp-intro" name="introduction" rows={3} defaultValue={p.introduction ?? ""} placeholder={doc.introDefaut || undefined} maxLength={2000} /></label>
+          {type === "convention" && (
+            <>
+              <label className="f" htmlFor="mp-engagements">Engagements des parties (laissé vide : le texte de Cap PFMP)<textarea id="mp-engagements" name="engagements" rows={5} defaultValue={p.engagements ?? ""} placeholder={ENGAGEMENTS_CONVENTION} maxLength={4000} /></label>
+              <p className="sub" style={{ margin: 0 }}>Les règles de votre lycée (travail de nuit, dimanche, élèves mineurs) sont toujours ajoutées aux engagements. Séparez les paragraphes par une ligne vide.</p>
+            </>
+          )}
+          {type === "ordre_mission" && (
+            <>
+              <label className="f" htmlFor="mp-questions">Questions de l&apos;appel au tuteur, la première semaine (une par ligne, réponse oui ou non)<textarea id="mp-questions" name="questions" rows={5} defaultValue={questions.join("\n")} maxLength={2000} /></label>
+              <label className="f" htmlFor="mp-grille">Grille des attitudes professionnelles (une ligne par critère : « Critère : niveau 1 / niveau 2 / … », du plus faible au plus fort)<textarea id="mp-grille" name="grille" rows={9} defaultValue={texteGrille(grille)} maxLength={8000} /></label>
+              <p className="sub" style={{ margin: 0 }}>Un compte rendu déjà rédigé garde la grille avec laquelle il a été rempli.</p>
+            </>
+          )}
           <b>Rubriques ajoutées</b>
           {rubriques.map((r, i) => (
             <div key={i} className="grid2">
@@ -94,10 +121,11 @@ export default async function ModeleDocument({ params }: { params: Promise<{ typ
           ))}
           <label className="f" htmlFor="mp-pied">Pied de page (facultatif)<input id="mp-pied" name="piedDePage" defaultValue={p.piedDePage ?? ""} maxLength={500} placeholder="Ex. adresse et téléphone du lycée" /></label>
         </Formulaire>
-        {ex && <Link className="btn small" href={`/conventions/${ex.id}?apercu=cap`} target="_blank">Voir une convention avec ce modèle</Link>}
+        {type === "convention" && ex && <Link className="btn small" href={`/conventions/${ex.id}?apercu=cap`} target="_blank">Voir une convention avec ce modèle</Link>}
+        {type === "ordre_mission" && om && <Link className="btn small" href={`/ordres-mission/${om.id}`} target="_blank">Voir un ordre de mission avec ce modèle</Link>}
       </div>
 
-      <div className="panel pad section" id="pdf">
+      {doc.pdf && <div className="panel pad section" id="pdf">
         <h2>PDF de votre lycée</h2>
         <p className="sub" style={{ margin: 0 }}>Déposez votre convention au format PDF avec ses champs à remplir (un « PDF modifiable »). Cap PFMP écrit dans chaque champ la donnée que vous choisissez : votre document reste identique.</p>
         <Formulaire action={deposerPdfModele} className="actions" bouton={m.pdfCle ? "Remplacer le PDF" : "Déposer le PDF"} boutonClasse="btn small primary">
@@ -141,7 +169,7 @@ export default async function ModeleDocument({ params }: { params: Promise<{ typ
             </Formulaire>
           </>
         )}
-      </div>
+      </div>}
     </>
   );
 }

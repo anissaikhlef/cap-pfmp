@@ -22,6 +22,7 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | Accès | Comptes et mots de passe réservés au DDFPT, fiches de connexion par classe avec QR code, connexion sans mot de passe par lien, calendrier des PFMP pour tous, rattrapages vus par les professeurs de la classe | Fait |
 | Entreprises | Note de partenariat et badge « Partenaire fiable », soucis signalés par l'équipe, entreprises écartées par le DDFPT, message groupé aux entreprises d'accueil, mails d'accueil et de remerciement, dépôt de l'attestation et du livret par lien personnel, sans compte | Fait |
 | Lot 3.1 | Modèles de documents : convention au modèle Cap PFMP adapté (logo, textes, rubriques) ou PDF du lycée rempli à l'identique, champs complétés en signant par la famille et l'entreprise, convention figée à la première signature | Fait |
+| Lot 3.2 | Ordre de mission et compte rendu de visite sur le modèle du lycée : appel au tuteur la première semaine, mode de transport, signature avant la visite (direction ou gestion des PFMP, au choix du lycée), signature de l'entreprise pendant la visite ou photo du document tamponné, grille des attitudes professionnelles adaptable | Fait |
 
 Les décisions de conception d'Anissa Ikhlef sont consignées, avec leur date, dans [JOURNAL_DE_CONCEPTION.md](JOURNAL_DE_CONCEPTION.md).
 
@@ -80,6 +81,7 @@ node e2e/lot2.mjs
 node e2e/acces.mjs
 node e2e/entreprises.mjs
 node e2e/modeles.mjs
+node e2e/ordre-mission.mjs
 node e2e/mobile.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
 ```
 

@@ -320,3 +320,22 @@ Le résultat est présenté à Anissa avant 6. la formation incluse et 7. les ag
 5. **Champs complétés en signant** : facultatifs. Si l'entreprise du stage change, ses réponses sont effacées ; celles de la famille sont gardées.
 6. **Affichage** : pour la sécurité du site, le PDF s'ouvre dans un nouvel onglet, sans être intégré à la page.
 
+## 27 octobre 2026 : réalisation du lot 3.2 (ordre de mission et compte rendu de visite)
+
+Sur le modèle transmis par Anissa Ikhlef (« Compte rendu de visite / Ordre de mission ») :
+
+- **Appel au tuteur la première semaine** : le professeur (visiteur ou référent) ou la gestion des PFMP note la date et les réponses (oui ou non) aux questions du lycée, avec un commentaire. « Mes visites » liste les appels à passer pour les stages en cours.
+- **Ordre de mission** : demandé par le visiteur avec son mode de transport (véhicule personnel ou transport en commun) ; l'adresse de l'entreprise est obligatoire avant la signature. Il est signé avant la visite par la direction, la gestion des PFMP (DDFPT, bureau des entreprises), ou les deux : réglage dans « Organisation ».
+- **Pendant la visite** : le tuteur ou le représentant de l'entreprise signe sur le téléphone du professeur ; à défaut, le professeur photographie l'ordre de mission tamponné, rangé dans le dossier de l'élève.
+- **Compte rendu** : commentaires sur le stagiaire, grille des attitudes professionnelles, et pour l'entreprise : activités en adéquation avec la formation (oui, en partie, non), accueil et encadrement (compté dans sa note de partenariat), commentaires.
+- **Document imprimable** sur le modèle du lycée : ordre de mission signé, appel, visite et signature de l'entreprise, commentaires, grille des attitudes avec une croix sur le niveau retenu.
+- **Modèle adaptable** (« Modèles de documents » › « Ordre de mission et compte rendu de visite ») : titre, introduction, rubriques, pied de page, questions de l'appel et grille des attitudes (une ligne par critère : « Critère : niveau 1 / niveau 2 / … »).
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Grille par défaut** : les 8 attitudes professionnelles de son modèle (intérêt porté au travail, compréhension, esprit d'initiative, sens de l'organisation, niveau d'activité, habileté, qualité du travail, sociabilité), chacune sur 5 niveaux. Chaque niveau se choisit : aucune réponse n'est pré-cochée.
+2. **Questions de l'appel par défaut** : présence et ponctualité, insertion, livret remis au tuteur, tâches réalisables.
+3. **Signataires de l'ordre de mission** : par défaut, la direction et la gestion des PFMP, comme sur son modèle (DDFPT, chef d'établissement ou responsable formation entreprise).
+4. **Signature de l'entreprise** : proposée à partir du jour de la visite ; un compte rendu ou un appel déjà rédigé garde les questions et la grille avec lesquelles il a été rempli.
+5. **Question en attente** : son ordre de mission, son attestation et son livret sont des PDF sans champs ; la façon de les remplir à l'identique lui a été demandée (placer les zones dans Cap PFMP, modèle Cap PFMP d'abord, ou PDF à champs fabriqué par le lycée).
+

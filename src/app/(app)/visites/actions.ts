@@ -4,7 +4,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
-import { a, peutGererClasse, peutGererEleve } from "@/lib/acces";
+import { a, estReferentDe, peutGererClasse, peutGererEleve, peutSignerOrdreMission } from "@/lib/acces";
 import { journaliser } from "@/lib/journal";
 import { envoyer } from "@/lib/messages";
 import { revenirAvec } from "@/lib/retour";
@@ -12,8 +12,10 @@ import { chargerVisite, visiteursPossibles, visitesAOrganiser } from "@/lib/visi
 import { dateProposee, repartir } from "@/lib/repartition";
 import { aujourdhui, dateLongue, jourSemaine, JOURS } from "@/lib/dates";
 import type { Etat } from "@/components/Formulaire";
-import type { CompteRendu } from "@/db/schema";
-import { CRITERES, NIVEAUX } from "@/lib/constantes-visites";
+import type { AppelTuteur, CachetEntreprise, CompteRendu } from "@/db/schema";
+import { NIVEAUX } from "@/lib/constantes-visites";
+import { grilleEtQuestions } from "@/lib/modeles-documents";
+import { enregistrerFichier, enregistrerSignatureDessinee } from "@/lib/stockage";
 
 function rafraichir() {
   for (const p of ["/visites", "/mes-visites", "/a-signer", "/stagiaires", "/"]) revalidatePath(p);
@@ -135,21 +137,54 @@ export async function choisirCreneau(fd: FormData) {
   revenirAvec(fd, `Visite confirmée le ${texteCreneau([d, h])}.`);
 }
 
+/* ------------------------- Appel au tuteur, première semaine ------------------------- */
+
+/** Le professeur (visiteur ou référent) ou la gestion note l'appel au tuteur de la première semaine de stage. */
+export async function enregistrerAppel(_: Etat, fd: FormData): Promise<Etat> {
+  const ctx = await contexte();
+  const visiteId = z.string().uuid().parse(fd.get("visiteId"));
+  const l = await chargerVisite(ctx, visiteId);
+  if (!l?.v || !(l.v.visiteurId === ctx.user.id || (await peutGererEleve(ctx, l.e)) || (await estReferentDe(ctx, l.e)))) return { erreur: "Visite introuvable." };
+  const date = String(fd.get("date") ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > aujourdhui()) return { erreur: "Indiquez la date de l'appel (aujourd'hui au plus tard)." };
+  const { questions } = await grilleEtQuestions(ctx.etab.id);
+  const reponses = questions.map((question, i) => ({ question, reponse: String(fd.get(`q_${i}`) ?? "") }));
+  if (reponses.some((r) => r.reponse !== "oui" && r.reponse !== "non")) return { erreur: "Répondez à chaque question par oui ou par non." };
+  const appel: AppelTuteur = {
+    date, reponses: reponses as AppelTuteur["reponses"], parId: ctx.user.id,
+    ...(String(fd.get("commentaire") ?? "").trim() ? { commentaire: String(fd.get("commentaire")).trim().slice(0, 1000) } : {}),
+  };
+  await db.update(schema.visites).set({ appel }).where(eq(schema.visites.id, visiteId));
+  await journaliser(ctx, "appel_tuteur", "visite", visiteId);
+  rafraichir();
+  // Le formulaire se replie une fois l'appel noté : la confirmation passe par le bandeau.
+  revenirAvec(fd, "Appel enregistré : il figure sur l'ordre de mission.");
+}
+
 /* ------------------------------ Ordre de mission ------------------------------ */
 
+/** Le visiteur demande l'ordre de mission, avec son mode de transport ; il est signé avant la visite. */
 export async function demanderOrdreMission(fd: FormData) {
   const ctx = await contexte();
   const visiteId = z.string().uuid().parse(fd.get("visiteId"));
   const l = await visiteDuVisiteur(ctx, visiteId);
-  if (!l?.v?.visiteurId || !l.v.date || !ctx.etab.reglages.ordreMission) return;
-  await db.update(schema.visites).set({ ordreMission: "a_signer" }).where(eq(schema.visites.id, visiteId));
-  await journaliser(ctx, "ordre_mission_demande", "visite", visiteId);
+  if (!l?.v?.visiteurId || !ctx.etab.reglages.ordreMission) return;
+  if (!l.v.date) revenirAvec(fd, "Fixez d'abord la date de la visite.", "err");
+  const transport = z.enum(["vehicule", "commun"]).safeParse(fd.get("transport"));
+  if (!transport.success) revenirAvec(fd, "Indiquez votre mode de transport.", "err");
+  // Champs obligatoires avant la signature : classe, élève, entreprise et son adresse.
+  if (!l.ent.adresse && !l.ent.ville) revenirAvec(fd, `L'adresse de ${l.ent.nom} manque : complétez la fiche de l'entreprise avant de demander l'ordre de mission.`, "err");
+  await db.update(schema.visites).set({ ordreMission: "a_signer", transport: transport.data }).where(eq(schema.visites.id, visiteId));
+  await journaliser(ctx, "ordre_mission_demande", "visite", visiteId, { transport: transport.data });
   rafraichir();
-  revenirAvec(fd, "Ordre de mission transmis à la direction pour signature.");
+  const qui = ctx.etab.reglages.signatairesOrdreMission;
+  revenirAvec(fd, `Ordre de mission transmis pour signature (${qui.length > 1 ? "direction ou gestion des PFMP" : qui[0] === "direction" ? "direction" : "gestion des PFMP"}).`);
 }
 
+/** Signé avant la visite par la direction et/ou la gestion des PFMP, selon l'organisation du lycée. */
 export async function signerOrdreMission(fd: FormData) {
-  const ctx = await contexte({ roles: ["direction"] });
+  const ctx = await contexte();
+  if (!peutSignerOrdreMission(ctx)) return;
   const visiteId = z.string().uuid().parse(fd.get("visiteId"));
   const l = await chargerVisite(ctx, visiteId);
   if (!l?.v || l.v.ordreMission !== "a_signer") return;
@@ -157,6 +192,46 @@ export async function signerOrdreMission(fd: FormData) {
   await journaliser(ctx, "ordre_mission_signe", "visite", visiteId);
   rafraichir();
   revenirAvec(fd, "Ordre de mission signé.");
+}
+
+/* ------------------- Pendant la visite : signature ou cachet de l'entreprise ------------------- */
+
+/** Le tuteur ou le représentant signe sur le téléphone du professeur, pendant la visite. */
+export async function signerCachet(_: Etat, fd: FormData): Promise<Etat> {
+  const ctx = await contexte();
+  const visiteId = z.string().uuid().parse(fd.get("visiteId"));
+  const l = await visiteDuVisiteur(ctx, visiteId);
+  if (!l?.v) return { erreur: "Visite introuvable." };
+  const nom = String(fd.get("nom") ?? "").trim().slice(0, 120);
+  const qualite = String(fd.get("qualite") ?? "").trim().slice(0, 120);
+  if (nom.length < 2) return { erreur: "Indiquez le nom de la personne qui signe pour l'entreprise." };
+  const r = await enregistrerSignatureDessinee(ctx.etab.id, String(fd.get("image") ?? ""));
+  if (typeof r === "string") return { erreur: r };
+  const cachet: CachetEntreprise = { nom, qualite, image: r.cle, le: new Date().toISOString(), parId: ctx.user.id };
+  await db.update(schema.visites).set({ cachet }).where(eq(schema.visites.id, visiteId));
+  await journaliser(ctx, "cachet_entreprise", "visite", visiteId);
+  rafraichir();
+  revenirAvec(fd, `Signature de ${nom} enregistrée : elle figure sur l'ordre de mission.`);
+}
+
+/** À défaut, la photo de l'ordre de mission tamponné par l'entreprise, rangée dans le dossier de l'élève. */
+export async function deposerPhotoOrdreMission(_: Etat, fd: FormData): Promise<Etat> {
+  const ctx = await contexte();
+  const visiteId = z.string().uuid().parse(fd.get("visiteId"));
+  const l = await visiteDuVisiteur(ctx, visiteId);
+  if (!l?.v) return { erreur: "Visite introuvable." };
+  const f = fd.get("photo");
+  if (!(f instanceof File) || f.size === 0) return { erreur: "Prenez en photo l'ordre de mission tamponné, ou choisissez le fichier." };
+  const r = await enregistrerFichier(ctx.etab.id, f);
+  if (typeof r === "string") return { erreur: r };
+  await db.insert(schema.documents).values({
+    etablissementId: ctx.etab.id, eleveId: l.e.id, stageId: l.s.id, anneeScolaire: l.c.anneeScolaire, classeLibelle: l.c.libelle, type: "ordre_mission",
+    nomFichier: r.nom, cleStockage: r.cle, typeMime: r.mime, taille: r.taille, deposeParId: ctx.user.id, statut: "valide", valideParId: ctx.user.id, valideLe: new Date(),
+  });
+  await journaliser(ctx, "ordre_mission_photo", "visite", visiteId);
+  rafraichir();
+  revalidatePath(`/eleves/${l.e.id}`);
+  revenirAvec(fd, "Photo enregistrée dans le dossier de l'élève.");
 }
 
 /* ------------------------------ Compte rendu ------------------------------ */
@@ -172,16 +247,18 @@ export async function enregistrerCompteRendu(_: Etat, fd: FormData): Promise<Eta
     personneRencontree: z.string().trim().min(2, "Indiquez la personne rencontrée").max(120),
     observations: z.string().trim().max(4000),
     suite: z.enum(["aucune", "point_eleve", "famille", "alerte"]),
+    adequation: z.enum(["oui", "en_partie", "non"], { error: "Les activités confiées sont-elles en adéquation avec la formation ?" }),
+    accueil: z.enum(NIVEAUX, { error: "Évaluez l'accueil et l'encadrement par l'entreprise." }),
+    commentaireEntreprise: z.string().trim().max(2000).optional(),
   }).safeParse(Object.fromEntries(fd));
   if (!p.success) return { erreur: p.error.issues[0]?.message };
   if (p.data.date > aujourdhui()) return { erreur: "Le compte rendu se rédige après la visite." };
-  const criteres: Record<string, string> = {};
-  for (const [k] of CRITERES) {
-    const v = String(fd.get(`critere_${k}`) ?? "");
-    if (!(NIVEAUX as readonly string[]).includes(v)) return { erreur: "Évaluez chaque critère." };
-    criteres[k] = v;
-  }
-  const cr: CompteRendu = { ...p.data, criteres };
+  // Attitudes professionnelles : la grille du lycée, recopiée en toutes lettres dans le compte rendu.
+  const { grille } = await grilleEtQuestions(ctx.etab.id);
+  const evaluations = grille.map((g, i) => ({ critere: g.critere, niveau: String(fd.get(`att_${i}`) ?? "") }));
+  if (evaluations.some((e, i) => !grille[i].niveaux.includes(e.niveau))) return { erreur: "Évaluez chaque attitude professionnelle." };
+  const { accueil, adequation, commentaireEntreprise, ...reste } = p.data;
+  const cr: CompteRendu = { ...reste, criteres: { accueil }, evaluations, adequation, ...(commentaireEntreprise ? { commentaireEntreprise } : {}) };
   await db.update(schema.visites).set({ compteRendu: cr, compteRenduLe: new Date(), date: p.data.date, mode: p.data.mode }).where(eq(schema.visites.id, visiteId));
   if (p.data.suite === "alerte") {
     // Prévient le référent de la classe et la direction
