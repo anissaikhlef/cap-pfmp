@@ -578,3 +578,18 @@ export function calculFrais(x: {
 export function euros(centimes: number): string {
   return (centimes / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
 }
+
+/* ------------------------- Prise de rendez-vous pour la visite ------------------------- */
+
+/**
+ * La forme de la visite retenue : celle que le professeur a proposée, ou celle que l'entreprise choisit quand il lui laisse
+ * le choix (null tant qu'elle n'a pas choisi). Sans proposition enregistrée, la forme actuelle de la visite reste.
+ */
+export function modeRetenu(
+  proposes: "presentiel" | "distanciel" | "les2" | null,
+  choix: string | null | undefined,
+  actuel: "presentiel" | "distanciel",
+): "presentiel" | "distanciel" | null {
+  if (proposes === "les2") return choix === "presentiel" || choix === "distanciel" ? choix : null;
+  return proposes ?? actuel;
+}

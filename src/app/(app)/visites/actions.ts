@@ -8,9 +8,12 @@ import { a, estReferentDe, peutGererClasse, peutGererEleve, peutSignerOrdreMissi
 import { journaliser } from "@/lib/journal";
 import { envoyer } from "@/lib/messages";
 import { revenirAvec } from "@/lib/retour";
+import { adresseDuSite, creerLien } from "@/lib/liens";
+import { confirmerRendezVous, fermerLienRendezVous, JOURS_LIEN_RENDEZ_VOUS, texteCreneau, texteMode, visitePourRendezVous } from "@/lib/rendez-vous";
+import { modeRetenu } from "@/lib/regles";
 import { chargerVisite, visiteursPossibles, visitesAOrganiser } from "@/lib/visites";
 import { dateProposee, repartir } from "@/lib/repartition";
-import { aujourdhui, dateLongue, jourSemaine, JOURS } from "@/lib/dates";
+import { aujourdhui, dateLongue } from "@/lib/dates";
 import type { Etat } from "@/components/Formulaire";
 import type { AppelTuteur, CachetEntreprise, CompteRendu } from "@/db/schema";
 import { NIVEAUX } from "@/lib/constantes-visites";
@@ -47,12 +50,16 @@ export async function attribuer(fd: FormData) {
   const pool = await visiteursPossibles(ctx);
   const v = await visiteDuStage(stageId);
   const nouveauVisiteur = visiteurId && pool.some((p) => p.id === visiteurId) ? visiteurId : null;
+  const change = nouveauVisiteur !== v.visiteurId;
   await db.update(schema.visites).set({
     visiteurId: nouveauVisiteur,
     date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
     // Changer de visiteur annule l'ordre de mission en cours.
-    ...(nouveauVisiteur !== v.visiteurId ? { ordreMission: "aucun" as const, ordreMissionSigneParId: null, ordreMissionSigneLe: null } : {}),
+    ...(change ? { ordreMission: "aucun" as const, ordreMissionSigneParId: null, ordreMissionSigneLe: null } : {}),
+    // Les créneaux proposés par l'ancien visiteur, encore sans réponse, ne valent plus.
+    ...(change && !v.heure ? { creneauxProposes: null, propositionEnvoyeeLe: null, modesProposes: null, rdvCommentaire: null } : {}),
   }).where(eq(schema.visites.id, v.id));
+  if (change) await fermerLienRendezVous(stageId);
   await journaliser(ctx, "visite_attribuee", "visite", v.id, { visiteurId: nouveauVisiteur, date });
   rafraichir();
 }
@@ -86,16 +93,19 @@ async function visiteDuVisiteur(ctx: Awaited<ReturnType<typeof contexte>>, visit
   return null;
 }
 
-function texteCreneau([d, h]: [string, string]) {
-  return `${JOURS[jourSemaine(d)].toLowerCase()} ${dateLongue(d).replace(/ \d{4}$/, "")} à ${h.replace(":", "h")}`;
-}
 
+/**
+ * Prise de rendez-vous (demande d'Anissa) : le professeur propose ses créneaux et la forme de la visite — sur place,
+ * à distance, ou au choix de l'entreprise. L'entreprise reçoit un lien personnel (SMS et mail) pour choisir en ligne, sans compte.
+ */
 export async function proposerCreneaux(_: Etat, fd: FormData): Promise<Etat> {
   const ctx = await contexte();
   const visiteId = z.string().uuid().parse(fd.get("visiteId"));
   const l = await visiteDuVisiteur(ctx, visiteId);
   if (!l?.v?.visiteurId) return { erreur: "Visite introuvable." };
-  const mode = z.enum(["presentiel", "distanciel"]).parse(fd.get("mode"));
+  const modes = z.enum(["presentiel", "distanciel", "les2"]).safeParse(fd.get("mode"));
+  if (!modes.success) return { erreur: "Choisissez la forme de la visite : sur place, à distance, ou au choix de l'entreprise." };
+  const lienDistance = String(fd.get("lienDistance") ?? "").trim().slice(0, 300) || null;
   const creneaux: [string, string][] = [];
   for (let i = 0; i < 3; i++) {
     const d = String(fd.get(`date_${i}`) ?? ""), h = String(fd.get(`heure_${i}`) ?? "");
@@ -105,16 +115,36 @@ export async function proposerCreneaux(_: Etat, fd: FormData): Promise<Etat> {
     }
   }
   if (!creneaux.length) return { erreur: "Proposez au moins un créneau." };
-  // Le mobile du tuteur désigné pour ce stage, à défaut celui de la fiche entreprise.
+  // Le tuteur désigné pour ce stage, à défaut la fiche entreprise.
   const mobile = l.s.tuteur?.telephone ?? l.ent.telephone;
-  if (!mobile) return { erreur: "Aucun numéro de mobile pour le tuteur : complétez le stage ou la fiche entreprise." };
+  const email = l.s.tuteur?.email ?? l.ent.email;
+  if (!mobile && !email) return { erreur: "Aucun mobile ni adresse e-mail pour le tuteur : complétez le stage ou la fiche entreprise." };
   const [visiteur] = await db.select().from(schema.users).where(eq(schema.users.id, l.v.visiteurId)).limit(1);
-  const corps = `Bonjour ${l.s.tuteur?.nom ?? l.ent.tuteurNom ?? ""}, je suis ${visiteur.prenom} ${visiteur.nom}, professeur de ${l.e.prenom} ${l.e.nom}, en stage chez vous. Je souhaite faire la visite de stage ${mode === "presentiel" ? "sur place" : "à distance (visio ou téléphone)"}. Mes disponibilités : ${creneaux.map(texteCreneau).join(", ")}. Pouvez-vous me répondre avec le créneau qui vous convient, ou le choisir sur Cap PFMP ? Merci. ${ctx.etab.nom}`;
-  await envoyer(ctx, { canal: "sms", destinataire: mobile, corps, eleveId: l.e.id, entrepriseId: l.ent.id });
-  await db.update(schema.visites).set({ mode, creneauxProposes: creneaux, propositionEnvoyeeLe: new Date(), heure: null }).where(eq(schema.visites.id, visiteId));
-  await journaliser(ctx, "creneaux_proposes", "visite", visiteId, { creneaux, mode });
+  // Un seul lien de prise de rendez-vous à la fois : les précédents ne servent plus.
+  await fermerLienRendezVous(l.s.id);
+  const { jeton } = await creerLien(ctx.etab.id, { objet: "rendezvous", destinataire: email ?? mobile!, jours: JOURS_LIEN_RENDEZ_VOUS, stageId: l.s.id, creeParId: ctx.user.id });
+  const url = `${await adresseDuSite()}/rendez-vous/${jeton}`;
+  const formes = modes.data === "les2" ? "sur place ou à distance, à votre choix" : texteMode(modes.data);
+  const bonjour = `Bonjour ${l.s.tuteur?.nom ?? l.ent.tuteurNom ?? ""}`.trim();
+  if (mobile) {
+    await envoyer(ctx, {
+      canal: "sms", destinataire: mobile, eleveId: l.e.id, entrepriseId: l.ent.id,
+      corps: `${bonjour}, je suis ${visiteur.prenom} ${visiteur.nom}, professeur de ${l.e.prenom} ${l.e.nom}, en stage chez vous. Je souhaite faire la visite de stage ${formes}. Mes disponibilités : ${creneaux.map(texteCreneau).join(", ")}. Choisissez votre rendez-vous en ligne : ${url} Merci. ${ctx.etab.nom}`,
+    });
+  }
+  if (email) {
+    await envoyer(ctx, {
+      canal: "mail", destinataire: email, sujet: `Visite de stage de ${l.e.prenom} ${l.e.nom} : choisissez votre rendez-vous`, eleveId: l.e.id, entrepriseId: l.ent.id,
+      corps: `${bonjour},\n\nJe suis ${visiteur.prenom} ${visiteur.nom}, professeur de ${l.e.prenom} ${l.e.nom}, en stage chez vous. Je souhaite faire la visite de stage ${formes}.\n\nMes disponibilités :\n${creneaux.map((c) => `- ${texteCreneau(c)}`).join("\n")}\n\nChoisissez votre rendez-vous en ligne, sans créer de compte :\n${url}\n\nMerci,\n${visiteur.prenom} ${visiteur.nom}\n${ctx.etab.nom}`,
+    });
+  }
+  await db.update(schema.visites).set({
+    mode: modes.data === "les2" ? l.v.mode : modes.data, modesProposes: modes.data, lienDistance,
+    creneauxProposes: creneaux, propositionEnvoyeeLe: new Date(), heure: null, rdvCommentaire: null,
+  }).where(eq(schema.visites.id, visiteId));
+  await journaliser(ctx, "creneaux_proposes", "visite", visiteId, { creneaux, modes: modes.data });
   rafraichir();
-  revenirAvec(fd, `Créneaux envoyés par SMS au ${mobile} (envoi simulé tant qu'aucun prestataire n'est branché).`);
+  revenirAvec(fd, `Créneaux envoyés${mobile ? ` par SMS au ${mobile}` : ""}${mobile && email ? " et" : ""}${email ? ` par mail à ${email}` : ""}, avec un lien pour prendre rendez-vous en ligne (envoi simulé tant qu'aucun prestataire n'est branché).`);
 }
 
 /** Le créneau retenu : choisi par le tuteur dans son espace, ou saisi par le professeur après sa réponse. */
@@ -126,15 +156,14 @@ export async function choisirCreneau(fd: FormData) {
   if (!l?.v?.creneauxProposes?.[i]) return;
   const tuteur = a(ctx, "entreprise") && ctx.user.entrepriseId === l.ent.id;
   if (!tuteur && !(await visiteDuVisiteur(ctx, visiteId))) return;
-  const [d, h] = l.v.creneauxProposes[i];
-  await db.update(schema.visites).set({ date: d, heure: h }).where(eq(schema.visites.id, visiteId));
-  if (tuteur && l.v.visiteurId) {
-    const [visiteur] = await db.select().from(schema.users).where(eq(schema.users.id, l.v.visiteurId)).limit(1);
-    if (visiteur) await envoyer(ctx, { canal: "mail", destinataire: visiteur.email, sujet: `Visite de ${l.e.prenom} ${l.e.nom} confirmée`, corps: `${l.ent.nom} a choisi le créneau du ${texteCreneau([d, h])}.`, eleveId: l.e.id, entrepriseId: l.ent.id });
-  }
-  await journaliser(ctx, "creneau_choisi", "visite", visiteId, { d, h, par: tuteur ? "entreprise" : "professeur" });
+  const mode = modeRetenu(l.v.modesProposes, fd.get("mode") as string | null, l.v.mode);
+  if (!mode) revenirAvec(fd, "Choisissez la forme de la visite : sur place ou à distance.", "err");
+  const x = await visitePourRendezVous(ctx.etab.id, l.s.id);
+  if (!x) return;
+  const quand = await confirmerRendezVous(ctx, x, i, mode, null, tuteur ? "entreprise" : "professeur");
+  await journaliser(ctx, "creneau_choisi", "visite", visiteId, { creneau: l.v.creneauxProposes[i], mode, par: tuteur ? "entreprise" : "professeur" });
   rafraichir();
-  revenirAvec(fd, `Visite confirmée le ${texteCreneau([d, h])}.`);
+  revenirAvec(fd, `Visite confirmée ${quand}.`);
 }
 
 /* ------------------------- Appel au tuteur, première semaine ------------------------- */
@@ -359,8 +388,10 @@ export async function rendreVisite(fd: FormData) {
   if (l.v.compteRendu || l.v.ordreMission === "signe") revenirAvec(fd, "Cette visite a déjà un ordre de mission signé ou un compte rendu : demandez à la gestion des stages de la réattribuer.", "err");
   await db.update(schema.visites).set({
     visiteurId: null, date: null, heure: null, creneauxProposes: null, propositionEnvoyeeLe: null,
+    modesProposes: null, lienDistance: null, rdvCommentaire: null,
     ordreMission: "aucun", ordreMissionSigneParId: null, ordreMissionSigneLe: null,
   }).where(eq(schema.visites.id, visiteId));
+  await fermerLienRendezVous(l.s.id);
   await journaliser(ctx, "visite_rendue", "visite", visiteId);
   rafraichir();
   revenirAvec(fd, "Visite rendue : un collègue peut maintenant la choisir.");

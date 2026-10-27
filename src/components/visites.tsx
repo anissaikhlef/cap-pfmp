@@ -6,6 +6,8 @@ import { dateCourte, dateLongue } from "@/lib/dates";
 import { Pill } from "./ui";
 import { ChampRetour } from "./ChampRetour";
 import { choisirCreneau, signerOrdreMission } from "@/app/(app)/visites/actions";
+import { texteMode } from "@/lib/rendez-vous";
+import { LienVisio } from "./LienVisio";
 import type { LigneVisite } from "@/lib/visites";
 
 export type OrdreASigner = { visiteId: string; eleve: string; entreprise: string; visiteur: string; date: string | null };
@@ -46,8 +48,8 @@ export function EtatVisite({ l, ctx }: { l: LigneVisite; ctx: Contexte }) {
   return (
     <span className="actions" style={{ gap: 4 }}>
       {!v?.visiteurId ? <Pill ton="bad">Sans visiteur</Pill>
-        : v.heure ? <Pill ton="ok">Le {dateCourte(v.date)} à {v.heure.replace(":", "h")}</Pill>
-        : v.propositionEnvoyeeLe ? <Pill ton="warn">Créneaux proposés</Pill>
+        : v.heure ? <Pill ton="ok">Le {dateCourte(v.date)} à {v.heure.replace(":", "h")}{v.mode === "distanciel" ? " · à distance" : ""}</Pill>
+        : v.propositionEnvoyeeLe ? (v.rdvCommentaire ? <Pill ton="bad">Aucun créneau ne convient</Pill> : <Pill ton="warn">Créneaux proposés</Pill>)
         : <Pill ton="muted">{v.date ? `Prévue vers le ${dateCourte(v.date)}` : "Date à fixer"}</Pill>}
       {v?.visiteurId && r.ordreMission && (v.ordreMission === "signe" ? <Pill ton="ok">Ordre de mission signé</Pill> : v.ordreMission === "a_signer" ? <Pill ton="warn">Ordre de mission à signer</Pill> : null)}
       {v?.visiteurId && r.compteRendu && v.compteRendu && <Pill ton="ok">Compte rendu fait</Pill>}
@@ -58,16 +60,23 @@ export function EtatVisite({ l, ctx }: { l: LigneVisite; ctx: Contexte }) {
 /** Pour le tuteur : choisir l'un des créneaux proposés par le professeur. */
 export function ChoixCreneauTuteur({ visite }: { visite: typeof schema.visites.$inferSelect | null }) {
   if (!visite?.creneauxProposes?.length) return null;
-  if (visite.heure) return <p className="msg ok" style={{ margin: 0 }}>Visite {visite.mode === "presentiel" ? "sur place" : "à distance"} prévue le {dateLongue(visite.date)} à {visite.heure.replace(":", "h")}.</p>;
+  if (visite.heure) return <p className="msg ok" style={{ margin: 0 }}>Visite {texteMode(visite.mode)} prévue le {dateLongue(visite.date)} à {visite.heure.replace(":", "h")}{visite.mode === "distanciel" && visite.lienDistance && <> · <LienVisio valeur={visite.lienDistance} /></>}.</p>;
+  const auChoix = visite.modesProposes === "les2";
   return (
     <div className="card">
-      <b>Le professeur propose une visite {visite.mode === "presentiel" ? "sur place" : "à distance"}</b>
+      <b>{auChoix ? "Le professeur propose une visite sur place ou à distance, à votre choix" : `Le professeur propose une visite ${texteMode(visite.mode)}`}</b>
       <form action={choisirCreneau} className="actions">
         <ChampRetour />
         <input type="hidden" name="visiteId" value={visite.id} />
         <select className="inp" name="creneau" aria-label="Créneau" style={{ width: "auto" }}>
           {visite.creneauxProposes.map(([d, h], i) => <option key={i} value={i}>{dateLongue(d)} à {h.replace(":", "h")}</option>)}
         </select>
+        {auChoix && (
+          <span className="actions" role="radiogroup" aria-label="Forme de la visite">
+            <label className="check"><input type="radio" name="mode" value="presentiel" required /> Sur place</label>
+            <label className="check"><input type="radio" name="mode" value="distanciel" /> À distance</label>
+          </span>
+        )}
         <button className="btn small primary">Choisir ce créneau</button>
       </form>
     </div>

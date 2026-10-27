@@ -16,6 +16,8 @@ import { ChampRetour } from "@/components/ChampRetour";
 import { EtatVisite } from "@/components/visites";
 import { Pill } from "@/components/ui";
 import { euros } from "@/lib/regles";
+import { texteMode } from "@/lib/rendez-vous";
+import { LienVisio } from "@/components/LienVisio";
 import { demanderRemboursement } from "../../frais/actions";
 import { ZoneSignature } from "@/components/ChoixSignature";
 import { choisirCreneau, demanderOrdreMission, deposerPhotoOrdreMission, enregistrerAppel, enregistrerCompteRendu, proposerCreneaux, signerCachet } from "../actions";
@@ -78,29 +80,42 @@ export default async function Visite({ params }: { params: Promise<{ id: string 
         </div>
 
         {peutAgir && l.v.visiteurId && (
-          <div className="panel pad section">
-            <h2>Proposer un créneau au tuteur</h2>
-            <Formulaire action={proposerCreneaux} bouton={l.v.propositionEnvoyeeLe ? "Renvoyer de nouveaux créneaux" : "Envoyer par SMS"}>
+          <div className="panel pad section" id="rendez-vous">
+            <h2>Rendez-vous avec l&apos;entreprise</h2>
+            {l.v.heure && l.v.date ? (
+              <p className="msg ok" style={{ margin: 0 }}>Rendez-vous le {dateLongue(l.v.date)} à {l.v.heure.replace(":", "h")}, {texteMode(l.v.mode)}{l.v.mode === "distanciel" && l.v.lienDistance && <> · <LienVisio valeur={l.v.lienDistance} /></>}.</p>
+            ) : l.v.propositionEnvoyeeLe && <p className="sub" style={{ margin: 0 }}>Créneaux envoyés le {dateCourte(l.v.propositionEnvoyeeLe.toISOString().slice(0, 10))} : en attente du choix de l&apos;entreprise.</p>}
+            {l.v.rdvCommentaire && <p className="note" style={{ margin: 0 }}>Message de l&apos;entreprise : « {l.v.rdvCommentaire} »</p>}
+            <Formulaire action={proposerCreneaux} bouton={l.v.propositionEnvoyeeLe ? "Renvoyer de nouveaux créneaux" : "Envoyer à l'entreprise"}>
               <input type="hidden" name="visiteId" value={l.v.id} />
-              <div className="choices" role="radiogroup" style={{ flexDirection: "row", flexWrap: "wrap" }}>
-                <label className="choice"><input type="radio" name="mode" value="presentiel" defaultChecked={l.v.mode !== "distanciel"} /> Sur place</label>
-                <label className="choice"><input type="radio" name="mode" value="distanciel" defaultChecked={l.v.mode === "distanciel"} /> À distance</label>
-              </div>
+              <fieldset className="choices" style={{ flexDirection: "row", flexWrap: "wrap", border: 0, padding: 0, margin: 0 }}>
+                <legend className="sub">Forme de la visite</legend>
+                <label className="choice"><input type="radio" name="mode" value="presentiel" defaultChecked={l.v.modesProposes === "presentiel"} /> Sur place</label>
+                <label className="choice"><input type="radio" name="mode" value="distanciel" defaultChecked={l.v.modesProposes === "distanciel"} /> À distance</label>
+                <label className="choice"><input type="radio" name="mode" value="les2" defaultChecked={!l.v.modesProposes || l.v.modesProposes === "les2"} /> Au choix de l&apos;entreprise</label>
+              </fieldset>
               {propositions.map(([d, h], i) => (
                 <div key={i} className="grid2" style={{ gridTemplateColumns: "1fr 120px" }}>
                   <label className="f" htmlFor={`cd-${i}`}>Créneau {i + 1}<input id={`cd-${i}`} name={`date_${i}`} type="date" defaultValue={d} min={jour} /></label>
                   <label className="f" htmlFor={`ch-${i}`}>Heure<input id={`ch-${i}`} name={`heure_${i}`} type="time" defaultValue={h} /></label>
                 </div>
               ))}
-              <p className="sub" style={{ margin: 0 }}>Le tuteur reçoit un SMS avec vos disponibilités et peut choisir le créneau dans son espace.</p>
+              <label className="f" htmlFor="cd-lien">Pour une visite à distance : lien de visio ou numéro de téléphone (facultatif)<input id="cd-lien" name="lienDistance" defaultValue={l.v.lienDistance ?? ""} maxLength={300} /></label>
+              <p className="sub" style={{ margin: 0 }}>L&apos;entreprise reçoit un lien par SMS et par mail : elle choisit en ligne son créneau, et la forme de la visite si vous la lui laissez, sans créer de compte. Le tuteur qui a un compte peut aussi choisir dans son espace.</p>
             </Formulaire>
             {l.v.creneauxProposes && !l.v.heure && (
               <form action={choisirCreneau} className="actions">
                 <ChampRetour />
+                <span className="sub" style={{ flexBasis: "100%" }}>Le tuteur vous a répondu par téléphone ou par SMS ? Enregistrez sa réponse :</span>
                 <input type="hidden" name="visiteId" value={l.v.id} />
                 <select className="inp" name="creneau" aria-label="Créneau retenu par le tuteur" style={{ width: "auto" }}>
                   {l.v.creneauxProposes.map(([d, h], i) => <option key={i} value={i}>{dateCourte(d)} à {h.replace(":", "h")}</option>)}
                 </select>
+                {l.v.modesProposes === "les2" && (
+                  <select className="inp" name="mode" aria-label="Forme retenue par le tuteur" style={{ width: "auto" }}>
+                    <option value="presentiel">sur place</option><option value="distanciel">à distance</option>
+                  </select>
+                )}
                 <button className="btn small">Le tuteur a choisi ce créneau</button>
               </form>
             )}

@@ -35,7 +35,7 @@ ok((await diallo.textContent("main")).includes("Bonne intégration"), "le compte
 await diallo.goto(BASE + "/visites");
 await Promise.all([diallo.waitForURL(/\/visites\/[0-9a-f-]{36}/), diallo.locator(".row", { hasText: "CISSÉ" }).locator("a:has-text('Détails')").click()]);
 const urlAdam = diallo.url();
-await diallo.click("button:has-text('Envoyer par SMS')");
+await diallo.click("button:has-text(\"Envoyer à l'entreprise\")");
 ok(await visible(diallo.getByText("Créneaux envoyés par SMS")), "envoie les créneaux au tuteur par SMS (simulé)");
 await diallo.click("button:has-text('Le tuteur a choisi ce créneau')");
 ok(await visible(diallo.getByText("Visite confirmée")), "enregistre le créneau choisi");
@@ -63,9 +63,10 @@ await lucas.locator("select[name=visiteurId]").selectOption({ label: "Paul MARTI
 await lucas.locator("button:has-text('Enregistrer')").click();
 await martin.waitForTimeout(1200);
 await Promise.all([martin.waitForURL(/\/visites\/[0-9a-f-]{36}/), martin.locator(".row", { hasText: "MOREAU" }).locator("a:has-text('Détails')").click()]);
-await martin.click("button:has-text('Envoyer par SMS')");
+await martin.click("button:has-text(\"Envoyer à l'entreprise\")");
 await visible(martin.getByText("Créneaux envoyés"));
 const tuteur = await session("k.ferhat");
+await tuteur.locator(".panel.pad.section", { hasText: "MOREAU" }).locator("input[name=mode][value=presentiel]").check();
 await tuteur.locator(".panel.pad.section", { hasText: "MOREAU" }).locator("button:has-text('Choisir ce créneau')").click();
 ok(await visible(tuteur.getByText("Visite confirmée")), "le tuteur choisit un créneau dans son espace");
 await martin.reload();

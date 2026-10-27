@@ -333,7 +333,7 @@ export const stages = pgTable("stages", {
  * l'attestation et le livret sans compte, se connecter sans mot de passe (élèves, parents, entreprises).
  * Seule l'empreinte du jeton est enregistrée ; le lien expire.
  */
-export type ObjetLien = "signature" | "campagne" | "connexion" | "documents";
+export type ObjetLien = "signature" | "campagne" | "connexion" | "documents" | "rendezvous";
 
 export const liensAcces = pgTable("liens_acces", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -394,6 +394,12 @@ export const visites = pgTable("visites", {
   ordreMissionSigneLe: timestamp("ordre_mission_signe_le", { withTimezone: true }),
   compteRendu: jsonb("compte_rendu").$type<CompteRendu>(),
   compteRenduLe: timestamp("compte_rendu_le", { withTimezone: true }),
+  /** Prise de rendez-vous : formes de visite proposées à l'entreprise (sur place, à distance, ou au choix). */
+  modesProposes: text("modes_proposes").$type<"presentiel" | "distanciel" | "les2">(),
+  /** Pour une visite à distance : lien de visio ou numéro de téléphone, donné par le professeur. */
+  lienDistance: text("lien_distance"),
+  /** Message de l'entreprise en prenant rendez-vous (ou quand aucun créneau ne lui convient). */
+  rdvCommentaire: text("rdv_commentaire"),
   /** Appel au tuteur la première semaine. */
   appel: jsonb("appel").$type<AppelTuteur>(),
   /** Mode de transport indiqué sur l'ordre de mission. */

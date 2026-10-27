@@ -355,3 +355,18 @@ Sur le modèle transmis par Anissa Ikhlef (« Compte rendu de visite / Ordre de 
 3. **Justificatifs** (ticket de péage, billet de train) : pour l'instant remis sur papier à la gestion des PFMP ; leur dépôt en photo pourra suivre.
 4. **Ordre de mission obligatoire** avant la demande, quand le lycée utilise les ordres de mission.
 
+## 27 octobre 2026 : prise de rendez-vous en ligne pour la visite de stage
+
+Demande d'Anissa : « rajoute prise de rdv pour visite de stage avec deux option en présentiel et en distantiel ».
+
+- **Le professeur propose**, sur la page de la visite, jusqu'à 3 créneaux et la forme de la visite : sur place, à distance, ou au choix de l'entreprise. Pour une visite à distance, il indique s'il le souhaite un lien de visio ou un numéro de téléphone.
+- **L'entreprise reçoit un lien personnel** par SMS et par mail, sans compte à créer : elle choisit son créneau, la forme de la visite quand le professeur la lui laisse, et peut laisser un message. Si aucun créneau ne lui convient, elle donne ses disponibilités : le professeur les reçoit par mail, les voit dans « Mes visites » et propose d'autres créneaux (le nouveau lien remplace l'ancien).
+- **Confirmation** : le professeur et l'entreprise reçoivent un mail ; pour une visite à distance, il contient le lien de visio ou le numéro. La date et la forme de la visite apparaissent dans « Mes visites », dans la liste des visites et dans l'espace du tuteur.
+- Le tuteur qui a un compte peut toujours choisir dans son espace, et le professeur peut enregistrer une réponse reçue par téléphone.
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Par défaut, « au choix de l'entreprise »** ; le professeur peut imposer une visite sur place ou à distance.
+2. **Visio** : Cap PFMP ne crée pas la réunion ; le professeur colle le lien de son outil habituel, ou donne un numéro de téléphone.
+3. **Lien valable 14 jours**, pour une seule prise de rendez-vous ; pour changer de date ensuite, l'entreprise répond au professeur, qui renvoie de nouveaux créneaux.
+4. **Changement de visiteur** : les créneaux de l'ancien visiteur restés sans réponse sont annulés, et son lien ne sert plus.
