@@ -288,3 +288,17 @@ Le résultat est présenté à Anissa avant 6. la formation incluse et 7. les ag
 4. **Mails d'accueil et de remerciement** : 3 jours avant et le lendemain (jamais le week-end), jours réglables ou désactivables dans « Organisation ». Un stage enregistré moins de 3 jours avant le départ reçoit le mail d'accueil le jour ouvré suivant, au plus tard le premier jour du stage. Les remerciements comptent comme la première demande de documents : ensuite, un rappel tous les 3 jours, 5 au plus, puis le lycée appelle.
 5. **Lien de dépôt** : valable 30 jours et une seule fois ; il ne propose que les documents qui manquent. Un document refusé par le lycée est redemandé à l'entreprise, avec le motif et un nouveau lien.
 6. **Démonstration** : une entreprise fictive écartée (« Vigil'Express ») et un souci signalé avec Garde Ouest Services.
+
+## 27 octobre 2026 : lot 3, questions sur les documents
+
+1. **Attestation et livret remplis en ligne** : « deux options : tuteur avec élève et prof quand c'est possible, ou tuteur et élève, et si ce n'est pas possible le tuteur seul ». Le document indique qui l'a rempli ; pendant la visite, le professeur peut le remplir avec le tuteur et l'élève sur son téléphone.
+2. **Frais de visite** : « je t'avais donné le document et chaque lycée applique son calcul ». Aucun barème n'est imposé : chaque lycée recopie sa propre méthode, comme dans son annexe de remboursement. Par exemple, l'annexe transmise prévoit un barème kilométrique par tranches de kilomètres parcourus dans l'année, selon le véhicule (voiture, deux-roues, moto) et sa puissance, plafonné à une puissance donnée, le péage en plus, un billet de train hors de la région, un montant par repas et deux montants de nuitée selon le département.
+
+### Ordre de travail du lot 3, proposé par l'assistant
+
+1. Modèles de documents : pour chaque document, le modèle Cap PFMP adapté par le lycée (logo, textes, rubriques) ou le PDF du lycée rempli à l'identique ; d'abord la convention.
+2. Ordre de mission et compte rendu de visite sur le modèle du lycée : appel au tuteur la première semaine, mode de transport, signature avant la visite, cachet ou signature de l'entreprise visitée, attitudes professionnelles.
+3. Frais de visite : barème du lycée, demande de remboursement préparée par le professeur, validée par le DDFPT.
+4. Attestation en ligne.
+5. Livret de compétences en ligne : attitudes professionnelles, activités de chaque jour, grille de compétences du diplôme.
+
