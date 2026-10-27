@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, notInArray } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { Contexte } from "@/lib/auth";
 import { peutGererEleve, a } from "@/lib/acces";
@@ -17,9 +17,13 @@ import type { TypeDocument } from "@/db/schema";
 
 const LIBELLES_DOC: Record<TypeDocument, string> = {
   convention: "Convention signée", attestation: "Attestation de stage", livret: "Livret de compétences",
-  ordre_mission: "Ordre de mission", compte_rendu: "Compte rendu de visite", justificatif: "Justificatif d'absence", autre: "Autre document",
+  ordre_mission: "Ordre de mission", compte_rendu: "Compte rendu de visite", justificatif: "Justificatif d'absence",
+  cv: "CV", lettre: "Lettre de motivation", rib: "RIB", piece_identite: "Pièce d'identité", autre: "Autre document",
 };
 export { LIBELLES_DOC };
+
+/** Documents qui ont leur propre bloc et ne figurent pas dans le dossier de stage : candidature et pièces de l'allocation. */
+export const HORS_DOSSIER: TypeDocument[] = ["cv", "lettre", "rib", "piece_identite"];
 
 export async function documentsDuStage(stageId: string) {
   return db.select().from(schema.documents).where(eq(schema.documents.stageId, stageId)).orderBy(desc(schema.documents.deposeLe));
@@ -156,7 +160,8 @@ export async function DossierEleve({ eleveId }: { eleveId: string }) {
   const docs = await db.select({ d: schema.documents, ent: schema.entreprises.nom }).from(schema.documents)
     .leftJoin(schema.stages, eq(schema.stages.id, schema.documents.stageId))
     .leftJoin(schema.entreprises, eq(schema.entreprises.id, schema.stages.entrepriseId))
-    .where(eq(schema.documents.eleveId, eleveId)).orderBy(desc(schema.documents.anneeScolaire), desc(schema.documents.deposeLe));
+    .where(and(eq(schema.documents.eleveId, eleveId), notInArray(schema.documents.type, HORS_DOSSIER)))
+    .orderBy(desc(schema.documents.anneeScolaire), desc(schema.documents.deposeLe));
   const annees = [...new Set(docs.map((x) => x.d.anneeScolaire))];
   if (!annees.length) return <><p className="sub">Aucun document pour l&apos;instant.</p><VisitesDuDossier eleveId={eleveId} /></>;
   return (

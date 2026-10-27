@@ -168,6 +168,14 @@ async function main() {
         { eleveId: e.id, entrepriseNom: "Garde Ouest Services", entrepriseId: ent("Garde Ouest"), date: "2026-10-11", reponse: "refus" },
         { eleveId: e.id, entrepriseNom: "Atlas Sûreté", entrepriseId: ent("Atlas"), date: "2026-10-16", reponse: "attente" },
       ]);
+      // Son CV, déposé et pas encore relu par son référent
+      const cle = `${E}/${randomUUID()}.pdf`;
+      const b = fauxPdf("CV - Ines HADDAD");
+      await ecrireOctets(db, cle, b);
+      await db.insert(schema.documents).values({
+        etablissementId: E, eleveId: e.id, anneeScolaire: "2026-2027", classeLibelle: l.k.c.libelle, type: "cv",
+        nomFichier: "cv_ines_haddad.pdf", cleStockage: cle, typeMime: "application/pdf", taille: b.length, deposeParId: u.id, statut: "a_verifier",
+      });
     }
     if (l.prenom === "Moussa") {
       const u = await compte("Fatou", "TRAORÉ", "f.traore", ["parent"], { telephone: "06 39 98 20 15" });
@@ -227,6 +235,25 @@ async function main() {
   await doc("NGUYEN", "attestation", "a_verifier");
   for (const n of ["LAURENT", "CISSÉ", "FONTAINE", "MANSOURI", "BOUZID", "KONÉ", "NGUYEN", "RAHMANI"]) await doc(n, "convention", "valide");
 
+  // Allocation de stage : RIB et pièce d'identité déposés par les familles, gardés pour toute la scolarité
+  async function piece(eleveNom: string, type: "rib" | "piece_identite", statut: "valide" | "a_verifier", deposeParId: string | null, annee = "2026-2027", classeLibelle?: string) {
+    const [el] = await db.select().from(schema.eleves).where(and(eq(schema.eleves.nom, eleveNom), eq(schema.eleves.etablissementId, E))).limit(1);
+    const cle = `${E}/${randomUUID()}.pdf`;
+    const b = fauxPdf(`${type === "rib" ? "RIB" : "Piece d'identite"} - ${el.prenom} ${el.nom}`);
+    await ecrireOctets(db, cle, b);
+    const [cl] = await db.select().from(schema.classes).where(eq(schema.classes.id, el.classeId!)).limit(1);
+    await db.insert(schema.documents).values({
+      etablissementId: E, eleveId: el.id, stageId: null, anneeScolaire: annee, classeLibelle: classeLibelle ?? cl.libelle, type,
+      nomFichier: `${type}_${el.nom.toLowerCase()}.pdf`, cleStockage: cle, typeMime: "application/pdf", taille: b.length, statut, deposeParId,
+      valideParId: statut === "valide" ? direction.id : null, valideLe: statut === "valide" ? new Date() : null,
+      deposeLe: annee === "2026-2027" ? undefined : new Date(`${annee.slice(0, 4)}-11-03T10:00:00Z`),
+    });
+  }
+  const [leila] = await db.select().from(schema.users).where(eq(schema.users.email, `l.rahmani@${DOMAINE}`)).limit(1);
+  await piece("BOUZID", "rib", "valide", null); await piece("BOUZID", "piece_identite", "valide", null);
+  await piece("KONÉ", "rib", "valide", null);
+  await piece("RAHMANI", "rib", "a_verifier", leila.id);
+
   // Année précédente : les terminales étaient en 1re, avec leur stage et leurs documents
   const [ancienne] = await db.insert(schema.classes).values({
     etablissementId: E, libelle: "1re MS", niveau: "1RE", anneeScolaire: "2025-2026", referentId: benali.id,
@@ -238,6 +265,8 @@ async function main() {
     const [st] = await db.insert(schema.stages).values({ eleveId: t.id, periodeId: pAncienne.id, entrepriseId: ents[(i + 2) % ents.length].id, horaires: STD, signatures: TOUS, tuteur: tuteurDe(ents[(i + 2) % ents.length].nom) }).returning();
     for (const ty of ["convention", "attestation", "livret"] as const) await doc(t.nom, ty, "valide", "2025-2026", "1re MS", st.id);
   }
+  // Pièces de l'allocation déposées l'an dernier : toujours valables cette année
+  await piece("LAURENT", "rib", "valide", null, "2025-2026", "1re MS"); await piece("LAURENT", "piece_identite", "valide", null, "2025-2026", "1re MS");
 
   // Repère pour scripts/preparer.ts : ces données de démonstration sont à jour.
   await db.insert(schema.journal).values({ etablissementId: E, action: "donnees_demo", entite: "etablissement", entiteId: E, details: { version: VERSION_DONNEES_DEMO } });

@@ -6,6 +6,7 @@ import type { Contexte } from "./auth";
 import { classesGerees } from "./acces";
 import { aujourdhui, ecartJours, ageAu } from "./dates";
 import { periodeDeReference, periodeDeReferenceEleve, estRattrapage } from "./periodes";
+import { aRelire, candidaturesDe } from "./candidatures";
 import { signatairesAttendus, signaturesCompletes, statutEleve, verifierStage, stageConforme, type Statut } from "./regles";
 import type { Signataire } from "@/db/schema";
 
@@ -81,6 +82,7 @@ export async function elevesSuivis(ctx: Contexte, filtreClasse?: string) {
     ? await db.select({ stageId: schema.documents.stageId, type: schema.documents.type }).from(schema.documents)
       .where(and(inArray(schema.documents.stageId, stages.map((x) => x.s.id)), eq(schema.documents.statut, "valide")))
     : [];
+  const candidatures = await candidaturesDe(idsEleves);
   // Absences non justifiées sur les stages de l'année, toutes périodes confondues
   const nonJustifiees = await db.select({ eleveId: schema.absences.eleveId }).from(schema.absences)
     .innerJoin(schema.stages, eq(schema.stages.id, schema.absences.stageId))
@@ -123,6 +125,8 @@ export async function elevesSuivis(ctx: Contexte, filtreClasse?: string) {
       /** Rattrapages en cours ou à venir */
       rattrapages: rattrapages.filter((r) => r.eleveId === e.id && r.fin >= jour),
       absencesNonJustifiees: nonJustifiees.filter((a) => a.eleveId === e.id).length,
+      /** CV ou lettre de motivation déposé, pas encore relu */
+      candidatureARelire: aRelire(candidatures.get(e.id)),
     };
   });
 }

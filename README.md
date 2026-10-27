@@ -15,7 +15,9 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | 5 | Tableau de bord complet, relances, campagne de rentrée, double authentification, année suivante | Fait |
 | Lot 1 | Vie scolaire, rattrapages hors des périodes prévues, absences en stage (signalées, justifiées, déduites des jours effectués), heures de face à face et choix des visites par les professeurs | Fait |
 | Lot 2.1 | Signature simple ou dessinée au doigt, lien personnel pour signer sans compte, tuteur signataire, référent ou direction en dernier, horaires en deux plages, règles des élèves mineurs | Fait |
-| Lot 2.2 à 2.4 | CV et lettre de motivation, allocations, relances automatiques | En cours |
+| Lot 2.2 | CV et lettre de motivation : dépôt, relecture conseillée par le référent, envoi aux entreprises depuis l'application | Fait |
+| Lot 2.3 | Allocations de stage : RIB et pièce d'identité déposés par la famille et vérifiés, jours effectués par semaine, export pour tableur | Fait |
+| Lot 2.4 | Relances automatiques (places des entreprises, conventions, documents des familles) | En cours |
 
 Les décisions de conception d'Anissa Ikhlef sont consignées, avec leur date, dans [JOURNAL_DE_CONCEPTION.md](JOURNAL_DE_CONCEPTION.md).
 
@@ -53,8 +55,8 @@ Comptes de démonstration (mot de passe `Demo-pfmp-2026`) :
 | `m.garnier@demo.cap-pfmp.example` | Professeure d'enseignement général (visites à choisir) |
 | `vie.scolaire@demo.cap-pfmp.example` | Vie scolaire : élèves en stage, rattrapages, absences |
 | `ines.haddad@demo.cap-pfmp.example` | Élève |
-| `f.traore@demo.cap-pfmp.example` | Responsable légal (CAP) |
-| `l.rahmani@demo.cap-pfmp.example` | Responsable légale de Mehdi (absence à justifier) |
+| `f.traore@demo.cap-pfmp.example` | Responsable légal (CAP), pièces de l'allocation à déposer |
+| `l.rahmani@demo.cap-pfmp.example` | Responsable légale de Mehdi (absence à justifier, RIB en cours de vérification) |
 | `k.ferhat@demo.cap-pfmp.example` | Tuteur en entreprise |
 
 ## Vérifier
@@ -89,7 +91,8 @@ Les parcours sont écrits pour le 26 octobre 2026 : lancez l'application avec `C
 ## Organisation du code
 
 - `src/db/schema.ts` : toutes les tables
-- `src/lib/regles.ts` : règles de stage, statuts et jours effectués (fonctions pures, testées)
+- `src/lib/regles.ts` : règles de stage, statuts, jours effectués et dossier d'allocation (fonctions pures, testées)
+- `src/lib/allocations.ts` : pièces de l'allocation (RIB, pièce d'identité) et jours effectués de chaque stage de l'année
 - `src/lib/periodes.ts` : période de référence d'une classe ou d'un élève en rattrapage (fonctions pures, testées)
 - `src/lib/repartition.ts` : répartition des visites et nombre de visites selon les heures de face à face (fonctions pures, testées)
 - `src/lib/acces.ts` : qui peut voir et faire quoi ; **toute** lecture ou écriture passe par ces fonctions

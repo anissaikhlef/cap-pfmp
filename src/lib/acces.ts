@@ -115,6 +115,7 @@ export async function idsElevesGeres(ctx: Contexte): Promise<string[]> {
 /**
  * Un document est visible par ceux qui voient l'élève ; une entreprise ne voit que les documents de ses propres stages,
  * jamais les justificatifs d'absence. La vie scolaire ne voit que les justificatifs d'absence.
+ * Le RIB et la pièce d'identité (allocation de stage) ne sont vus que par la gestion des PFMP, l'élève et ses responsables légaux.
  */
 export async function peutVoirDocument(ctx: Contexte, d: typeof schema.documents.$inferSelect): Promise<boolean> {
   if (d.etablissementId !== ctx.etab.id) return false;
@@ -128,6 +129,14 @@ export async function peutVoirDocument(ctx: Contexte, d: typeof schema.documents
     if (!d.stageId || !ctx.user.entrepriseId) return false;
     const [s] = await db.select({ ent: schema.stages.entrepriseId }).from(schema.stages).where(eq(schema.stages.id, d.stageId)).limit(1);
     return s?.ent === ctx.user.entrepriseId;
+  }
+  if (d.type === "rib" || d.type === "piece_identite") {
+    if (e.etablissementId !== ctx.etab.id) return false;
+    if (e.userId === ctx.user.id || (await peutGererEleve(ctx, e))) return true;
+    if (!a(ctx, "parent")) return false;
+    const [r] = await db.select().from(schema.responsables)
+      .where(and(eq(schema.responsables.eleveId, e.id), eq(schema.responsables.userId, ctx.user.id))).limit(1);
+    return !!r;
   }
   return peutVoirEleve(ctx, e);
 }
@@ -155,11 +164,14 @@ export async function estReferentDe(ctx: Contexte, e: { referentId: string | nul
   return c?.ref === ctx.user.id;
 }
 
-/** Programmer ou modifier un rattrapage : la gestion des PFMP de l'élève, ou son professeur référent. */
-export async function peutGererRattrapage(ctx: Contexte, e: typeof schema.eleves.$inferSelect): Promise<boolean> {
+/** La gestion des PFMP de l'élève, ou son professeur référent : ils suivent l'élève (rattrapages, relecture du CV). */
+export async function suitLEleve(ctx: Contexte, e: typeof schema.eleves.$inferSelect): Promise<boolean> {
   if (e.etablissementId !== ctx.etab.id) return false;
   return (await peutGererEleve(ctx, e)) || (await estReferentDe(ctx, e));
 }
+
+/** Programmer ou modifier un rattrapage : la gestion des PFMP de l'élève, ou son professeur référent. */
+export const peutGererRattrapage = suitLEleve;
 
 /** Notes de suivi : vie scolaire, direction, gestion et référent. Jamais l'élève, sa famille ni l'entreprise. */
 export async function peutVoirNotes(ctx: Contexte, e: typeof schema.eleves.$inferSelect): Promise<boolean> {

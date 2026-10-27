@@ -97,15 +97,17 @@ export async function dossierStage(ctx: Contexte, eleve: typeof schema.eleves.$i
   return { classe: classe ?? null, periodes, periode, dominante: dom?.libelle ?? null, stage: st?.s ?? null, entreprise: st?.e ?? null, regles, requis };
 }
 
+/** Vrai si l'entreprise respecte la règle de la classe de l'élève : secteur privé, ou domaine de sa dominante. */
+export function compatibleAvecLaClasse(e: Entreprise, d: Pick<Awaited<ReturnType<typeof dossierStage>>, "classe" | "dominante">): boolean {
+  if (d.classe?.regleStructure === "prive") return e.secteur === "prive";
+  if (d.classe?.regleStructure === "dominante") return !!d.dominante && e.domaine?.toLowerCase() === d.dominante.toLowerCase();
+  return true;
+}
+
 /** Entreprises partenaires compatibles avec la règle de la classe, qui ont encore de la place sur la période. */
 export async function suggestions(ctx: Contexte, d: Awaited<ReturnType<typeof dossierStage>>, eleveId: string) {
   if (!d.classe || !d.periode) return [];
-  const toutes = await entreprisesDuLycee(ctx);
-  const compatibles = toutes.filter((e) => {
-    if (d.classe!.regleStructure === "prive") return e.secteur === "prive";
-    if (d.classe!.regleStructure === "dominante") return !!d.dominante && e.domaine?.toLowerCase() === d.dominante.toLowerCase();
-    return true;
-  });
+  const compatibles = (await entreprisesDuLycee(ctx)).filter((e) => compatibleAvecLaClasse(e, d));
   const res: (Entreprise & { restantes: number })[] = [];
   for (const e of compatibles) {
     const occ = await placesOccupees(e.id, d.periode.debut, d.periode.fin, eleveId);

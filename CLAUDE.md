@@ -14,3 +14,4 @@
 - Signatures : enregistrées par `enregistrerSignature()` (src/lib/signature.ts) ; invitations et liens par `inviterASigner()` (src/lib/invitations.ts).
 - Messages de confirmation après une action : `revenirAvec()` (src/lib/retour.ts) et le bandeau commun ; dans un formulaire simple, ajouter `<ChampRetour />`.
 - Mails et SMS : toujours via `envoyer()` (src/lib/messages.ts), jamais directement.
+- RIB et pièce d'identité (allocation) : visibles seulement de la gestion des PFMP, de l'élève et de ses responsables (`peutVoirDocument`) ; rien ne doit indiquer aux familles que la gestion peut les déposer elle-même (décision d'Anissa).

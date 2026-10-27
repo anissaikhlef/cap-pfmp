@@ -356,3 +356,31 @@ export function joursEffectues(h: Horaires, debut: string, fin: string, absences
 export function joursDAbsence(h: Horaires, absence: { debut: string; fin: string }): number {
   return joursPrevus(h, absence.debut, absence.fin).length;
 }
+
+/* ------------------------------------------------------------------ */
+/* Allocation de stage                                                  */
+/* ------------------------------------------------------------------ */
+
+export type PieceAllocation = "rib" | "piece_identite";
+export const PIECES_ALLOCATION: PieceAllocation[] = ["rib", "piece_identite"];
+type EtatDepot = { statut: "a_verifier" | "valide" | "refuse" };
+export type PiecesAllocation = Partial<Record<PieceAllocation, EtatDepot>>;
+
+/** Pièces à demander à la famille : jamais déposées, ou refusées. Une pièce en cours de vérification n'est pas redemandée. */
+export function piecesManquantes(p: PiecesAllocation | undefined): PieceAllocation[] {
+  return PIECES_ALLOCATION.filter((t) => !p?.[t] || p[t]!.statut === "refuse");
+}
+
+/** Vrai si une pièce déposée attend la vérification de la gestion des PFMP. */
+export function piecesAVerifier(p: PiecesAllocation | undefined): boolean {
+  return PIECES_ALLOCATION.some((t) => p?.[t]?.statut === "a_verifier");
+}
+
+/**
+ * Dossier d'allocation complet : RIB et pièce d'identité vérifiés, et attestation validée pour chaque stage terminé.
+ * Sans aucun stage dans l'année, il n'y a pas d'allocation : le dossier n'est pas « complet ».
+ */
+export function dossierAllocationComplet(p: PiecesAllocation | undefined, stages: { termine: boolean; attestation: EtatDepot | null }[]): boolean {
+  return PIECES_ALLOCATION.every((t) => p?.[t]?.statut === "valide")
+    && stages.length > 0 && stages.filter((s) => s.termine).every((s) => s.attestation?.statut === "valide");
+}

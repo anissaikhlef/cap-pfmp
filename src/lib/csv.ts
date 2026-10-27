@@ -46,6 +46,20 @@ export function lireHeures(s: string): number | null {
   return Math.round(h * 100) / 100;
 }
 
+/**
+ * Écrit un fichier CSV lisible par Excel en français : séparateur « ; », guillemets si besoin,
+ * marque d'ordre des octets en tête pour que les accents s'affichent correctement.
+ */
+export function versCsv(lignes: (string | number | null | undefined)[][]): string {
+  const cellule = (v: string | number | null | undefined) => {
+    const s = v === null || v === undefined ? "" : String(v);
+    // Une cellule qui commence par = + - @ serait lue comme une formule par le tableur : on la neutralise.
+    const sur = /^[=+\-@]/.test(s) ? `'${s}` : s;
+    return /[;"\n\r]/.test(sur) ? `"${sur.replace(/"/g, '""')}"` : sur;
+  };
+  return "﻿" + lignes.map((l) => l.map(cellule).join(";")).join("\r\n") + "\r\n";
+}
+
 /** Comparaison de noms sans accents, sans casse, sans ponctuation. */
 export function cleNom(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();

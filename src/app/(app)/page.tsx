@@ -9,8 +9,9 @@ import { Pastille } from "@/components/ui";
 import { ChampRetour } from "@/components/ChampRetour";
 import { listeOrdresASigner } from "@/components/visites";
 import { visitesAOrganiser } from "@/lib/visites";
+import { piecesAllocation, piecesManquantes } from "@/lib/allocations";
 import { db, schema } from "@/db";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { envoyerRelancesDuJour } from "./actions";
 
 export const metadata = { title: "Tableau de bord" };
@@ -47,16 +48,21 @@ export default async function Accueil() {
 
   const ids = lignes.map((l) => l.eleve.id);
   const [{ aVerifier }] = ids.length ? await db.select({ aVerifier: sql<number>`count(*)::int` }).from(schema.documents)
-    .where(and(inArray(schema.documents.eleveId, ids), eq(schema.documents.statut, "a_verifier"))) : [{ aVerifier: 0 }];
+    .where(and(inArray(schema.documents.eleveId, ids), eq(schema.documents.statut, "a_verifier"), notInArray(schema.documents.type, ["cv", "lettre"]))) : [{ aVerifier: 0 }];
   const visites = await visitesAOrganiser(ctx, { gerees: true });
   const sansVisiteur = visites.filter((v) => !v.v?.visiteurId && v.p.fin >= aujourdhui()).length;
   const crAFaire = ctx.etab.reglages.compteRendu ? visites.filter((v) => v.v?.visiteurId && v.v.date && v.v.date < aujourdhui() && !v.v.compteRendu).length : 0;
   const direction = a(ctx, "direction");
   const ordres = direction && ctx.etab.reglages.ordreMission ? (await listeOrdresASigner(ctx)).length : 0;
   const absencesNonJustifiees = lignes.reduce((t, l) => t + l.absencesNonJustifiees, 0);
+  const avecStage = lignes.filter((l) => l.stage).map((l) => l.eleve.id);
+  const pieces = await piecesAllocation(avecStage);
+  const sansPieces = avecStage.filter((id) => piecesManquantes(pieces.get(id)).length > 0).length;
   const aFaire: [number, string, string][] = ([
     [aVerifier, "document(s) déposé(s) à vérifier", "/documents"],
     [absencesNonJustifiees, "absence(s) en stage non justifiée(s)", "/eleves?statut=absences"],
+    [sansPieces, "élève(s) avec un lieu de stage dont le RIB ou la pièce d'identité manque (allocation)", "/allocations?filtre=manquantes"],
+    [lignes.filter((l) => l.candidatureARelire).length, "élève(s) dont le CV ou la lettre attend une relecture", "/eleves?statut=cv"],
     [sansVisiteur, "élève(s) en stage ou sur le départ sans visiteur", "/visites"],
     [crAFaire, "compte(s) rendu(s) de visite non rédigé(s)", "/visites"],
     [ordres, "ordre(s) de mission à signer", "/a-signer"],

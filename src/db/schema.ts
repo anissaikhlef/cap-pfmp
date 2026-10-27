@@ -264,7 +264,13 @@ export const liensAcces = pgTable("liens_acces", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("liens_acces_jeton_idx").on(t.jeton), index("liens_acces_stage_idx").on(t.stageId)]);
 
-export type TypeDocument = "convention" | "attestation" | "livret" | "ordre_mission" | "compte_rendu" | "justificatif" | "autre";
+export type TypeDocument =
+  | "convention" | "attestation" | "livret" | "ordre_mission" | "compte_rendu" | "justificatif"
+  /** Candidature de l'élève : relue par le référent (valide : c'est bon · refuse : à améliorer, avec un commentaire). */
+  | "cv" | "lettre"
+  /** Pièces de l'allocation, gardées pour toute la scolarité. */
+  | "rib" | "piece_identite"
+  | "autre";
 
 export const documents = pgTable("documents", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -385,6 +391,8 @@ export const messages = pgTable("messages", {
   eleveId: uuid("eleve_id").references(() => eleves.id, { onDelete: "set null" }),
   entrepriseId: uuid("entreprise_id").references(() => entreprises.id, { onDelete: "set null" }),
   envoyeParId: uuid("envoye_par_id").references(() => users.id, { onDelete: "set null" }),
+  /** Documents joints (CV, lettre) : envoyés en pièces jointes quand un prestataire de mail sera branché. */
+  piecesJointes: jsonb("pieces_jointes").$type<string[]>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("messages_etab_idx").on(t.etablissementId, t.createdAt)]);
 

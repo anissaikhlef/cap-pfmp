@@ -6,6 +6,8 @@ import { ResumeStage, statutDossier } from "@/components/ResumeStage";
 import { Demarches } from "@/components/Demarches";
 import { BlocConvention, BlocFinDeStage, DossierEleve } from "@/components/convention";
 import { BlocPresenceEleve } from "@/components/absences";
+import { BlocCandidature } from "@/components/candidature";
+import { BlocAllocation } from "@/components/allocation";
 import { contacterSuggestion } from "../eleves/stage-actions";
 
 export const metadata = { title: "Mon stage" };
@@ -30,6 +32,7 @@ export default async function MonStage() {
       <BlocPresenceEleve ctx={ctx} eleve={e} />
       {!d.stage && d.periode && (
         <>
+          <BlocCandidature ctx={ctx} eleve={e} />
           <div className="section">
             <h2>Mes démarches</h2>
             <p className="sub">Notez chaque entreprise contactée. Sans réponse au bout de 7 jours, relancez-la par téléphone ou en vous déplaçant.</p>
@@ -52,6 +55,8 @@ export default async function MonStage() {
           </div>
         </>
       )}
+      {(d.stage || !d.periode) && <BlocCandidature ctx={ctx} eleve={e} />}
+      <BlocAllocation ctx={ctx} eleve={e} />
       <div className="section"><h2>Mes documents</h2><DossierEleve eleveId={e.id} /></div>
     </>
   );

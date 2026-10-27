@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  blocageSignature, heuresHebdo, pauseConforme, plagesDuJour, reposHebdoMineur, reposQuotidienMinimal,
-  signatairesAttendus, texteJour, verifierStage,
+  blocageSignature, dossierAllocationComplet, heuresHebdo, pauseConforme, piecesAVerifier, piecesManquantes, plagesDuJour,
+  reposHebdoMineur, reposQuotidienMinimal, signatairesAttendus, texteJour, verifierStage,
 } from "@/lib/regles";
+import { lireCsv, versCsv } from "@/lib/csv";
 import { REGLAGES_PAR_DEFAUT, type Horaires, type Plage, type Signatures } from "@/db/schema";
 
 const R = REGLAGES_PAR_DEFAUT.regles;
@@ -95,5 +96,40 @@ describe("ordre des signatures", () => {
   it("et inversement quand la direction signe en dernier", () => {
     expect(blocageSignature("professeur", requis, signe(), "direction", true)).toBeNull();
     expect(blocageSignature("direction", requis, signe("eleve"), "direction", true)).toContain("En attente de");
+  });
+});
+
+describe("dossier d'allocation", () => {
+  const valide = { statut: "valide" as const }, attente = { statut: "a_verifier" as const }, refuse = { statut: "refuse" as const };
+  it("demande les pièces jamais déposées", () => expect(piecesManquantes(undefined)).toEqual(["rib", "piece_identite"]));
+  it("redemande une pièce refusée, pas une pièce en cours de vérification", () => {
+    expect(piecesManquantes({ rib: refuse, piece_identite: attente })).toEqual(["rib"]);
+  });
+  it("signale une pièce à vérifier", () => {
+    expect(piecesAVerifier({ rib: valide, piece_identite: attente })).toBe(true);
+    expect(piecesAVerifier({ rib: valide, piece_identite: refuse })).toBe(false);
+  });
+  it("est complet avec les deux pièces vérifiées et l'attestation de chaque stage terminé", () => {
+    const p = { rib: valide, piece_identite: valide };
+    expect(dossierAllocationComplet(p, [{ termine: true, attestation: valide }, { termine: false, attestation: null }])).toBe(true);
+    expect(dossierAllocationComplet(p, [{ termine: true, attestation: attente }])).toBe(false);
+  });
+  it("n'est pas complet sans stage dans l'année, ni avec une pièce en attente", () => {
+    expect(dossierAllocationComplet({ rib: valide, piece_identite: valide }, [])).toBe(false);
+    expect(dossierAllocationComplet({ rib: valide, piece_identite: attente }, [{ termine: true, attestation: valide }])).toBe(false);
+  });
+});
+
+describe("export pour un tableur", () => {
+  const csv = versCsv([["Nom", "Jours"], ["Koné", 4], ["Dupont; Martin", null], ['Le "Cap"', "=1+1"]]);
+  it("commence par la marque qui garde les accents dans Excel", () => expect(csv.charCodeAt(0)).toBe(0xfeff));
+  it("sépare les colonnes par un point-virgule et les lignes par un retour Windows", () => expect(csv.slice(1).startsWith("Nom;Jours\r\nKoné;4\r\n")).toBe(true));
+  it("met entre guillemets une cellule qui contient un point-virgule ou des guillemets", () => {
+    expect(csv).toContain('"Dupont; Martin";\r\n');
+    expect(csv).toContain('"Le ""Cap"""');
+  });
+  it("neutralise une cellule qui serait lue comme une formule", () => expect(csv).toContain(";'=1+1\r\n"));
+  it("se relit à l'identique, sauf la formule neutralisée", () => {
+    expect(lireCsv(csv)).toEqual([["Nom", "Jours"], ["Koné", "4"], ["Dupont; Martin", ""], ['Le "Cap"', "'=1+1"]]);
   });
 });

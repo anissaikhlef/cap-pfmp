@@ -2,7 +2,7 @@
 import { BASE, ok, session, fin } from "./outils.mjs";
 const V = { width: 390, height: 844 };
 const parcours = {
-  direction: ["/", "/eleves", "/entreprises", "/documents", "/visites", "/visites/heures", "/campagne", "/a-signer", "/classes", "/messages", "/equipe", "/organisation", "/classes/annee-suivante"],
+  direction: ["/", "/eleves", "/entreprises", "/documents", "/allocations", "/visites", "/visites/heures", "/campagne", "/a-signer", "/classes", "/messages", "/equipe", "/organisation", "/classes/annee-suivante"],
   "ines.haddad": ["/mon-stage"],
   "f.traore": ["/mon-enfant"],
   "l.rahmani": ["/mon-enfant"],

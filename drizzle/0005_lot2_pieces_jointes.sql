@@ -1,0 +1,1 @@
+ALTER TABLE "messages" ADD COLUMN "pieces_jointes" jsonb;

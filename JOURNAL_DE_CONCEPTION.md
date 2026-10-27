@@ -133,3 +133,31 @@ Les questions de détail (sources des opportunités, validation humaine avant l'
 4. **Changement de tuteur** : comme un changement d'entreprise ou d'horaires, il efface les signatures déjà recueillies et annule les liens envoyés.
 5. **Stage hors règles** : quand le référent signe en dernier, c'est sa signature qui est bloquée tant que le stage ne respecte pas les règles ; la direction peut signer avant lui.
 6. **Compte de l'entreprise** : le tuteur qui a un compte peut signer à la fois pour l'entreprise et en tant que tuteur.
+
+---
+
+## 27 octobre 2026 : réalisation du lot 2.2 (CV et lettre de motivation)
+
+- **Dépôt** (décision 4 du lot 2) : l'élève dépose son CV et sa lettre de motivation dans « Mon stage » ; une nouvelle version remplace celle qui n'avait pas encore été relue.
+- **Relecture conseillée, jamais bloquante** : le professeur référent (ou la gestion des PFMP) donne son avis, « C'est bon » ou « À améliorer » avec un commentaire ; l'élève est prévenu par mail. Les CV à relire se retrouvent avec le filtre « CV à relire » et dans « À faire » du tableau de bord.
+- **Envoi depuis l'application** : l'élève choisit une entreprise de l'annuaire du lycée (ou en indique une autre avec son adresse), écrit son message (un modèle est proposé avec les dates du stage) et joint son CV et sa lettre. L'envoi est ajouté à ses démarches.
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Limite d'envoi** : 20 candidatures par élève et par jour, pour éviter les envois en masse.
+2. **Confidentialité** : l'entreprise reçoit le CV et la lettre en pièces jointes du mail ; elle ne peut pas les ouvrir dans l'application.
+3. **Adresse de réponse** : le mail indique l'adresse de l'élève pour que l'entreprise lui réponde directement.
+
+## 27 octobre 2026 : réalisation du lot 2.3 (allocations de stage)
+
+- **Pièces** (décisions 1 du 26/10 et 5 du lot 2) : le RIB et la pièce d'identité sont déposés par la famille (le responsable légal, ou l'élève majeur) dans son espace. La gestion des PFMP les vérifie (valider ou refuser avec un motif transmis à la famille). Les pièces sont gardées pour toute la scolarité et peuvent être remplacées.
+- **Dépôt par le DDFPT, discret** : sur la fiche de l'élève, « Enregistrer une pièce reçue » permet d'enregistrer une pièce remise au lycée ; elle est vérifiée d'office. Rien ne l'indique aux familles, qui voient seulement que la pièce est vérifiée.
+- **Jours effectués par semaine** (décision 1 du 26/10) : pour chaque stage de l'année, les jours effectués semaine par semaine, absences déduites. Aucun montant n'est calculé.
+- **Écran « Allocations »** : l'état de chaque dossier (pièces, attestations de stage, jours effectués), des filtres (pièces manquantes, à vérifier, attestations attendues, dossiers complets) et un export pour tableur (une ligne par élève, stage et semaine).
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Dossier complet** : RIB et pièce d'identité vérifiés, et attestation de stage validée pour chaque stage terminé de l'année.
+2. **Qui voit le RIB et la pièce d'identité** : seulement la gestion des PFMP, la direction, l'élève et ses responsables légaux. Les professeurs qui visitent l'élève, la vie scolaire et les entreprises ne les voient pas.
+3. **Pièce refusée** : la famille reçoit le motif par mail et dépose une nouvelle pièce ; une pièce en cours de vérification n'est pas redemandée.
+4. **Tableau de bord** : « À faire » signale les élèves qui ont un lieu de stage mais dont le RIB ou la pièce d'identité manque.

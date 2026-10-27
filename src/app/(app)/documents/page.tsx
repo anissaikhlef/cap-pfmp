@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, notInArray } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
 import { estGestionnaire, idsElevesGeres } from "@/lib/acces";
@@ -8,7 +8,7 @@ import { elevesSuivis, classesAvecPeriodes } from "@/lib/requetes";
 import { classesGerees } from "@/lib/acces";
 import { dateCourte } from "@/lib/dates";
 import { Formulaire } from "@/components/Formulaire";
-import { LIBELLES_DOC } from "@/components/convention";
+import { HORS_DOSSIER, LIBELLES_DOC } from "@/components/convention";
 import { refuser, valider } from "./actions";
 
 export const metadata = { title: "Documents" };
@@ -21,13 +21,14 @@ export default async function Documents({ searchParams }: { searchParams: Promis
   const attente = ids.length ? await db.select({ d: schema.documents, e: schema.eleves, u: schema.users }).from(schema.documents)
     .innerJoin(schema.eleves, eq(schema.eleves.id, schema.documents.eleveId))
     .leftJoin(schema.users, eq(schema.users.id, schema.documents.deposeParId))
-    .where(and(inArray(schema.documents.eleveId, ids), eq(schema.documents.statut, "a_verifier")))
+    // Le CV et la lettre se relisent sur la fiche de l'élève, pas dans cette boîte.
+    .where(and(inArray(schema.documents.eleveId, ids), eq(schema.documents.statut, "a_verifier"), notInArray(schema.documents.type, ["cv", "lettre"])))
     .orderBy(desc(schema.documents.deposeLe)) : [];
   const classes = await classesAvecPeriodes(ctx, await classesGerees(ctx));
   const classe = classes.find((c) => c.id === sp.classe)?.id;
   const lignes = await elevesSuivis(ctx, classe);
   const comptes = ids.length ? await db.select({ eleveId: schema.documents.eleveId, annee: schema.documents.anneeScolaire }).from(schema.documents)
-    .where(and(inArray(schema.documents.eleveId, ids), eq(schema.documents.statut, "valide"))) : [];
+    .where(and(inArray(schema.documents.eleveId, ids), eq(schema.documents.statut, "valide"), notInArray(schema.documents.type, HORS_DOSSIER))) : [];
   return (
     <>
       <div><h1>Documents de stage</h1><p className="sub">Les élèves et leurs familles déposent la convention signée, les entreprises l&apos;attestation et le livret. Chaque document est rangé dans le dossier de l&apos;élève, à la bonne année.</p></div>

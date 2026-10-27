@@ -7,6 +7,8 @@ import { ResumeStage, statutDossier } from "@/components/ResumeStage";
 import { BlocPresenceEleve } from "@/components/absences";
 import { BlocRattrapages } from "@/components/rattrapages";
 import { NotesEleve } from "@/components/notes";
+import { BlocCandidature } from "@/components/candidature";
+import { BlocAllocation } from "@/components/allocation";
 import type { Periode } from "@/lib/requetes";
 import { optionsEleve } from "@/lib/options";
 import { elevesSuivis, texteperiode } from "@/lib/requetes";
@@ -41,6 +43,7 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
         {dl.stage && <BlocFinDeStage ctx={ctx} stageId={dl.stage.id} />}
         <BlocPresenceEleve ctx={ctx} eleve={e} />
         <BlocRattrapages eleveId={e.id} periodes={dl.periodes} peutGerer={await estReferentDe(ctx, e)} />
+        <BlocCandidature ctx={ctx} eleve={e} />
         <NotesEleve ctx={ctx} eleve={e} />
         <div className="panel pad section" id="dossier"><h2>Dossier de l&apos;élève</h2><DossierEleve eleveId={e.id} /></div>
       </>
@@ -119,6 +122,8 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
       <BlocPresenceEleve ctx={ctx} eleve={e} />
       <BlocRattrapages eleveId={e.id} periodes={d.periodes} peutGerer />
       <NotesEleve ctx={ctx} eleve={e} />
+      <BlocCandidature ctx={ctx} eleve={e} />
+      <BlocAllocation ctx={ctx} eleve={e} />
 
       <div className="panel pad section">
         <h2>Démarches de l&apos;élève</h2>

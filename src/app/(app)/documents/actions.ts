@@ -18,7 +18,7 @@ import { revenirAvec } from "@/lib/retour";
 import type { Signataire, Signatures, TypeDocument } from "@/db/schema";
 
 function rafraichir(eleveId: string) {
-  for (const p of [`/eleves/${eleveId}`, "/documents", "/mon-stage", "/mon-enfant", "/stagiaires", "/a-signer", "/"]) revalidatePath(p);
+  for (const p of [`/eleves/${eleveId}`, "/documents", "/mon-stage", "/mon-enfant", "/stagiaires", "/a-signer", "/allocations", "/"]) revalidatePath(p);
 }
 
 /* -------------------------- Signature en ligne -------------------------- */

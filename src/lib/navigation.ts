@@ -16,6 +16,7 @@ export async function liensPour(ctx: Contexte): Promise<Lien[]> {
   if (tousLesProfs) l.push({ href: "/entreprises", libelle: "Entreprises" });
   if (gestion) {
     l.push({ href: "/documents", libelle: "Documents" });
+    l.push({ href: "/allocations", libelle: "Allocations" });
     l.push({ href: "/visites", libelle: "Visites" });
     l.push({ href: "/campagne", libelle: "Campagne" });
   }
