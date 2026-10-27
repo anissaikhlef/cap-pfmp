@@ -44,3 +44,32 @@ export async function lireFichier(cle: string): Promise<Buffer> {
   if (!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(pdf|jpg|png|heic)$/.test(cle)) throw new Error("Clé invalide");
   return lireOctets(db, cle);
 }
+
+/** Taille maximale d'une signature dessinée (image PNG envoyée par le navigateur). */
+const TAILLE_MAX_SIGNATURE = 300 * 1024;
+
+/**
+ * Enregistre une signature dessinée au doigt, reçue sous forme « data:image/png;base64,… ».
+ * Renvoie la clé de stockage, ou un message d'erreur.
+ */
+export async function enregistrerSignatureDessinee(etabId: string, image: string): Promise<{ cle: string } | string> {
+  const m = image.match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/);
+  if (!m) return "Dessinez votre signature dans le cadre.";
+  const b = Buffer.from(m[1], "base64");
+  if (b.length > TAILLE_MAX_SIGNATURE) return "Signature trop lourde : effacez-la et recommencez.";
+  if (typeReel(b)?.mime !== "image/png") return "Signature illisible : effacez-la et recommencez.";
+  if (!/^[0-9a-f-]{36}$/.test(etabId)) return "Établissement invalide.";
+  const cle = `${etabId}/${randomUUID()}.png`;
+  await ecrireOctets(db, cle, b);
+  return { cle };
+}
+
+/** L'image d'une signature dessinée, prête à afficher (« data:image/png;base64,… »), ou null. */
+export async function imageSignature(cle: string | undefined): Promise<string | null> {
+  if (!cle) return null;
+  try {
+    return `data:image/png;base64,${(await lireFichier(cle)).toString("base64")}`;
+  } catch {
+    return null;
+  }
+}

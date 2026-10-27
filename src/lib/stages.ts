@@ -2,22 +2,36 @@ import "server-only";
 import { and, asc, eq, gte, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { Contexte } from "./auth";
-import type { Horaires } from "@/db/schema";
+import type { Horaires, Plage } from "@/db/schema";
+import { ageAu, JOURS } from "./dates";
 import { periodeDeReferenceEleve, rattrapagesDe, signatairesRequis } from "./requetes";
 import { verifierStage, type ResultatRegle } from "./regles";
 
 export type Entreprise = typeof schema.entreprises.$inferSelect;
 
-/** Lit les 7 jours d'horaires d'un formulaire (champs debut_0…6, fin_0…6, repos_0…6). */
+/**
+ * Lit les 7 jours d'horaires d'un formulaire : une plage le matin (debut_i, fin_i), une l'après-midi (debut2_i, fin2_i),
+ * ou repos (repos_i). Une seule plage peut passer minuit ; avec deux plages, l'après-midi suit le matin.
+ */
 export function lireHoraires(fd: FormData): Horaires | string {
   const h: Horaires = [];
   for (let i = 0; i < 7; i++) {
-    const repos = fd.get(`repos_${i}`) === "on";
-    const d = String(fd.get(`debut_${i}`) ?? "").trim(), f = String(fd.get(`fin_${i}`) ?? "").trim();
-    if (repos || (!d && !f)) { h.push(null); continue; }
-    if (!/^\d{2}:\d{2}$/.test(d) || !/^\d{2}:\d{2}$/.test(f)) return "Chaque jour travaillé doit avoir une heure de début et de fin.";
-    if (d === f) return "Une plage horaire ne peut pas commencer et finir à la même heure.";
-    h.push([d, f]);
+    const lire = (k: string) => String(fd.get(`${k}_${i}`) ?? "").trim();
+    const plages: Plage[] = [];
+    if (fd.get(`repos_${i}`) !== "on") {
+      for (const [d, f] of [[lire("debut"), lire("fin")], [lire("debut2"), lire("fin2")]]) {
+        if (!d && !f) continue;
+        if (!/^\d{2}:\d{2}$/.test(d) || !/^\d{2}:\d{2}$/.test(f)) return `${JOURS[i]} : chaque plage horaire doit avoir une heure de début et de fin.`;
+        if (d === f) return `${JOURS[i]} : une plage horaire ne peut pas commencer et finir à la même heure.`;
+        plages.push([d, f]);
+      }
+    }
+    if (plages.length === 2) {
+      plages.sort((x, y) => x[0].localeCompare(y[0]));
+      const [[d1, f1], [d2, f2]] = plages;
+      if (f1 < d1 || f2 < d2 || d2 < f1) return `${JOURS[i]} : avec deux plages, la seconde commence après la fin de la première, sans passer minuit.`;
+    }
+    h.push(plages.length ? plages : null);
   }
   return h;
 }
@@ -71,11 +85,13 @@ export async function dossierStage(ctx: Contexte, eleve: typeof schema.eleves.$i
       .innerJoin(schema.entreprises, eq(schema.entreprises.id, schema.stages.entrepriseId))
       .where(and(eq(schema.stages.eleveId, eleve.id), eq(schema.stages.periodeId, periode.id))).limit(1)
     : [];
-  const requis = signatairesRequis(eleve.dateNaissance, periode?.debut ?? ctx.etab.anneeScolaire.slice(0, 4) + "-09-01");
+  const debutPeriode = periode?.debut ?? ctx.etab.anneeScolaire.slice(0, 4) + "-09-01";
+  const requis = signatairesRequis(eleve.dateNaissance, debutPeriode, !!st?.s.tuteur);
   const regles: ResultatRegle[] = st && classe
     ? verifierStage({
         horaires: st.s.horaires, regleStructure: classe.regleStructure, secteurEntreprise: st.e.secteur,
         domaineEntreprise: st.e.domaine, dominanteEleve: dom?.libelle ?? null, signatures: st.s.signatures, signatairesRequis: requis,
+        ageAuDebut: ageAu(eleve.dateNaissance, debutPeriode),
       }, ctx.etab.reglages.regles)
     : [];
   return { classe: classe ?? null, periodes, periode, dominante: dom?.libelle ?? null, stage: st?.s ?? null, entreprise: st?.e ?? null, regles, requis };

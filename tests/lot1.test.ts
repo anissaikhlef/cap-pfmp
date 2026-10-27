@@ -3,12 +3,15 @@ import { estRattrapage, periodeDeReference, periodeDeReferenceEleve } from "@/li
 import { joursDAbsence, joursEffectues, joursPrevus } from "@/lib/regles";
 import { quotasVisites } from "@/lib/repartition";
 import { cleNom, lireHeures } from "@/lib/csv";
-import { completerReglages, REGLAGES_PAR_DEFAUT, type Horaires } from "@/db/schema";
+import { completerReglages, REGLAGES_PAR_DEFAUT, type Horaires, type Plage } from "@/db/schema";
+
+/** Une plage par jour, convertie en horaires. */
+const h = (...jours: (Plage | null)[]): Horaires => jours.map((p) => (p ? [p] : null));
 
 // Horaires du lundi au vendredi (vendredi matin seulement), repos le week-end
-const STD: Horaires = [["08:00", "15:00"], ["08:00", "15:00"], ["08:00", "15:00"], ["08:00", "15:00"], ["08:00", "12:00"], null, null];
+const STD = h(["08:00", "15:00"], ["08:00", "15:00"], ["08:00", "15:00"], ["08:00", "15:00"], ["08:00", "12:00"], null, null);
 // Du mercredi au dimanche
-const WEEKEND: Horaires = [null, null, ["09:00", "16:00"], ["09:00", "16:00"], ["09:00", "16:00"], ["10:00", "17:00"], ["10:00", "16:00"]];
+const WEEKEND = h(null, null, ["09:00", "16:00"], ["09:00", "16:00"], ["09:00", "16:00"], ["10:00", "17:00"], ["10:00", "16:00"]);
 
 const classe = (id: string, debut: string, fin: string) => ({ id, debut, fin, eleveId: null });
 const rattrapage = (id: string, debut: string, fin: string) => ({ id, debut, fin, eleveId: "eleve" });

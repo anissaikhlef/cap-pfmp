@@ -1,4 +1,4 @@
-type V = Partial<{ nom: string; secteur: string; domaine: string | null; adresse: string | null; ville: string | null; tuteurNom: string | null; tuteurFonction: string | null; email: string | null; telephone: string | null; placesParDefaut: number; notesInternes: string | null }>;
+type V = Partial<{ nom: string; secteur: string; domaine: string | null; adresse: string | null; ville: string | null; tuteurNom: string | null; tuteurFonction: string | null; email: string | null; telephone: string | null; placesParDefaut: number; notesInternes: string | null; representantNom: string | null; representantFonction: string | null; representantEmail: string | null }>;
 
 export function ChampsEntreprise({ v = {}, domaines }: { v?: V; domaines: string[] }) {
   return (
@@ -18,6 +18,9 @@ export function ChampsEntreprise({ v = {}, domaines }: { v?: V; domaines: string
       <label className="f" htmlFor="x-fonction">Fonction du tuteur<input id="x-fonction" name="tuteurFonction" defaultValue={v.tuteurFonction ?? ""} /></label>
       <label className="f" htmlFor="x-email">E-mail de contact<input id="x-email" name="email" type="email" defaultValue={v.email ?? ""} /></label>
       <label className="f" htmlFor="x-tel">Mobile du tuteur<input id="x-tel" name="telephone" defaultValue={v.telephone ?? ""} /></label>
+      <label className="f" htmlFor="x-rep">Représentant qui signe les conventions<input id="x-rep" name="representantNom" defaultValue={v.representantNom ?? ""} placeholder="Ex. la gérante, le responsable RH" /></label>
+      <label className="f" htmlFor="x-rep-fonction">Fonction du représentant<input id="x-rep-fonction" name="representantFonction" defaultValue={v.representantFonction ?? ""} /></label>
+      <label className="f" htmlFor="x-rep-email">E-mail du représentant (sinon, e-mail de contact)<input id="x-rep-email" name="representantEmail" type="email" defaultValue={v.representantEmail ?? ""} /></label>
       <label className="f" htmlFor="x-notes" style={{ gridColumn: "1 / -1" }}>Notes internes (visibles des seuls personnels)<textarea id="x-notes" name="notesInternes" rows={3} defaultValue={v.notesInternes ?? ""} /></label>
     </div>
   );

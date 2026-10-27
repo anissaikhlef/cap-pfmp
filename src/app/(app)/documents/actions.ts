@@ -8,8 +8,11 @@ import { a, peutGererEleve } from "@/lib/acces";
 import { journaliser } from "@/lib/journal";
 import { enregistrerFichier } from "@/lib/stockage";
 import { envoyer } from "@/lib/messages";
-import { blocageDirection, chargerConvention, qualitesSignature } from "@/lib/convention";
-import { SIGNATAIRES } from "@/lib/regles";
+import { chargerConvention, qualitesSignature } from "@/lib/convention";
+import { enregistrerSignature } from "@/lib/signature";
+import { inviterASigner } from "@/lib/invitations";
+import { adresseDuSite } from "@/lib/liens";
+import { SIGNATAIRES, libelleSignataire } from "@/lib/regles";
 import type { Etat } from "@/components/Formulaire";
 import { revenirAvec } from "@/lib/retour";
 import type { Signataire, Signatures, TypeDocument } from "@/db/schema";
@@ -20,26 +23,39 @@ function rafraichir(eleveId: string) {
 
 /* -------------------------- Signature en ligne -------------------------- */
 
+const QUALITES = ["eleve", "parent", "entreprise", "tuteur", "professeur", "direction"] as const;
+
 export async function signer(_: Etat, fd: FormData): Promise<Etat> {
   const ctx = await contexte();
   const stageId = z.string().uuid().parse(fd.get("stageId"));
-  const qualite = z.enum(["eleve", "parent", "professeur", "entreprise", "direction"]).parse(fd.get("qualite")) as Signataire;
-  if (fd.get("lu") !== "on") return { erreur: "Cochez la case pour confirmer que vous avez lu la convention." };
+  const qualite = z.enum(QUALITES).parse(fd.get("qualite")) as Signataire;
   const cv = await chargerConvention(ctx, stageId);
   if (!cv) return { erreur: "Convention introuvable." };
   const possibles = await qualitesSignature(ctx, cv);
   if (!possibles.includes(qualite)) return { erreur: "Vous ne pouvez pas signer en cette qualité." };
-  if (qualite === "direction") {
-    const b = blocageDirection(cv);
-    if (b) return { erreur: b };
-  }
-  // Mise à jour atomique : on ajoute la signature sans écraser celles posées entre-temps.
-  await db.update(schema.stages).set({
-    signatures: sql`${schema.stages.signatures} || jsonb_build_object(${qualite}::text, jsonb_build_object('le', ${new Date().toISOString()}::text, 'par', ${ctx.user.id}::text, 'mode', 'enligne'))`,
-  }).where(eq(schema.stages.id, stageId));
-  await journaliser(ctx, "convention_signee", "stage", stageId, { qualite });
+  const erreur = await enregistrerSignature(ctx.etab, cv, qualite, fd, { par: ctx.user.id, userId: ctx.user.id }, await adresseDuSite());
+  if (erreur) return { erreur };
+  await journaliser(ctx, "convention_signee", "stage", stageId, { qualite, modele: String(fd.get("modele") ?? "simple") });
   rafraichir(cv.e.id);
-  revenirAvec(fd, `Signature enregistrée (${SIGNATAIRES.find((s) => s.cle === qualite)!.libelle.toLowerCase()}).`);
+  revenirAvec(fd, `Signature enregistrée (${libelleSignataire(qualite).toLowerCase()}).`);
+}
+
+/** Envoie la convention à tous ceux qui n'ont pas encore signé : invitation dans leur espace, ou lien personnel. */
+export async function envoyerPourSignature(fd: FormData) {
+  const ctx = await contexte();
+  const stageId = z.string().uuid().parse(fd.get("stageId"));
+  const cv = await chargerConvention(ctx, stageId);
+  if (!cv || !(await peutGererEleve(ctx, cv.e))) return;
+  if (ctx.etab.reglages.signature === "papier") revenirAvec(fd, "Votre lycée signe les conventions sur papier.", "err");
+  // Le dernier signataire est prévenu quand tous les autres ont signé ; la direction signe depuis « À signer ».
+  const attendus = cv.requis.filter((k) => !cv.s.signatures[k] && k !== ctx.etab.reglages.dernierSignataire && k !== "direction");
+  const r = await inviterASigner(ctx, cv, attendus, await adresseDuSite());
+  await journaliser(ctx, "convention_envoyee", "stage", stageId, r);
+  rafraichir(cv.e.id);
+  const manque = r.sansContact.length ? ` Aucune adresse ni aucun numéro pour : ${r.sansContact.map((k) => libelleSignataire(k).toLowerCase()).join(", ")}.` : "";
+  revenirAvec(fd, r.messages
+    ? `Convention envoyée : ${r.messages} message(s), dont ${r.liens} lien(s) personnel(s) pour signer sans compte.${manque}`
+    : `Aucun message envoyé.${manque}`, r.messages ? "ok" : "err");
 }
 
 /* ------------------------------ Dépôts ------------------------------ */
@@ -140,31 +156,25 @@ export async function refuser(_: Etat, fd: FormData): Promise<Etat> {
 export async function relancer(fd: FormData) {
   const ctx = await contexte();
   const stageId = z.string().uuid().parse(fd.get("stageId"));
-  const cible = z.enum(["eleve", "parent", "professeur", "entreprise", "direction", "attestation", "livret"]).parse(fd.get("cible"));
+  const cible = z.enum([...QUALITES, "attestation", "livret"]).parse(fd.get("cible"));
   const cv = await chargerConvention(ctx, stageId);
   if (!cv || !(await peutGererEleve(ctx, cv.e))) return;
-  const destinataires: { email: string; prenom: string }[] = [];
-  const parId = async (id: string | null) => (id ? (await db.select().from(schema.users).where(eq(schema.users.id, id)).limit(1))[0] : undefined);
-  if (cible === "eleve") { const u = await parId(cv.e.userId); if (u) destinataires.push(u); else if (cv.e.email) destinataires.push({ email: cv.e.email, prenom: cv.e.prenom }); }
-  if (cible === "parent") {
-    const rs = await db.select({ u: schema.users }).from(schema.responsables).innerJoin(schema.users, eq(schema.users.id, schema.responsables.userId)).where(eq(schema.responsables.eleveId, cv.e.id));
-    destinataires.push(...rs.map((r) => r.u));
+  if (cible !== "attestation" && cible !== "livret") {
+    // Signataire de la convention : invitation dans son espace, ou lien personnel s'il n'a pas de compte.
+    const r = await inviterASigner(ctx, cv, [cible], await adresseDuSite(), true);
+    await journaliser(ctx, "relance", "stage", stageId, { cible, n: r.messages });
+    rafraichir(cv.e.id);
+    revenirAvec(fd, r.messages ? `Relance envoyée (${libelleSignataire(cible).toLowerCase()}).` : `Aucune adresse ni aucun numéro pour : ${libelleSignataire(cible).toLowerCase()}.`, r.messages ? "ok" : "err");
   }
-  if (cible === "professeur") { const u = await parId(cv.referentId); if (u) destinataires.push(u); }
-  if (cible === "direction") {
-    const ds = await db.select().from(schema.users).where(eq(schema.users.etablissementId, ctx.etab.id));
-    destinataires.push(...ds.filter((u) => u.roles.includes("direction") && u.actif));
-  }
-  if (cible === "entreprise" || cible === "attestation" || cible === "livret") {
-    if (cv.ent.email) destinataires.push({ email: cv.ent.email, prenom: cv.ent.tuteurNom ?? "Madame, Monsieur" });
-  }
-  const objet = cible === "attestation" ? "l'attestation de stage" : cible === "livret" ? "le livret de compétences" : "la convention de stage";
-  for (const d of destinataires) {
+  const objet = cible === "attestation" ? "l'attestation de stage" : "le livret de compétences";
+  const email = cv.ent.email;
+  if (email) {
     await envoyer(ctx, {
-      canal: "mail", destinataire: d.email, sujet: `Rappel : ${objet} de ${cv.e.prenom} ${cv.e.nom}`, eleveId: cv.e.id, entrepriseId: cv.ent.id,
-      corps: `Bonjour ${d.prenom},\n\nNous attendons encore ${cible === "attestation" || cible === "livret" ? "" : "votre signature sur "}${objet} de ${cv.e.prenom} ${cv.e.nom} (${cv.c.libelle}). Vous pouvez ${cible === "attestation" || cible === "livret" ? "le déposer" : "la signer ou la déposer"} directement sur Cap PFMP.\n\nMerci,\n${ctx.etab.nom}`,
+      canal: "mail", destinataire: email, sujet: `Rappel : ${objet} de ${cv.e.prenom} ${cv.e.nom}`, eleveId: cv.e.id, entrepriseId: cv.ent.id,
+      corps: `Bonjour ${cv.s.tuteur?.nom ?? cv.ent.tuteurNom ?? "Madame, Monsieur"},\n\nNous attendons encore ${objet} de ${cv.e.prenom} ${cv.e.nom} (${cv.c.libelle}). Vous pouvez le déposer directement sur Cap PFMP.\n\nMerci,\n${ctx.etab.nom}`,
     });
   }
-  await journaliser(ctx, "relance", "stage", stageId, { cible, n: destinataires.length });
+  await journaliser(ctx, "relance", "stage", stageId, { cible, n: email ? 1 : 0 });
   rafraichir(cv.e.id);
+  revenirAvec(fd, email ? "Relance envoyée à l'entreprise." : "L'entreprise n'a pas d'adresse e-mail : complétez sa fiche.", email ? "ok" : "err");
 }

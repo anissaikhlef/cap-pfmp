@@ -10,6 +10,8 @@ import { journaliser } from "@/lib/journal";
 import { lireHoraires, placesOccupees, entrepriseDuLycee } from "@/lib/stages";
 import { aujourdhui } from "@/lib/dates";
 import { alerterRattrapage } from "@/lib/rattrapages";
+import { annulerLiensDuStage } from "@/lib/liens";
+import type { Tuteur } from "@/db/schema";
 import type { Etat } from "@/components/Formulaire";
 
 /** Une période de la classe de l'élève, ou l'un de ses propres rattrapages. */
@@ -22,6 +24,17 @@ async function eleveEtPeriode(ctx: Awaited<ReturnType<typeof contexte>>, eleveId
   )).limit(1);
   if (!p) return null;
   return { e, p };
+}
+
+/** Tuteur désigné (case cochée) : les champs vides reprennent la fiche entreprise. Sans tuteur désigné : null. */
+function lireTuteur(fd: FormData, ent: { tuteurNom: string | null; tuteurFonction: string | null; telephone: string | null }): Tuteur | null | string {
+  if (fd.get("tuteurDesigne") !== "on") return null;
+  const champ = (k: string) => String(fd.get(k) ?? "").trim();
+  const nom = champ("tuteurNom") || ent.tuteurNom || "";
+  if (nom.length < 2) return "Indiquez le nom du tuteur, ou décochez « Un tuteur est désigné ».";
+  const email = champ("tuteurEmail").toLowerCase();
+  if (email && !z.string().email().safeParse(email).success) return "Adresse e-mail du tuteur invalide.";
+  return { nom: nom.slice(0, 80), fonction: (champ("tuteurFonction") || ent.tuteurFonction || "").slice(0, 80) || null, email: email || null, telephone: (champ("tuteurTelephone") || ent.telephone || "").slice(0, 30) || null };
 }
 
 export async function enregistrerStage(_: Etat, fd: FormData): Promise<Etat> {
@@ -37,20 +50,24 @@ export async function enregistrerStage(_: Etat, fd: FormData): Promise<Etat> {
   if (!ent) return { erreur: "Entreprise introuvable." };
   const h = lireHoraires(fd);
   if (typeof h === "string") return { erreur: h };
+  const tuteur = lireTuteur(fd, ent);
+  if (typeof tuteur === "string") return { erreur: tuteur };
   const [existant] = await db.select().from(schema.stages).where(and(eq(schema.stages.eleveId, eleveId), eq(schema.stages.periodeId, x.p.id))).limit(1);
   const occ = await placesOccupees(ent.id, x.p.debut, x.p.fin, eleveId);
   const avertissement = occ >= ent.placesParDefaut ? ` Attention : ${ent.nom} accueille déjà ${occ} élève(s) sur cette période pour ${ent.placesParDefaut} place(s) annoncée(s).` : "";
   if (existant) {
-    // Changer d'entreprise ou d'horaires invalide les signatures déjà recueillies : la convention doit être refaite.
-    const change = existant.entrepriseId !== ent.id || JSON.stringify(existant.horaires) !== JSON.stringify(h);
-    await db.update(schema.stages).set({ entrepriseId: ent.id, horaires: h, ...(change ? { signatures: {} } : {}) }).where(eq(schema.stages.id, existant.id));
+    // Changer d'entreprise, d'horaires ou de tuteur invalide les signatures déjà recueillies et les liens envoyés :
+    // la convention doit être refaite.
+    const change = existant.entrepriseId !== ent.id || JSON.stringify(existant.horaires) !== JSON.stringify(h) || (existant.tuteur?.nom ?? null) !== (tuteur?.nom ?? null);
+    await db.update(schema.stages).set({ entrepriseId: ent.id, horaires: h, tuteur, ...(change ? { signatures: {} } : {}) }).where(eq(schema.stages.id, existant.id));
+    if (change) await annulerLiensDuStage(existant.id);
     await journaliser(ctx, "stage_modifie", "eleve", eleveId, { entreprise: ent.nom, signaturesEffacees: change });
     if (x.p.eleveId && existant.entrepriseId !== ent.id) await alerterRattrapage(ctx, x.e, x.p, "lieu", ent);
     revalidatePath(`/eleves/${eleveId}`);
     const msg = (change && Object.keys(existant.signatures).length ? "Stage modifié. Les signatures déjà recueillies ont été effacées : la convention doit être signée de nouveau." : "Stage enregistré.") + avertissement;
     redirect(`/eleves/${eleveId}?periode=${x.p.id}&msg=${encodeURIComponent(msg)}`);
   }
-  await db.insert(schema.stages).values({ eleveId, periodeId: x.p.id, entrepriseId: ent.id, horaires: h, signatures: {} });
+  await db.insert(schema.stages).values({ eleveId, periodeId: x.p.id, entrepriseId: ent.id, horaires: h, tuteur, signatures: {} });
   // La démarche correspondante passe en « accord »
   await db.update(schema.demarches).set({ reponse: "accord" }).where(and(eq(schema.demarches.eleveId, eleveId), eq(schema.demarches.entrepriseId, ent.id)));
   await journaliser(ctx, "stage_cree", "eleve", eleveId, { entreprise: ent.nom });

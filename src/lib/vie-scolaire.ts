@@ -3,6 +3,7 @@ import { and, asc, desc, eq, gte, inArray, isNull, lte, or } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { Contexte } from "./auth";
 import { ajouterJours, jourSemaine } from "./dates";
+import { texteJour } from "./regles";
 
 /**
  * Pour un jour donné, les élèves de l'établissement dont la classe (ou le rattrapage) est en période de PFMP :
@@ -37,7 +38,7 @@ export async function situationDuJour(ctx: Contexte, jour: string) {
       rattrapage: !!rattrapage,
       stage: st?.s ?? null,
       entreprise: st?.ent ?? null,
-      horairesDuJour: st ? st.s.horaires[jourSemaine(jour)] ?? null : null,
+      horairesDuJour: st ? texteJour(st.s.horaires, jourSemaine(jour)) : null,
       absence: absents.find((a) => a.eleveId === e.id && a.stageId === st?.s.id) ?? null,
     });
   }

@@ -103,14 +103,16 @@ export async function proposerCreneaux(_: Etat, fd: FormData): Promise<Etat> {
     }
   }
   if (!creneaux.length) return { erreur: "Proposez au moins un créneau." };
-  if (!l.ent.telephone) return { erreur: "Aucun numéro de mobile pour le tuteur : complétez la fiche entreprise." };
+  // Le mobile du tuteur désigné pour ce stage, à défaut celui de la fiche entreprise.
+  const mobile = l.s.tuteur?.telephone ?? l.ent.telephone;
+  if (!mobile) return { erreur: "Aucun numéro de mobile pour le tuteur : complétez le stage ou la fiche entreprise." };
   const [visiteur] = await db.select().from(schema.users).where(eq(schema.users.id, l.v.visiteurId)).limit(1);
-  const corps = `Bonjour ${l.ent.tuteurNom ?? ""}, je suis ${visiteur.prenom} ${visiteur.nom}, professeur de ${l.e.prenom} ${l.e.nom}, en stage chez vous. Je souhaite faire la visite de stage ${mode === "presentiel" ? "sur place" : "à distance (visio ou téléphone)"}. Mes disponibilités : ${creneaux.map(texteCreneau).join(", ")}. Pouvez-vous me répondre avec le créneau qui vous convient, ou le choisir sur Cap PFMP ? Merci. ${ctx.etab.nom}`;
-  await envoyer(ctx, { canal: "sms", destinataire: l.ent.telephone, corps, eleveId: l.e.id, entrepriseId: l.ent.id });
+  const corps = `Bonjour ${l.s.tuteur?.nom ?? l.ent.tuteurNom ?? ""}, je suis ${visiteur.prenom} ${visiteur.nom}, professeur de ${l.e.prenom} ${l.e.nom}, en stage chez vous. Je souhaite faire la visite de stage ${mode === "presentiel" ? "sur place" : "à distance (visio ou téléphone)"}. Mes disponibilités : ${creneaux.map(texteCreneau).join(", ")}. Pouvez-vous me répondre avec le créneau qui vous convient, ou le choisir sur Cap PFMP ? Merci. ${ctx.etab.nom}`;
+  await envoyer(ctx, { canal: "sms", destinataire: mobile, corps, eleveId: l.e.id, entrepriseId: l.ent.id });
   await db.update(schema.visites).set({ mode, creneauxProposes: creneaux, propositionEnvoyeeLe: new Date(), heure: null }).where(eq(schema.visites.id, visiteId));
   await journaliser(ctx, "creneaux_proposes", "visite", visiteId, { creneaux, mode });
   rafraichir();
-  revenirAvec(fd, `Créneaux envoyés par SMS au ${l.ent.telephone} (envoi simulé tant qu'aucun prestataire n'est branché).`);
+  revenirAvec(fd, `Créneaux envoyés par SMS au ${mobile} (envoi simulé tant qu'aucun prestataire n'est branché).`);
 }
 
 /** Le créneau retenu : choisi par le tuteur dans son espace, ou saisi par le professeur après sa réponse. */

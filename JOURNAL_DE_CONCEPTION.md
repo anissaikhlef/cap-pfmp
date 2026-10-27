@@ -113,3 +113,23 @@ Anissa Ikhlef précise ce qu'elle attend de l'assistant IA :
 - **Un agent de prospection et de partenariat avec les entreprises**, qui gère l'**agenda des rencontres**. Les rencontres sont ensuite finalisées par **une personne physique chargée des interactions**, en visio ou en face à face ; cette personne est aidée par **un agent qui s'occupe de ses courriels**.
 
 Les questions de détail (sources des opportunités, validation humaine avant l'envoi des mails, coût, protection des données) seront posées après la livraison du lot 2.
+
+---
+
+## 27 octobre 2026 : réalisation du lot 2.1 (signatures, horaires, mineurs)
+
+- **Deux modèles de signature** (décisions 1 et 2 du lot 2) : la signature simple et la signature dessinée au doigt, qui apparaît sur la convention. Le lycée choisit dans « Organisation » : simple, dessinée, ou les deux au choix du signataire.
+- **Signature sans compte** (décision 3) : la gestion clique sur « Envoyer la convention aux signataires ». Ceux qui ont un compte reçoivent une invitation à signer dans leur espace ; les autres un lien personnel par mail, ou par SMS s'il n'y a pas d'adresse. Les relances avant le départ contiennent aussi ce lien.
+- **Signataires** (décision 12 du 26/10) : élève, responsable légal si l'élève est mineur, représentant de l'entreprise, tuteur s'il est désigné, professeur référent, direction. Qui signe en dernier se règle dans « Organisation » : le professeur référent (lycée de démonstration) ou la direction. Le dernier signataire est prévenu par mail dès qu'il ne manque plus que lui.
+- **Tuteur et représentant** : le tuteur est désigné pour chaque stage (repris de la fiche entreprise) ; le représentant qui signe pour l'entreprise est indiqué sur la fiche entreprise.
+- **Horaires** (décision 13) : matin et après-midi pour chaque jour.
+- **Élèves mineurs** (décision 14) : contrôle de l'article 10 de la convention du lycée.
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Règles des mineurs** : en plus des trois règles validées le 26/10 (8 h par jour, pause après 4 h 30, nuit), les deux autres règles du même article 10 sont contrôlées : 14 h (moins de 16 ans) ou 12 h de repos entre deux journées, et 2 jours de repos consécutifs dont le dimanche. Le lycée peut désactiver ces contrôles.
+2. **Compte jamais utilisé** : un parent dont le compte a été créé mais qui ne s'est jamais connecté reçoit lui aussi un lien personnel, pour ne pas être bloqué par le mot de passe.
+3. **Lien personnel** : valable 7 jours, pour une seule signature ; une relance envoie un nouveau lien.
+4. **Changement de tuteur** : comme un changement d'entreprise ou d'horaires, il efface les signatures déjà recueillies et annule les liens envoyés.
+5. **Stage hors règles** : quand le référent signe en dernier, c'est sa signature qui est bloquée tant que le stage ne respecte pas les règles ; la direction peut signer avant lui.
+6. **Compte de l'entreprise** : le tuteur qui a un compte peut signer à la fois pour l'entreprise et en tant que tuteur.

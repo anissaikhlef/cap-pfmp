@@ -82,8 +82,8 @@ export default async function VieScolaire({ searchParams }: { searchParams: Prom
                     <div className="name">{l.eleve.prenom} {l.eleve.nom} {l.rattrapage && <Pill ton="warn">Rattrapage</Pill>}</div>
                     <div className="meta">
                       {l.entreprise!.nom}{l.entreprise!.ville ? `, ${l.entreprise!.ville}` : ""}
-                      {" · "}{l.horairesDuJour ? `${l.horairesDuJour[0]} – ${l.horairesDuJour[1]}` : "repos ce jour"}
-                      {l.entreprise!.tuteurNom && ` · tuteur ${l.entreprise!.tuteurNom}`}{l.entreprise!.telephone && ` · ${l.entreprise!.telephone}`}
+                      {" · "}{l.horairesDuJour ?? "repos ce jour"}
+                      {l.stage!.tuteur ? ` · tuteur ${l.stage!.tuteur.nom}${l.stage!.tuteur.telephone ? ` · ${l.stage!.tuteur.telephone}` : ""}` : l.entreprise!.telephone ? ` · ${l.entreprise!.telephone}` : ""}
                     </div>
                   </div>
                   {l.absence && <Pill ton="bad">{l.absence.justifieeLe ? "Absent (justifié)" : "Absent, non justifié"}</Pill>}

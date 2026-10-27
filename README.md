@@ -14,6 +14,8 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | 4 | Visites, ordre de mission, compte rendu | Fait |
 | 5 | Tableau de bord complet, relances, campagne de rentrée, double authentification, année suivante | Fait |
 | Lot 1 | Vie scolaire, rattrapages hors des périodes prévues, absences en stage (signalées, justifiées, déduites des jours effectués), heures de face à face et choix des visites par les professeurs | Fait |
+| Lot 2.1 | Signature simple ou dessinée au doigt, lien personnel pour signer sans compte, tuteur signataire, référent ou direction en dernier, horaires en deux plages, règles des élèves mineurs | Fait |
+| Lot 2.2 à 2.4 | CV et lettre de motivation, allocations, relances automatiques | En cours |
 
 Les décisions de conception d'Anissa Ikhlef sont consignées, avec leur date, dans [JOURNAL_DE_CONCEPTION.md](JOURNAL_DE_CONCEPTION.md).
 
@@ -67,6 +69,7 @@ node e2e/etape4.mjs
 node e2e/etape5.mjs
 node e2e/organisations.mjs
 node e2e/lot1.mjs
+node e2e/lot2.mjs
 node e2e/mobile.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
 ```
 
@@ -79,6 +82,7 @@ Les parcours sont écrits pour le 26 octobre 2026 : lancez l'application avec `C
 | `DATABASE_URL` | Connexion PostgreSQL |
 | `STOCKAGE` | `disque` (par défaut, dossier `UPLOAD_DIR`) ou `base` (fichiers dans PostgreSQL, pour un hébergement sans disque permanent) |
 | `COOKIE_SECURE` | `true` dès que le site est servi en HTTPS |
+| `SITE_URL` | Adresse publique du site (ex. `https://cap-pfmp.example.fr`), écrite dans les liens personnels envoyés par mail et SMS. Sur Vercel, l'adresse de production est trouvée automatiquement |
 | `DOUBLE_AUTH_OBLIGATOIRE` | `true` par défaut : la direction et les gestionnaires doivent activer un code sur téléphone. `false` seulement pour une démonstration |
 | `TACHES_JETON` | Jeton secret de la tâche quotidienne `/api/taches/quotidiennes` (relances automatiques), à appeler chaque matin |
 

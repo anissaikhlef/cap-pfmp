@@ -29,6 +29,13 @@
       "when": 1793056987427,
       "tag": "0003_lot1_vie_scolaire_rattrapages_absences",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793089893216,
+      "tag": "0004_lot2_signatures_tuteur_horaires",
+      "breakpoints": true
     }
   ]
 }

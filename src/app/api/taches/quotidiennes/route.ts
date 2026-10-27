@@ -15,6 +15,7 @@ export async function GET(req: Request) {
   }
   const etabs = await db.select().from(schema.etablissements);
   let total = 0;
-  for (const e of etabs) total += await relancesDuJour(e);
+  const base = process.env.SITE_URL ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : new URL(req.url).origin);
+  for (const e of etabs) total += await relancesDuJour(e, { base });
   return Response.json({ relances: total });
 }

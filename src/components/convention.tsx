@@ -3,13 +3,16 @@ import { and, desc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { Contexte } from "@/lib/auth";
 import { peutGererEleve, a } from "@/lib/acces";
-import { blocageDirection, chargerConvention, qualitesSignature } from "@/lib/convention";
+import { blocage, chargerConvention, qualitesSignature } from "@/lib/convention";
+import { modelesAutorises } from "@/lib/signature";
 import { SIGNATAIRES, VERBE_SIGNATURE } from "@/lib/regles";
 import { aujourdhui, dateCourte } from "@/lib/dates";
 import { Formulaire } from "./Formulaire";
+import { ChampRetour } from "./ChampRetour";
+import { ChoixSignature } from "./ChoixSignature";
 import { Pill } from "./ui";
 import { VisitesDuDossier } from "./visites";
-import { deposer, relancer, signer } from "@/app/(app)/documents/actions";
+import { deposer, envoyerPourSignature, relancer, signer } from "@/app/(app)/documents/actions";
 import type { TypeDocument } from "@/db/schema";
 
 const LIBELLES_DOC: Record<TypeDocument, string> = {
@@ -50,11 +53,12 @@ export async function BlocConvention({ ctx, stageId }: { ctx: Contexte; stageId:
   const gestion = await peutGererEleve(ctx, cv.e);
   const docs = await documentsDuStage(stageId);
   const convDoc = docs.find((d) => d.type === "convention");
-  const mode = ctx.etab.reglages.signature;
+  const r = ctx.etab.reglages;
+  const mode = r.signature;
   const estFamille = cv.e.userId === ctx.user.id || a(ctx, "parent");
   const peutDeposer = gestion || (mode !== "enligne" && estFamille);
   const complete = cv.requis.every((k) => cv.s.signatures[k]);
-  const blocDir = blocageDirection(cv);
+  const dernier = r.dernierSignataire;
   return (
     <div className="panel pad section">
       <div className="actions" style={{ justifyContent: "space-between" }}>
@@ -67,9 +71,13 @@ export async function BlocConvention({ ctx, stageId }: { ctx: Contexte; stageId:
           return (
             <div key={s.cle} className="card" style={sig ? { borderColor: "color-mix(in srgb, var(--ok) 45%, var(--line))" } : undefined}>
               <b>{s.libelle}</b>
-              <span className="sub">{sig ? `Signé le ${dateCourte(sig.le.slice(0, 10))}${sig.mode === "papier" ? " (papier)" : ""}` : "En attente"}</span>
-              {!sig && gestion && !qualites.includes(s.cle) && (
-                <form action={relancer}><input type="hidden" name="stageId" value={stageId} /><input type="hidden" name="cible" value={s.cle} /><button className="btn small">Relancer</button></form>
+              {s.cle === "tuteur" && cv.s.tuteur && <span className="sub">{cv.s.tuteur.nom}</span>}
+              <span className="sub">
+                {sig ? `Signé le ${dateCourte(sig.le.slice(0, 10))}${sig.mode === "papier" ? " (papier)" : sig.modele === "dessinee" ? " (signature dessinée)" : ""}${sig.lien ? " par lien" : ""}`
+                  : s.cle === dernier ? "Signe en dernier" : "En attente"}
+              </span>
+              {!sig && gestion && !qualites.includes(s.cle) && mode !== "papier" && s.cle !== "direction" && (
+                <form action={relancer}><ChampRetour /><input type="hidden" name="stageId" value={stageId} /><input type="hidden" name="cible" value={s.cle} /><button className="btn small">Relancer</button></form>
               )}
             </div>
           );
@@ -78,25 +86,29 @@ export async function BlocConvention({ ctx, stageId }: { ctx: Contexte; stageId:
       {qualites.length > 0 && (
         <div className="section">
           {qualites.map((q) => {
-            const bloque = q === "direction" ? blocDir : null;
+            const bloque = blocage(ctx.etab, cv, q);
             return (
               <Formulaire key={q} action={signer} className="card" bouton={VERBE_SIGNATURE[q]} boutonClasse={bloque ? "btn" : "btn primary"}>
                 <input type="hidden" name="stageId" value={stageId} />
                 <input type="hidden" name="qualite" value={q} />
-                {bloque ? <p className="sub" style={{ margin: 0 }}>{bloque}</p> : (
-                  <label className="check"><input type="checkbox" name="lu" /> J&apos;ai lu la convention et j&apos;accepte ses conditions.</label>
-                )}
+                {bloque ? <p className="sub" style={{ margin: 0 }}>{bloque}</p> : <ChoixSignature modeles={modelesAutorises(r)} />}
               </Formulaire>
             );
           })}
-          <p className="sub" style={{ margin: 0 }}>Signature simple enregistrée dans l&apos;application, avec la date et votre compte. La signature électronique certifiée sera branchée dans une version ultérieure.</p>
+          <p className="sub" style={{ margin: 0 }}>Votre signature est conservée dans l&apos;application, avec la date et votre compte. La signature électronique certifiée sera branchée dans une version ultérieure.</p>
         </div>
       )}
       <div className="actions">
         <Link className="btn small" href={`/conventions/${stageId}`} target="_blank">Voir la convention à imprimer</Link>
         {convDoc && <a className="btn small" href={`/fichiers/${convDoc.id}`} target="_blank" rel="noopener">Ouvrir le scan déposé</a>}
         {convDoc && <EtatDoc d={convDoc} />}
+        {gestion && !complete && mode !== "papier" && (
+          <form action={envoyerPourSignature}><ChampRetour /><input type="hidden" name="stageId" value={stageId} /><button className="btn small primary">Envoyer la convention aux signataires</button></form>
+        )}
       </div>
+      {gestion && !complete && mode !== "papier" && (
+        <p className="sub" style={{ margin: 0 }}>Ceux qui ont un compte signent dans leur espace ; les autres reçoivent un lien personnel par mail ou par SMS, valable 7 jours.</p>
+      )}
       {!complete && peutDeposer && mode !== "enligne" && (
         <div className="section">
           <p className="sub" style={{ margin: 0 }}>Convention signée sur papier par toutes les parties ? Prenez-la en photo ou déposez le PDF.</p>

@@ -6,7 +6,7 @@ import type { Contexte } from "./auth";
 import { classesGerees } from "./acces";
 import { aujourdhui, ecartJours, ageAu } from "./dates";
 import { periodeDeReference, periodeDeReferenceEleve, estRattrapage } from "./periodes";
-import { SIGNATAIRES, signaturesCompletes, statutEleve, verifierStage, stageConforme, type Statut } from "./regles";
+import { signatairesAttendus, signaturesCompletes, statutEleve, verifierStage, stageConforme, type Statut } from "./regles";
 import type { Signataire } from "@/db/schema";
 
 export type Periode = typeof schema.periodes.$inferSelect;
@@ -91,7 +91,7 @@ export async function elevesSuivis(ctx: Contexte, filtreClasse?: string) {
     const classe = classes.find((c) => c.id === e.classeId)!;
     const periode = periodesRef.get(e.id) ?? null;
     const st = stages.find((x) => x.s.eleveId === e.id && x.s.periodeId === periode?.id) ?? null;
-    const requis = signatairesRequis(e.dateNaissance, periode?.debut ?? jour);
+    const requis = signatairesRequis(e.dateNaissance, periode?.debut ?? jour, !!st?.s.tuteur);
     const conventionComplete = !!st && signaturesCompletes(st.s.signatures, requis);
     const docsStage = st ? docs.filter((d) => d.stageId === st.s.id).map((d) => d.type) : [];
     const statut: Statut | null = periode
@@ -104,6 +104,7 @@ export async function elevesSuivis(ctx: Contexte, filtreClasse?: string) {
       ? verifierStage({
           horaires: st.s.horaires, regleStructure: classe.regleStructure, secteurEntreprise: st.ent.secteur,
           domaineEntreprise: st.ent.domaine, dominanteEleve: dominante, signatures: st.s.signatures, signatairesRequis: requis,
+          ageAuDebut: ageAu(e.dateNaissance, periode?.debut ?? jour),
         }, ctx.etab.reglages.regles)
       : [];
     return {
@@ -135,10 +136,12 @@ export async function rattrapagesAVenir(ctx: Contexte, depuis = aujourdhui()) {
     .orderBy(asc(schema.periodes.debut));
 }
 
-/** Un élève majeur au début de la période signe seul : le responsable légal n'est pas requis. */
-export function signatairesRequis(dateNaissance: string | null, auJour: string): Signataire[] {
-  const age = ageAu(dateNaissance, auJour);
-  return SIGNATAIRES.map((s) => s.cle).filter((k) => k !== "parent" || age === null || age < 18);
+/**
+ * Un élève majeur au début de la période signe seul : le responsable légal n'est pas requis.
+ * Le tuteur de stage ne signe que s'il a été désigné pour ce stage.
+ */
+export function signatairesRequis(dateNaissance: string | null, auJour: string, tuteurDesigne = false): Signataire[] {
+  return signatairesAttendus(ageAu(dateNaissance, auJour), tuteurDesigne);
 }
 
 export async function equipe(ctx: Contexte) {

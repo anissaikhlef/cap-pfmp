@@ -24,6 +24,9 @@ const Schema = z.object({
   nuitFin: heure,
   dimancheInterdit: z.enum(["oui", "non"]),
   joursReposConsecutifs: z.coerce.number().int().min(0).max(3),
+  reglesMineurs: z.enum(["oui", "non"]),
+  signatureModele: z.enum(["simple", "dessinee", "les2"]),
+  dernierSignataire: z.enum(["professeur", "direction"]),
 });
 
 export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Etat> {
@@ -34,10 +37,12 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
   if (v.heuresMin > v.heuresMax) return { erreur: "La durée minimale dépasse la durée maximale." };
   const reglages: Reglages = {
     gestion: v.gestion, visiteurs: v.visiteurs, repartition: v.repartition, signature: v.signature,
+    signatureModele: v.signatureModele, dernierSignataire: v.dernierSignataire,
     ordreMission: v.ordreMission === "oui", compteRendu: v.compteRendu === "oui",
     regles: {
       heuresMin: v.heuresMin, heuresMax: v.heuresMax, nuitDebut: v.nuitDebut, nuitFin: v.nuitFin,
       dimancheInterdit: v.dimancheInterdit === "oui", joursReposConsecutifs: v.joursReposConsecutifs,
+      reglesMineurs: v.reglesMineurs === "oui",
     },
   };
   await db.update(schema.etablissements).set({ nom: v.nom, anneeScolaire: v.anneeScolaire, reglages }).where(eq(schema.etablissements.id, ctx.etab.id));

@@ -2,7 +2,7 @@
  * Moteur de règles PFMP (cahier des charges, section 5).
  * Fonctions pures, sans accès à la base : faciles à tester et réutilisées partout.
  */
-import type { Horaires, Reglages, Signataire, Signatures } from "@/db/schema";
+import type { Horaires, Plage, Reglages, Signataire, Signatures } from "@/db/schema";
 import { ajouterJours, ecartJours, jourSemaine } from "./dates";
 
 export type ResultatRegle = { code: string; ok: boolean; libelle: string };
@@ -15,6 +15,11 @@ export const PROBLEMES: Record<string, string> = {
   repos: "repos consécutifs insuffisants",
   structure: "structure non privée",
   dominante: "hors de la dominante",
+  mineur_jour: "plus de 8 h par jour pour un mineur",
+  mineur_pause: "pause manquante pour un mineur",
+  mineur_nuit: "travail de nuit d'un mineur",
+  mineur_repos: "repos entre deux journées insuffisant pour un mineur",
+  mineur_dimanche: "pas de repos le dimanche pour un mineur",
   convention: "convention incomplète",
 };
 
@@ -22,42 +27,111 @@ export function problemes(res: ResultatRegle[], avecConvention = false): string 
   return res.filter((r) => !r.ok && (avecConvention || r.code !== "convention")).map((r) => PROBLEMES[r.code] ?? r.libelle).join(", ");
 }
 
+/* ------------------------------------------------------------------ */
+/* Signataires de la convention                                          */
+/* ------------------------------------------------------------------ */
+
 export const VERBE_SIGNATURE: Record<Signataire, string> = {
   eleve: "Je signe en tant qu'élève",
   parent: "Je signe en tant que responsable légal",
-  professeur: "Je signe en tant que professeur référent",
   entreprise: "Je signe pour l'entreprise",
+  tuteur: "Je signe en tant que tuteur de stage",
+  professeur: "Je signe en tant que professeur référent",
   direction: "Je signe pour la direction",
 };
 
 export const SIGNATAIRES: { cle: Signataire; libelle: string }[] = [
   { cle: "eleve", libelle: "Élève" },
   { cle: "parent", libelle: "Responsable légal" },
+  { cle: "entreprise", libelle: "Représentant de l'entreprise" },
+  { cle: "tuteur", libelle: "Tuteur de stage" },
   { cle: "professeur", libelle: "Professeur référent" },
-  { cle: "entreprise", libelle: "Entreprise" },
   { cle: "direction", libelle: "Direction" },
 ];
+
+export const libelleSignataire = (k: Signataire) => SIGNATAIRES.find((s) => s.cle === k)!.libelle;
+
+/** Signataires attendus : le responsable légal seulement pour un élève mineur, le tuteur seulement s'il est désigné. */
+export function signatairesAttendus(age: number | null, tuteurDesigne: boolean): Signataire[] {
+  return SIGNATAIRES.map((s) => s.cle).filter((k) => (k !== "parent" || age === null || age < 18) && (k !== "tuteur" || tuteurDesigne));
+}
+
+export function signaturesCompletes(s: Signatures, requis: Signataire[] = SIGNATAIRES.map((x) => x.cle)): boolean {
+  return requis.every((k) => !!s[k]);
+}
+
+/**
+ * Celui qui signe en dernier (professeur référent ou direction, selon le lycée) vérifie la convention :
+ * il ne signe qu'après tous les autres, et seulement un stage conforme. Les autres signent à tout moment.
+ * Renvoie la raison du refus, ou null.
+ */
+export function blocageSignature(qualite: Signataire, requis: Signataire[], signatures: Signatures, dernier: Signataire, conforme: boolean): string | null {
+  if (qualite !== dernier || !requis.includes(dernier)) return null;
+  const manquants = requis.filter((k) => k !== dernier && !signatures[k]);
+  if (manquants.length) return `En attente de : ${manquants.map((k) => libelleSignataire(k).toLowerCase()).join(", ")}.`;
+  if (!conforme) return "Le stage ne respecte pas toutes les règles : corrigez-le avant la dernière signature.";
+  return null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Horaires : une ou deux plages par jour                                */
+/* ------------------------------------------------------------------ */
 
 export function minutes(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;
 }
 
+/** Début et fin d'une plage en minutes depuis le début du jour ; une plage qui passe minuit finit après 1 440. */
+function bornes([debut, fin]: Plage): [number, number] {
+  const d = minutes(debut);
+  let f = minutes(fin);
+  if (f <= d) f += 1440;
+  return [d, f];
+}
+
 /** Durée d'une plage en minutes. Une plage qui finit après minuit (ex. 20:00–02:00) est comptée sur deux jours. */
-function duree([debut, fin]: [string, string]): number {
-  const d = minutes(debut), f = minutes(fin);
-  return f > d ? f - d : f + 1440 - d;
+function duree(p: Plage): number {
+  const [d, f] = bornes(p);
+  return f - d;
+}
+
+/** Les plages d'un jour (lundi = 0), dans l'ordre ; aucune un jour de repos. Accepte aussi l'ancien format à une seule plage. */
+export function plagesDuJour(h: Horaires, i: number): Plage[] {
+  const j = h[i] as unknown;
+  if (!Array.isArray(j) || j.length === 0) return [];
+  const liste = typeof j[0] === "string" ? [j as Plage] : (j as Plage[]);
+  return [...liste].sort((x, y) => minutes(x[0]) - minutes(y[0]));
+}
+
+export function jourTravaille(h: Horaires, i: number): boolean {
+  return plagesDuJour(h, i).length > 0;
+}
+
+export function heuresJour(h: Horaires, i: number): number {
+  return plagesDuJour(h, i).reduce((t, p) => t + duree(p), 0) / 60;
 }
 
 export function heuresHebdo(h: Horaires): number {
-  return h.reduce((t, p) => t + (p ? duree(p) : 0), 0) / 60;
+  let t = 0;
+  for (let i = 0; i < 7; i++) t += heuresJour(h, i);
+  return t;
+}
+
+/** Toutes les plages de la semaine. */
+export function toutesLesPlages(h: Horaires): Plage[] {
+  return [0, 1, 2, 3, 4, 5, 6].flatMap((i) => plagesDuJour(h, i));
+}
+
+/** Texte d'une journée : « 08:30 – 12:00 · 13:00 – 16:30 », ou null un jour de repos. */
+export function texteJour(h: Horaires, i: number): string | null {
+  const p = plagesDuJour(h, i);
+  return p.length ? p.map(([d, f]) => `${d} – ${f}`).join(" · ") : null;
 }
 
 /** Vrai si la plage touche la nuit [nuitDebut, nuitFin[ (ex. 22:00 → 06:00). */
-export function toucheLaNuit([debut, fin]: [string, string], nuitDebut: string, nuitFin: string): boolean {
-  const d = minutes(debut);
-  let f = minutes(fin);
-  if (f <= d) f += 1440; // passe minuit
+export function toucheLaNuit([debut, fin]: Plage, nuitDebut: string, nuitFin: string): boolean {
+  const [d, f] = bornes([debut, fin]);
   const nd = minutes(nuitDebut), nf = minutes(nuitFin);
   // Intervalles de nuit sur deux jours consécutifs, exprimés en minutes depuis le début du jour de la plage
   const nuits: [number, number][] = nd > nf
@@ -68,19 +142,80 @@ export function toucheLaNuit([debut, fin]: [string, string], nuitDebut: string, 
 
 /** Plus longue suite de jours sans horaire, la semaine étant considérée comme cyclique (dimanche → lundi). */
 export function plusLongRepos(h: Horaires): number {
-  if (h.every((p) => !p)) return 7;
+  if ([0, 1, 2, 3, 4, 5, 6].every((i) => !jourTravaille(h, i))) return 7;
   let best = 0;
   for (let i = 0; i < 7; i++) {
     let n = 0;
-    while (n < 7 && !h[(i + n) % 7]) n++;
+    while (n < 7 && !jourTravaille(h, (i + n) % 7)) n++;
     best = Math.max(best, n);
   }
   return best;
 }
 
-export function signaturesCompletes(s: Signatures, requis: Signataire[] = SIGNATAIRES.map((x) => x.cle)): boolean {
-  return requis.every((k) => !!s[k]);
+/* ------------------------------------------------------------------ */
+/* Élèves mineurs (code du travail, article 10 de la convention)          */
+/* ------------------------------------------------------------------ */
+
+export const MINEURS = {
+  heuresParJour: 8,
+  travailSansPauseMinutes: 270, // 4 h 30
+  pauseMinutes: 30,
+  nuitMoins16: ["20:00", "06:00"] as const,
+  nuit16a18: ["22:00", "06:00"] as const,
+  reposQuotidienMoins16: 14,
+  reposQuotidien16a18: 12,
+};
+
+/**
+ * Pause d'un mineur sur une journée : aucune période de travail ininterrompue de plus de 4 h 30 et,
+ * au-delà de 4 h 30 de travail dans la journée, une pause d'au moins 30 minutes consécutives.
+ */
+export function pauseConforme(plages: Plage[]): boolean {
+  const b = plages.map(bornes).sort((x, y) => x[0] - y[0]);
+  if (b.some(([d, f]) => f - d > MINEURS.travailSansPauseMinutes)) return false;
+  const total = b.reduce((t, [d, f]) => t + f - d, 0);
+  if (total <= MINEURS.travailSansPauseMinutes) return true;
+  return b.some(([d], k) => k > 0 && d - b[k - 1][1] >= MINEURS.pauseMinutes);
 }
+
+/** Plus court repos entre deux journées de travail consécutives (en minutes), ou null s'il n'y a jamais deux jours de suite. */
+export function reposQuotidienMinimal(h: Horaires): number | null {
+  let min: number | null = null;
+  for (let i = 0; i < 7; i++) {
+    const j = (i + 1) % 7;
+    if (!jourTravaille(h, i) || !jourTravaille(h, j)) continue;
+    const fin = Math.max(...plagesDuJour(h, i).map((p) => bornes(p)[1]));
+    const debut = Math.min(...plagesDuJour(h, j).map((p) => bornes(p)[0]));
+    const repos = 1440 - fin + debut;
+    min = min === null ? repos : Math.min(min, repos);
+  }
+  return min;
+}
+
+/** Repos hebdomadaire d'un mineur : deux jours consécutifs, dont le dimanche. */
+export function reposHebdoMineur(h: Horaires): boolean {
+  return !jourTravaille(h, 6) && (!jourTravaille(h, 5) || !jourTravaille(h, 0));
+}
+
+function reglesMineurs(h: Horaires, age: number): ResultatRegle[] {
+  const moins16 = age < 16;
+  const travailles = [0, 1, 2, 3, 4, 5, 6].filter((i) => jourTravaille(h, i));
+  const [nd, nf] = moins16 ? MINEURS.nuitMoins16 : MINEURS.nuit16a18;
+  const repos = moins16 ? MINEURS.reposQuotidienMoins16 : MINEURS.reposQuotidien16a18;
+  const rq = reposQuotidienMinimal(h);
+  const qui = moins16 ? "Élève de moins de 16 ans" : "Élève mineur";
+  return [
+    { code: "mineur_jour", ok: travailles.every((i) => heuresJour(h, i) <= MINEURS.heuresParJour), libelle: `${qui} : ${MINEURS.heuresParJour} h de travail par jour au maximum` },
+    { code: "mineur_pause", ok: travailles.every((i) => pauseConforme(plagesDuJour(h, i))), libelle: `${qui} : jamais plus de 4 h 30 sans pause, et une pause d'au moins 30 min au-delà` },
+    { code: "mineur_nuit", ok: !toutesLesPlages(h).some((p) => toucheLaNuit(p, nd, nf)), libelle: `${qui} : aucun travail entre ${nd.slice(0, 2)} h et ${nf.slice(1, 2)} h` },
+    { code: "mineur_repos", ok: rq === null || rq >= repos * 60, libelle: `${qui} : ${repos} h de repos entre deux journées de travail` },
+    { code: "mineur_dimanche", ok: reposHebdoMineur(h), libelle: `${qui} : 2 jours de repos consécutifs, dont le dimanche` },
+  ];
+}
+
+/* ------------------------------------------------------------------ */
+/* Contrôle d'un stage                                                   */
+/* ------------------------------------------------------------------ */
 
 export type ContexteStage = {
   horaires: Horaires;
@@ -89,13 +224,15 @@ export type ContexteStage = {
   domaineEntreprise: string | null;
   dominanteEleve: string | null;
   signatures: Signatures;
-  /** Signataires attendus : sans le responsable légal pour un élève majeur. */
+  /** Signataires attendus : sans le responsable légal pour un élève majeur, avec le tuteur s'il est désigné. */
   signatairesRequis?: Signataire[];
+  /** Âge de l'élève au premier jour du stage (règles des mineurs). */
+  ageAuDebut?: number | null;
 };
 
 export function verifierStage(c: ContexteStage, r: Reglages["regles"]): ResultatRegle[] {
   const total = heuresHebdo(c.horaires);
-  const plages = c.horaires.filter((p): p is [string, string] => !!p);
+  const plages = toutesLesPlages(c.horaires);
   const res: ResultatRegle[] = [
     {
       code: "duree",
@@ -108,7 +245,7 @@ export function verifierStage(c: ContexteStage, r: Reglages["regles"]): Resultat
       libelle: `Aucun horaire de nuit (${r.nuitDebut.replace(":", " h ")} – ${r.nuitFin.replace(":", " h ")})`.replace(/ h 00/g, " h"),
     },
   ];
-  if (r.dimancheInterdit) res.push({ code: "dimanche", ok: !c.horaires[6], libelle: "Pas de stage le dimanche" });
+  if (r.dimancheInterdit) res.push({ code: "dimanche", ok: !jourTravaille(c.horaires, 6), libelle: "Pas de stage le dimanche" });
   if (r.joursReposConsecutifs > 0) {
     res.push({
       code: "repos",
@@ -126,6 +263,7 @@ export function verifierStage(c: ContexteStage, r: Reglages["regles"]): Resultat
       libelle: c.dominanteEleve ? `Stage dans la dominante de l'élève : ${c.dominanteEleve}` : "Stage dans la dominante (dominante de l'élève non renseignée)",
     });
   }
+  if (r.reglesMineurs !== false && c.ageAuDebut != null && c.ageAuDebut < 18) res.push(...reglesMineurs(c.horaires, c.ageAuDebut));
   res.push({
     code: "convention",
     ok: signaturesCompletes(c.signatures, c.signatairesRequis),
@@ -187,7 +325,7 @@ export function statutEleve(p: {
 /** Jours de stage prévus : chaque jour de la période où l'élève a des horaires. */
 export function joursPrevus(h: Horaires, debut: string, fin: string): string[] {
   const jours: string[] = [];
-  for (let d = debut; d <= fin; d = ajouterJours(d, 1)) if (h[jourSemaine(d)]) jours.push(d);
+  for (let d = debut; d <= fin; d = ajouterJours(d, 1)) if (jourTravaille(h, jourSemaine(d))) jours.push(d);
   return jours;
 }
 

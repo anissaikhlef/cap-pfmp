@@ -12,7 +12,7 @@ import { optionsEleve } from "@/lib/options";
 import { elevesSuivis, texteperiode } from "@/lib/requetes";
 import { ageAu, aujourdhui, dateCourte } from "@/lib/dates";
 import { dossierStage, entreprisesDuLycee, demarchesDe } from "@/lib/stages";
-import { ChampsHoraires, ListeRegles, TableHoraires } from "@/components/stage";
+import { ChampsHoraires, ChampsTuteur, ListeRegles, TableHoraires } from "@/components/stage";
 import { Demarches } from "@/components/Demarches";
 import { BlocConvention, BlocFinDeStage, DossierEleve } from "@/components/convention";
 import { enregistrerStage, supprimerStage } from "../stage-actions";
@@ -81,7 +81,7 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
           <div className="grid2">
             <div className="section">
               <p style={{ margin: 0 }}><a href={`/entreprises/${d.entreprise.id}`}><b>{d.entreprise.nom}</b></a> · {d.entreprise.secteur === "prive" ? "privé" : "public"}{d.entreprise.domaine ? ` · ${d.entreprise.domaine}` : ""}</p>
-              <p className="sub" style={{ margin: 0 }}>Tuteur : {d.entreprise.tuteurNom ?? "—"} · {d.entreprise.telephone ?? "pas de mobile"}</p>
+              <p className="sub" style={{ margin: 0 }}>Tuteur : {d.stage.tuteur ? `${d.stage.tuteur.nom} · ${d.stage.tuteur.telephone ?? "pas de mobile"}` : "non désigné"}</p>
               <ListeRegles regles={d.regles} />
             </div>
             <TableHoraires h={d.stage.horaires} />
@@ -101,7 +101,8 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
               </label>
               <p className="sub" style={{ margin: 0 }}>L&apos;entreprise n&apos;est pas dans la liste ? <a href="/entreprises/nouvelle">Ajoutez-la à l&apos;annuaire</a>.</p>
               <ChampsHoraires h={d.stage?.horaires} />
-              {d.stage && Object.keys(d.stage.signatures).length > 0 && <p className="note">Changer d&apos;entreprise ou d&apos;horaires efface les signatures déjà recueillies.</p>}
+              <ChampsTuteur t={d.stage ? d.stage.tuteur : undefined} parDefaut={d.entreprise ? { nom: d.entreprise.tuteurNom, fonction: d.entreprise.tuteurFonction, telephone: d.entreprise.telephone } : null} />
+              {d.stage && Object.keys(d.stage.signatures).length > 0 && <p className="note">Changer d&apos;entreprise, d&apos;horaires ou de tuteur efface les signatures déjà recueillies.</p>}
             </Formulaire>
             {d.stage && (
               <form action={supprimerStage} className="actions" style={{ marginTop: 10 }}>

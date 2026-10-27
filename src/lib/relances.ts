@@ -3,8 +3,10 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { envoyer } from "./messages";
 import { aujourdhui, ecartJours, dateLongue } from "./dates";
-import { signatairesRequis } from "./requetes";
-import { SIGNATAIRES } from "./regles";
+import { chargerConventionEtab } from "./convention";
+import { inviterASigner } from "./invitations";
+import { adresseDuSite } from "./liens";
+import { completerReglages } from "@/db/schema";
 
 /** Jours où l'on relance : avant le départ pour la convention, après la fin pour l'attestation et le livret. */
 export const JOURS_AVANT_DEPART = [7, 3];
@@ -22,8 +24,10 @@ async function dejaFait(etabId: string, cle: string) {
  * Envoie les relances du jour pour un établissement. Sans doublon : chaque relance n'est envoyée qu'une fois
  * (clé stage + objet + jour). Si `classes` est fourni, se limite à ces classes.
  */
-export async function relancesDuJour(etab: Etab, opts: { classes?: string[]; userId?: string | null } = {}) {
+export async function relancesDuJour(etab: Etab, opts: { classes?: string[]; userId?: string | null; base?: string } = {}) {
   const jour = aujourdhui();
+  const etabC = { ...etab, reglages: completerReglages(etab.reglages) };
+  const base = opts.base ?? (await adresseDuSite());
   const conds = [eq(schema.classes.etablissementId, etab.id), eq(schema.classes.anneeScolaire, etab.anneeScolaire)];
   if (opts.classes) { if (!opts.classes.length) return 0; conds.push(inArray(schema.classes.id, opts.classes)); }
   const lignes = await db.select({ s: schema.stages, e: schema.eleves, p: schema.periodes, c: schema.classes, ent: schema.entreprises })
@@ -40,34 +44,15 @@ export async function relancesDuJour(etab: Etab, opts: { classes?: string[]; use
     const avant = ecartJours(jour, l.p.debut);
     const apres = ecartJours(l.p.fin, jour);
 
-    // 1. Convention incomplète avant le départ
+    // 1. Convention incomplète avant le départ : chacun est invité à signer (lien personnel s'il n'a pas de compte).
+    //    La direction signe depuis « À signer » ; le dernier signataire est prévenu quand tous les autres ont signé.
     if (JOURS_AVANT_DEPART.includes(avant)) {
-      const requis = signatairesRequis(l.e.dateNaissance, l.p.debut);
-      const manquants = requis.filter((k) => !l.s.signatures[k] && k !== "direction");
       const cle = `${l.s.id}:convention:${jour}`;
-      if (manquants.length && !(await dejaFait(etab.id, cle))) {
-        const dest: { email: string; prenom: string }[] = [];
-        if (manquants.includes("eleve")) {
-          const [u] = l.e.userId ? await db.select().from(schema.users).where(eq(schema.users.id, l.e.userId)) : [];
-          if (u) dest.push(u); else if (l.e.email) dest.push({ email: l.e.email, prenom: l.e.prenom });
-        }
-        if (manquants.includes("parent")) {
-          const rs = await db.select({ u: schema.users }).from(schema.responsables).innerJoin(schema.users, eq(schema.users.id, schema.responsables.userId)).where(eq(schema.responsables.eleveId, l.e.id));
-          dest.push(...rs.map((r) => r.u));
-        }
-        if (manquants.includes("professeur")) {
-          const refId = l.e.referentId ?? l.c.referentId;
-          const [u] = refId ? await db.select().from(schema.users).where(eq(schema.users.id, refId)) : [];
-          if (u) dest.push(u);
-        }
-        if (manquants.includes("entreprise") && l.ent.email) dest.push({ email: l.ent.email, prenom: l.ent.tuteurNom ?? "Madame, Monsieur" });
-        for (const d of dest) {
-          await envoyer(ctx, {
-            canal: "mail", destinataire: d.email, sujet: `Stage de ${l.e.prenom} ${l.e.nom} dans ${avant} jours : convention à signer`, eleveId: l.e.id, entrepriseId: l.ent.id,
-            corps: `Bonjour ${d.prenom},\n\nLe stage de ${l.e.prenom} ${l.e.nom} chez ${l.ent.nom} commence le ${dateLongue(l.p.debut)}. La convention n'est pas encore signée par : ${manquants.map((k) => SIGNATAIRES.find((s) => s.cle === k)!.libelle.toLowerCase()).join(", ")}.\nSans convention signée, l'élève ne peut pas partir en stage.\n\n${etab.nom}`,
-          });
-          n++;
-        }
+      const cv = await chargerConventionEtab(etabC, l.s.id);
+      const manquants = cv ? cv.requis.filter((k) => !cv.s.signatures[k] && k !== "direction" && k !== etabC.reglages.dernierSignataire) : [];
+      if (cv && manquants.length && !(await dejaFait(etab.id, cle))) {
+        const r = await inviterASigner(ctx, cv, manquants, base, true, `Le stage commence le ${dateLongue(l.p.debut)}, dans ${avant} jours : sans convention signée, l'élève ne peut pas partir en stage.`);
+        n += r.messages;
         await db.insert(schema.journal).values({ etablissementId: etab.id, action: "relance_auto", entite: "stage", entiteId: cle, details: { manquants } });
       }
     }

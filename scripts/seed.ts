@@ -18,9 +18,11 @@ const NOM_LYCEE = "Lycée professionnel de démonstration";
 export const MOT_DE_PASSE_DEMO = "Demo-pfmp-2026";
 const DOMAINE = "demo.cap-pfmp.example";
 
-const STD: Horaires = [["08:00", "15:00"], ["08:00", "15:00"], ["08:00", "15:00"], ["08:00", "15:00"], ["08:00", "12:00"], null, null];
-const NUIT: Horaires = [["14:00", "22:30"], ["14:00", "22:30"], ["14:00", "22:30"], ["14:00", "22:30"], null, null, null];
-const WEEKEND: Horaires = [null, null, ["09:00", "16:00"], ["09:00", "16:00"], ["09:00", "16:00"], ["10:00", "17:00"], ["10:00", "16:00"]];
+// Horaires : une ou deux plages par jour (matin, après-midi), null = repos
+const JOURNEE: [string, string][] = [["08:30", "12:00"], ["13:00", "16:30"]];
+const STD: Horaires = [JOURNEE, JOURNEE, JOURNEE, JOURNEE, [["08:30", "12:00"]], null, null];
+const NUIT: Horaires = [[["14:00", "22:30"]], [["14:00", "22:30"]], [["14:00", "22:30"]], [["14:00", "22:30"]], null, null, null];
+const WEEKEND: Horaires = [null, null, [["09:00", "12:30"], ["13:30", "17:00"]], [["09:00", "12:30"], ["13:30", "17:00"]], [["09:00", "12:30"], ["13:30", "17:00"]], [["10:00", "13:00"], ["14:00", "17:00"]], [["10:00", "13:00"], ["14:00", "16:00"]]];
 
 /** Petit PDF valide d'une page, pour illustrer les documents déposés. */
 function fauxPdf(texte: string): Buffer {
@@ -44,7 +46,7 @@ function fauxPdf(texte: string): Buffer {
 
 const sig = (...qui: (keyof Signatures)[]): Signatures =>
   Object.fromEntries(qui.map((k) => [k, { le: "2026-10-01T10:00:00.000Z", par: null, mode: "papier" as const }]));
-const TOUS = sig("eleve", "parent", "professeur", "entreprise", "direction");
+const TOUS = sig("eleve", "parent", "entreprise", "tuteur", "professeur", "direction");
 
 async function main() {
   if (process.env.NODE_ENV === "production" && process.env.AUTORISER_SEED !== "oui") {
@@ -61,9 +63,9 @@ async function main() {
     await db.delete(schema.etablissements).where(eq(schema.etablissements.id, a.id));
   }
 
-  // Le lycée pilote répartit les visites selon les heures de face à face.
+  // Le lycée pilote répartit les visites selon les heures de face à face ; signature simple ou dessinée ; le référent signe en dernier.
   const [etab] = await db.insert(schema.etablissements).values({
-    nom: NOM_LYCEE, ville: "Ville-démo", anneeScolaire: "2026-2027", reglages: { ...REGLAGES_PAR_DEFAUT, repartition: "heures" },
+    nom: NOM_LYCEE, ville: "Ville-démo", anneeScolaire: "2026-2027", reglages: { ...REGLAGES_PAR_DEFAUT, repartition: "heures", signatureModele: "les2", dernierSignataire: "professeur" },
   }).returning();
   const E = etab.id;
   const hash = await bcrypt.hash(MOT_DE_PASSE_DEMO, 12);
@@ -104,18 +106,23 @@ async function main() {
   const ter = await classe("Tle MS", "TLE", diallo.id, "2026-10-19", "2026-11-13");
 
   const ents = await db.insert(schema.entreprises).values([
-    { nom: "Atlas Sûreté", secteur: "prive" as const, domaine: "Sûreté / gardiennage", ville: "Issy-les-Moulineaux", tuteurNom: "K. Ferhat", tuteurFonction: "Chef de poste", email: `stages@atlas-surete.${DOMAINE}`, telephone: "06 39 98 00 01", placesParDefaut: 3 },
-    { nom: "Garde Ouest Services", secteur: "prive" as const, domaine: "Sûreté / gardiennage", ville: "Boulogne-Billancourt", tuteurNom: "S. Roux", tuteurFonction: "Chef d'équipe", email: `contact@garde-ouest.${DOMAINE}`, telephone: "06 39 98 00 02", placesParDefaut: 2 },
-    { nom: "Héliance Sécurité incendie", secteur: "prive" as const, domaine: "Sécurité incendie", ville: "Montrouge", tuteurNom: "P. Okafor", tuteurFonction: "SSIAP 3", email: `rh@heliance.${DOMAINE}`, telephone: "06 39 98 00 03", placesParDefaut: 2 },
-    { nom: "Centre commercial Les Arcades – PC sécurité", secteur: "prive" as const, domaine: "Sécurité incendie", ville: "Le Kremlin-Bicêtre", tuteurNom: "L. Brun", tuteurFonction: "Responsable sécurité", email: `securite@arcades.${DOMAINE}`, telephone: "06 39 98 00 04", placesParDefaut: 2 },
-    { nom: "Hôpital Saint-Lucien – service sécurité incendie", secteur: "prive" as const, domaine: "Sécurité incendie", ville: "Clamart", tuteurNom: "M. Dupré", tuteurFonction: "SSIAP 2", email: `securite@st-lucien.${DOMAINE}`, telephone: "06 39 98 00 05", placesParDefaut: 1 },
-    { nom: "Évent'Sûr", secteur: "prive" as const, domaine: "Sûreté / gardiennage", ville: "Paris 15e", tuteurNom: "A. Lemaire", tuteurFonction: "Gérant", email: `bonjour@eventsur.${DOMAINE}`, telephone: "06 39 98 00 06", placesParDefaut: 2 },
-    { nom: "Police municipale de Ville-démo", secteur: "public" as const, domaine: "Sécurité publique", ville: "Ville-démo", tuteurNom: "N. Simon", tuteurFonction: "Brigadier-chef", email: `police@ville-demo.${DOMAINE}`, telephone: "06 39 98 00 07", placesParDefaut: 2 },
-    { nom: "Centre de secours de Ville-démo", secteur: "public" as const, domaine: "Sécurité incendie", ville: "Ville-démo", tuteurNom: "R. Morin", tuteurFonction: "Adjudant", email: `secours@ville-demo.${DOMAINE}`, telephone: "06 39 98 00 08", placesParDefaut: 1 },
+    { nom: "Atlas Sûreté", representantNom: "C. Vasseur", representantFonction: "Directrice d'agence", secteur: "prive" as const, domaine: "Sûreté / gardiennage", ville: "Issy-les-Moulineaux", tuteurNom: "K. Ferhat", tuteurFonction: "Chef de poste", email: `stages@atlas-surete.${DOMAINE}`, telephone: "06 39 98 00 01", placesParDefaut: 3 },
+    { nom: "Garde Ouest Services", representantNom: "J. Pereira", representantFonction: "Gérant", secteur: "prive" as const, domaine: "Sûreté / gardiennage", ville: "Boulogne-Billancourt", tuteurNom: "S. Roux", tuteurFonction: "Chef d'équipe", email: `contact@garde-ouest.${DOMAINE}`, telephone: "06 39 98 00 02", placesParDefaut: 2 },
+    { nom: "Héliance Sécurité incendie", representantNom: "M. Lambert", representantFonction: "Responsable des ressources humaines", secteur: "prive" as const, domaine: "Sécurité incendie", ville: "Montrouge", tuteurNom: "P. Okafor", tuteurFonction: "SSIAP 3", email: `rh@heliance.${DOMAINE}`, telephone: "06 39 98 00 03", placesParDefaut: 2 },
+    { nom: "Centre commercial Les Arcades – PC sécurité", representantNom: "F. Girard", representantFonction: "Directeur du centre", secteur: "prive" as const, domaine: "Sécurité incendie", ville: "Le Kremlin-Bicêtre", tuteurNom: "L. Brun", tuteurFonction: "Responsable sécurité", email: `securite@arcades.${DOMAINE}`, telephone: "06 39 98 00 04", placesParDefaut: 2 },
+    { nom: "Hôpital Saint-Lucien – service sécurité incendie", representantNom: "E. Marchand", representantFonction: "Directrice des ressources humaines", secteur: "prive" as const, domaine: "Sécurité incendie", ville: "Clamart", tuteurNom: "M. Dupré", tuteurFonction: "SSIAP 2", email: `securite@st-lucien.${DOMAINE}`, telephone: "06 39 98 00 05", placesParDefaut: 1 },
+    { nom: "Évent'Sûr", representantNom: "A. Lemaire", representantFonction: "Gérant", secteur: "prive" as const, domaine: "Sûreté / gardiennage", ville: "Paris 15e", tuteurNom: "A. Lemaire", tuteurFonction: "Gérant", email: `bonjour@eventsur.${DOMAINE}`, telephone: "06 39 98 00 06", placesParDefaut: 2 },
+    { nom: "Police municipale de Ville-démo", representantNom: "D. Roche", representantFonction: "Chef de service", secteur: "public" as const, domaine: "Sécurité publique", ville: "Ville-démo", tuteurNom: "N. Simon", tuteurFonction: "Brigadier-chef", email: `police@ville-demo.${DOMAINE}`, telephone: "06 39 98 00 07", placesParDefaut: 2 },
+    { nom: "Centre de secours de Ville-démo", representantNom: "B. Fabre", representantFonction: "Capitaine", secteur: "public" as const, domaine: "Sécurité incendie", ville: "Ville-démo", tuteurNom: "R. Morin", tuteurFonction: "Adjudant", email: `secours@ville-demo.${DOMAINE}`, telephone: "06 39 98 00 08", placesParDefaut: 1 },
   ].map((x) => ({ ...x, etablissementId: E }))).returning();
   const ent = (n: string) => ents.find((x) => x.nom.startsWith(n))!.id;
 
   const tuteurAtlas = await compte("Karim", "FERHAT", "k.ferhat", ["entreprise"], { entrepriseId: ent("Atlas") });
+  // Le tuteur désigné pour un stage : celui de la fiche entreprise (avec l'adresse de son compte pour Atlas)
+  const tuteurDe = (n: string) => {
+    const x = ents.find((y) => y.nom.startsWith(n))!;
+    return { nom: x.tuteurNom!, fonction: x.tuteurFonction, email: n === "Atlas" ? tuteurAtlas.email : null, telephone: x.telephone };
+  };
 
   // Heures de face à face par semaine : servent à proposer le nombre de visites de chaque professeur
   const services: [typeof martin, typeof cap, number][] = [
@@ -129,17 +136,17 @@ async function main() {
   type L = { prenom: string; nom: string; k: typeof cap; naissance?: string; dom?: string; stage?: [string, Horaires, Signatures] };
   const eleves: L[] = [
     { prenom: "Inès", nom: "HADDAD", k: sec, naissance: "2010-03-14" },
-    { prenom: "Lucas", nom: "MOREAU", k: sec, naissance: "2010-07-02", stage: ["Atlas", STD, sig("eleve", "parent", "professeur")] },
+    { prenom: "Lucas", nom: "MOREAU", k: sec, naissance: "2010-07-02", stage: ["Atlas", STD, sig("eleve", "parent", "entreprise", "tuteur", "direction")] },
     { prenom: "Aya", nom: "BENKHELIFA", k: sec, naissance: "2010-01-20", stage: ["Police", STD, sig("eleve", "parent")] },
-    { prenom: "Noah", nom: "PETIT", k: sec, naissance: "2010-11-05", stage: ["Garde Ouest", NUIT, sig("eleve", "parent", "professeur", "entreprise")] },
+    { prenom: "Noah", nom: "PETIT", k: sec, naissance: "2010-11-05", stage: ["Garde Ouest", NUIT, sig("eleve", "parent", "entreprise", "tuteur", "direction")] },
     { prenom: "Sarah", nom: "KONÉ", k: pre, naissance: "2009-04-12", dom: "Sécurité incendie", stage: ["Hôpital", STD, TOUS] },
     { prenom: "Mehdi", nom: "RAHMANI", k: pre, naissance: "2009-09-30", dom: "Sécurité publique", stage: ["Police", STD, TOUS] },
     { prenom: "Clara", nom: "NGUYEN", k: pre, naissance: "2009-02-17", dom: "Sûreté / gardiennage", stage: ["Atlas", STD, TOUS] },
     { prenom: "Yanis", nom: "BOUZID", k: pre, naissance: "2009-06-08", dom: "Sécurité incendie", stage: ["Centre commercial", STD, TOUS] },
     { prenom: "Emma", nom: "LAURENT", k: ter, naissance: "2008-05-21", dom: "Sûreté / gardiennage", stage: ["Évent", WEEKEND, TOUS] },
     { prenom: "Adam", nom: "CISSÉ", k: ter, naissance: "2008-08-11", dom: "Sécurité publique", stage: ["Police", STD, TOUS] },
-    { prenom: "Léa", nom: "FONTAINE", k: ter, naissance: "2008-12-03", dom: "Sécurité incendie", stage: ["Héliance", STD, sig("eleve", "parent", "professeur", "entreprise")] },
-    { prenom: "Rayan", nom: "MANSOURI", k: ter, naissance: "2007-09-15", dom: "Sûreté / gardiennage", stage: ["Garde Ouest", STD, sig("eleve", "professeur", "entreprise", "direction")] },
+    { prenom: "Léa", nom: "FONTAINE", k: ter, naissance: "2008-12-03", dom: "Sécurité incendie", stage: ["Héliance", STD, sig("eleve", "parent", "entreprise", "tuteur")] },
+    { prenom: "Rayan", nom: "MANSOURI", k: ter, naissance: "2007-09-15", dom: "Sûreté / gardiennage", stage: ["Garde Ouest", STD, sig("eleve", "entreprise", "tuteur", "direction")] },
     { prenom: "Kenza", nom: "AMRANI", k: cap, naissance: "2010-10-01" },
     { prenom: "Tom", nom: "GIRARD", k: cap, naissance: "2010-02-26" },
     { prenom: "Moussa", nom: "TRAORÉ", k: cap, naissance: "2010-06-19", stage: ["Atlas", STD, sig("eleve")] },
@@ -152,7 +159,7 @@ async function main() {
       dominanteId: l.dom ? dom(l.dom) : null,
     }).returning();
     if (l.stage) {
-      await db.insert(schema.stages).values({ eleveId: e.id, periodeId: l.k.p.id, entrepriseId: ent(l.stage[0]), horaires: l.stage[1], signatures: l.stage[2] });
+      await db.insert(schema.stages).values({ eleveId: e.id, periodeId: l.k.p.id, entrepriseId: ent(l.stage[0]), horaires: l.stage[1], signatures: l.stage[2], tuteur: tuteurDe(l.stage[0]) });
     }
     if (l.prenom === "Inès") {
       const u = await compte("Inès", "HADDAD", "ines.haddad", ["eleve"]);
@@ -188,7 +195,7 @@ async function main() {
       classeId: pre.c.id, eleveId: mehdi.id, libelle: "Rattrapage PFMP 1", debut: "2026-10-26", fin: "2026-10-30", rattrapeId: pre.p.id,
       motif: "absence pour maladie du 12 au 16 octobre pendant la PFMP 1", creeParId: benali.id,
     }).returning();
-    await db.insert(schema.stages).values({ eleveId: mehdi.id, periodeId: r.id, entrepriseId: ent("Police"), horaires: STD, signatures: TOUS });
+    await db.insert(schema.stages).values({ eleveId: mehdi.id, periodeId: r.id, entrepriseId: ent("Police"), horaires: STD, signatures: TOUS, tuteur: tuteurDe("Police") });
   }
 
   // Visites déjà organisées pour les terminales en stage
@@ -228,7 +235,7 @@ async function main() {
   const [pAncienne] = await db.insert(schema.periodes).values({ classeId: ancienne.id, libelle: "PFMP 1", debut: "2025-11-17", fin: "2025-12-12" }).returning();
   const terminales = await db.select().from(schema.eleves).where(eq(schema.eleves.classeId, ter.c.id));
   for (const [i, t] of terminales.entries()) {
-    const [st] = await db.insert(schema.stages).values({ eleveId: t.id, periodeId: pAncienne.id, entrepriseId: ents[(i + 2) % ents.length].id, horaires: STD, signatures: TOUS }).returning();
+    const [st] = await db.insert(schema.stages).values({ eleveId: t.id, periodeId: pAncienne.id, entrepriseId: ents[(i + 2) % ents.length].id, horaires: STD, signatures: TOUS, tuteur: tuteurDe(ents[(i + 2) % ents.length].nom) }).returning();
     for (const ty of ["convention", "attestation", "livret"] as const) await doc(t.nom, ty, "valide", "2025-2026", "1re MS", st.id);
   }
 

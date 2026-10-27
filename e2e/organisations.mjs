@@ -29,12 +29,13 @@ ok(["CAP AS", "2nde MS", "1re MS", "Tle MS"].every((c) => t.includes(c)), "le bu
 const martin = await session("p.martin");
 ok(martin.url().includes("/mes-eleves"), "le référent arrive sur « Mes élèves »");
 ok((await martin.textContent("main")).includes("BENKHELIFA"), "il voit les élèves de sa classe");
-await Promise.all([martin.waitForURL(/\/eleves\/[0-9a-f-]{36}/), martin.click("a.row:has-text('BENKHELIFA')")]);
+// Lucas : toutes les autres parties ont signé, le référent signe en dernier.
+await Promise.all([martin.waitForURL(/\/eleves\/[0-9a-f-]{36}/), martin.click("a.row:has-text('MOREAU')")]);
 ok((await martin.textContent("main")).includes("Consultation"), "la fiche s'ouvre en consultation");
 ok(!(await martin.locator("button:has-text('Enregistrer le stage')").count()), "il ne peut pas modifier le stage");
 await martin.check("input[name=lu]");
 await martin.click("button:has-text('Je signe en tant que professeur référent')");
-ok(await visible(martin.getByText("Signature enregistrée")), "il signe la convention en tant que référent");
+ok(await visible(martin.getByText("Signature enregistrée (professeur référent)")), "il signe la convention en tant que référent");
 await martin.goto(BASE + "/visites");
 ok(!martin.url().includes("/visites") || martin.url().includes("/mes-visites"), "il n'accède pas à la répartition des visites");
 

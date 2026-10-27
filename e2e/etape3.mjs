@@ -13,7 +13,7 @@ let t = await fatou.textContent("main");
 ok(t.includes("Convention de stage") && t.includes("En cours de signature"), "le parent voit la convention en cours");
 await fatou.check("input[name=lu]");
 await fatou.click("button:has-text('Je signe en tant que responsable légal')");
-ok(await visible(fatou.getByText("Signature enregistrée")), "le parent signe en ligne");
+ok(await visible(fatou.getByText("Signature enregistrée (responsable légal)")), "le parent signe en ligne");
 await fatou.setInputFiles("input[name=fichier]", faux);
 await fatou.click("button:has-text('Déposer la convention signée')");
 ok(await visible(fatou.getByText("Format non accepté")), "refuse un fichier déguisé en PDF");
@@ -24,9 +24,11 @@ ok(await visible(fatou.getByText("Document déposé")), "le parent dépose la co
 // Tuteur : signe pour l'entreprise, dépose le livret de Clara (stage terminé)
 const tuteur = await session("k.ferhat");
 const moussa = tuteur.locator(".panel.pad.section", { hasText: "TRAORÉ" }).first();
-await moussa.locator("input[name=lu]").check();
-await moussa.locator("button:has-text(\"Je signe pour l'entreprise\")").click();
-ok(await visible(tuteur.getByText("Signature enregistrée")), "le tuteur signe pour l'entreprise");
+// Le compte du tuteur peut signer pour l'entreprise et en tant que tuteur : on choisit la signature de l'entreprise.
+const formEntreprise = moussa.locator("form", { has: tuteur.locator("button:has-text(\"Je signe pour l'entreprise\")") });
+await formEntreprise.locator("input[name=lu]").check();
+await formEntreprise.locator("button:has-text(\"Je signe pour l'entreprise\")").click();
+ok(await visible(tuteur.getByText("Signature enregistrée (représentant de l'entreprise)")), "le tuteur signe pour l'entreprise");
 await tuteur.reload();
 const clara = tuteur.locator(".panel.pad.section", { hasText: "NGUYEN" }).first();
 const depotLivret = clara.locator(".card", { hasText: "Livret de compétences" });
@@ -75,11 +77,16 @@ const anon = await (await (await import("./outils.mjs")).browser.newContext()).n
 r = await anon.request.get(BASE + lienDoc);
 ok(r.status() === 401, "un visiteur non connecté ne peut rien ouvrir");
 
-// Direction : signe la convention de Léa, ne peut pas signer celle de Noah (horaires de nuit)
+// Le référent signe en dernier (organisation du lycée de démonstration) : la direction signe à tout moment,
+// le référent ne peut pas signer en dernier la convention de Noah (horaires de nuit).
 const dir = await session("direction");
 await dir.goto(BASE + "/a-signer");
 t = await dir.textContent("main");
-ok(t.includes("PETIT") && t.includes("ne respecte pas toutes les règles"), "la direction ne peut pas signer un stage hors règles");
+ok(t.includes("FONTAINE") && t.includes("Le professeur référent signe en dernier"), "la direction peut signer avant le référent");
+const martin = await session("p.martin");
+await martin.goto(BASE + "/eleves?q=petit");
+await Promise.all([martin.waitForURL(/\/eleves\/[0-9a-f-]{36}/), martin.click("a.row:has-text('PETIT')")]);
+ok((await martin.textContent("main")).includes("ne respecte pas toutes les règles"), "le référent ne peut pas signer en dernier un stage hors règles");
 const lea = dir.locator(".row", { hasText: "FONTAINE" }).filter({ hasText: "prête à signer" });
 await lea.locator("button:has-text('Signer')").click();
 await dir.waitForTimeout(1500);

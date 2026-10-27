@@ -48,8 +48,8 @@ export default async function Visite({ params }: { params: Promise<{ id: string 
           <dl className="kv">
             <dt>Entreprise</dt><dd>{l.ent.nom}</dd>
             <dt>Adresse</dt><dd>{[l.ent.adresse, l.ent.ville].filter(Boolean).join(", ") || "—"}</dd>
-            <dt>Tuteur</dt><dd>{l.ent.tuteurNom ?? "—"}{l.ent.tuteurFonction ? `, ${l.ent.tuteurFonction}` : ""}</dd>
-            <dt>Mobile</dt><dd className="num" style={{ userSelect: "all" }}>{l.ent.telephone ?? "—"}</dd>
+            <dt>Tuteur</dt><dd>{l.s.tuteur ? `${l.s.tuteur.nom}${l.s.tuteur.fonction ? `, ${l.s.tuteur.fonction}` : ""}` : `${l.ent.tuteurNom ?? "—"}${l.ent.tuteurFonction ? `, ${l.ent.tuteurFonction}` : ""}`}</dd>
+            <dt>Mobile</dt><dd className="num" style={{ userSelect: "all" }}>{l.s.tuteur?.telephone ?? l.ent.telephone ?? "—"}</dd>
             <dt>Visiteur</dt><dd>{u ? `${u.prenom} ${u.nom}` : "Pas encore attribué"}</dd>
             <dt>Date</dt><dd>{l.v.date ? `${dateLongue(l.v.date)}${l.v.heure ? ` à ${l.v.heure.replace(":", "h")}` : ""}` : "À fixer"}</dd>
           </dl>
@@ -127,7 +127,7 @@ export default async function Visite({ params }: { params: Promise<{ id: string 
               <div className="grid3">
                 <label className="f" htmlFor="cr-date">Date de la visite<input id="cr-date" name="date" type="date" defaultValue={l.v.date ?? jour} max={jour} required /></label>
                 <label className="f" htmlFor="cr-mode">Modalité<select id="cr-mode" name="mode" defaultValue={l.v.mode}><option value="presentiel">Sur place</option><option value="distanciel">À distance</option></select></label>
-                <label className="f" htmlFor="cr-pers">Personne rencontrée<input id="cr-pers" name="personneRencontree" defaultValue={l.ent.tuteurNom ?? ""} required /></label>
+                <label className="f" htmlFor="cr-pers">Personne rencontrée<input id="cr-pers" name="personneRencontree" defaultValue={l.s.tuteur?.nom ?? l.ent.tuteurNom ?? ""} required /></label>
               </div>
               <div className="grid2">
                 {CRITERES.map(([k, lib]) => (

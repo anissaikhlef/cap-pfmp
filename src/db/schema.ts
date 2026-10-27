@@ -18,7 +18,12 @@ export type Reglages = {
    * heures : nombre de visites de chaque professeur en proportion de ses heures de face à face, puis chacun choisit ses lieux de stage.
    */
   repartition: "auto" | "heures";
+  /** Convention signée en ligne, sur papier puis déposée, ou les deux. */
   signature: "enligne" | "papier" | "les2";
+  /** En ligne : signature simple (case et bouton), signature dessinée au doigt, ou les deux au choix du signataire. */
+  signatureModele: "simple" | "dessinee" | "les2";
+  /** Qui signe en dernier, après avoir vérifié la convention : le professeur référent ou la direction. */
+  dernierSignataire: "professeur" | "direction";
   ordreMission: boolean;
   compteRendu: boolean;
   regles: {
@@ -28,6 +33,8 @@ export type Reglages = {
     nuitFin: string; // "06:00"
     dimancheInterdit: boolean;
     joursReposConsecutifs: number;
+    /** Règles du code du travail pour les élèves mineurs (article 10 de la convention). */
+    reglesMineurs: boolean;
   };
 };
 
@@ -36,9 +43,11 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   visiteurs: "equipe",
   repartition: "auto",
   signature: "les2",
+  signatureModele: "simple",
+  dernierSignataire: "direction",
   ordreMission: true,
   compteRendu: true,
-  regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2 },
+  regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2, reglesMineurs: true },
 };
 
 /** Réglages enregistrés complétés par les valeurs par défaut : un lycée créé avant l'ajout d'un réglage le reçoit ainsi. */
@@ -46,11 +55,28 @@ export function completerReglages(r: Partial<Reglages> | null | undefined): Regl
   return { ...REGLAGES_PAR_DEFAUT, ...(r ?? {}), regles: { ...REGLAGES_PAR_DEFAUT.regles, ...(r?.regles ?? {}) } };
 }
 
-/** Une plage par jour, du lundi (0) au dimanche (6). null = repos. */
-export type Horaires = ([string, string] | null)[];
+/** Une plage horaire : début et fin, « HH:MM ». */
+export type Plage = [string, string];
+/** Du lundi (0) au dimanche (6) : une ou deux plages par jour (matin, après-midi). null = repos. */
+export type Horaires = (Plage[] | null)[];
 
-export type Signataire = "eleve" | "parent" | "professeur" | "entreprise" | "direction";
-export type Signatures = Partial<Record<Signataire, { le: string; par: string | null; mode: "enligne" | "papier" }>>;
+/** Tuteur de stage désigné dans l'entreprise pour ce stage. */
+export type Tuteur = { nom: string; fonction: string | null; email: string | null; telephone: string | null };
+
+export type Signataire = "eleve" | "parent" | "entreprise" | "tuteur" | "professeur" | "direction";
+export type Signature = {
+  le: string;
+  par: string | null;
+  mode: "enligne" | "papier";
+  /** simple : case et bouton · dessinee : signature manuscrite dessinée au doigt (image enregistrée) */
+  modele?: "simple" | "dessinee";
+  /** Clé de stockage de l'image de la signature dessinée. */
+  image?: string;
+  /** Nom indiqué par la personne qui a signé avec un lien personnel, sans compte. */
+  nom?: string;
+  lien?: boolean;
+};
+export type Signatures = Partial<Record<Signataire, Signature>>;
 
 export type CompteRendu = {
   date: string;
@@ -88,6 +114,10 @@ export const entreprises = pgTable("entreprises", {
   email: text("email"),
   telephone: text("telephone"),
   placesParDefaut: integer("places_par_defaut").notNull().default(0),
+  /** Personne qui signe les conventions pour l'entreprise. */
+  representantNom: text("representant_nom"),
+  representantFonction: text("representant_fonction"),
+  representantEmail: text("representant_email"),
   notesInternes: text("notes_internes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("entreprises_etab_idx").on(t.etablissementId)]);
@@ -210,8 +240,29 @@ export const stages = pgTable("stages", {
   entrepriseId: uuid("entreprise_id").notNull().references(() => entreprises.id, { onDelete: "restrict" }),
   horaires: jsonb("horaires").$type<Horaires>().notNull(),
   signatures: jsonb("signatures").$type<Signatures>().notNull().default({}),
+  /** Tuteur désigné pour ce stage ; vide si aucun tuteur n'est désigné (il ne signe alors pas la convention). */
+  tuteur: jsonb("tuteur").$type<Tuteur>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("stages_eleve_periode_idx").on(t.eleveId, t.periodeId), index("stages_entreprise_idx").on(t.entrepriseId)]);
+
+/**
+ * Liens personnels envoyés par mail ou SMS à ceux qui n'ont pas de compte : signer une convention,
+ * répondre à la campagne de rentrée. Seule l'empreinte du jeton est enregistrée ; le lien expire.
+ */
+export const liensAcces = pgTable("liens_acces", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  jeton: text("jeton").notNull(),
+  objet: text("objet").$type<"signature" | "campagne">().notNull(),
+  stageId: uuid("stage_id").references(() => stages.id, { onDelete: "cascade" }),
+  qualite: text("qualite").$type<Signataire>(),
+  entrepriseId: uuid("entreprise_id").references(() => entreprises.id, { onDelete: "cascade" }),
+  destinataire: text("destinataire").notNull(),
+  expireLe: timestamp("expire_le", { withTimezone: true }).notNull(),
+  utiliseLe: timestamp("utilise_le", { withTimezone: true }),
+  creeParId: uuid("cree_par_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("liens_acces_jeton_idx").on(t.jeton), index("liens_acces_stage_idx").on(t.stageId)]);
 
 export type TypeDocument = "convention" | "attestation" | "livret" | "ordre_mission" | "compte_rendu" | "justificatif" | "autre";
 

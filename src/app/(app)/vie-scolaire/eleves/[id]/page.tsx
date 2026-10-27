@@ -61,7 +61,7 @@ export default async function FicheVieScolaire({ params }: { params: Promise<{ i
                   <div className="meta">Du {dateLongue(p.debut)} au {dateLongue(p.fin)}{p.motif ? ` · motif : ${p.motif}` : ""}</div>
                   <div className="meta">
                     {lieu
-                      ? `${lieu.ent.nom}${lieu.ent.ville ? `, ${lieu.ent.ville}` : ""}${lieu.ent.tuteurNom ? ` · tuteur ${lieu.ent.tuteurNom}` : ""}${lieu.ent.telephone ? ` · ${lieu.ent.telephone}` : ""}`
+                      ? `${lieu.ent.nom}${lieu.ent.ville ? `, ${lieu.ent.ville}` : ""}${lieu.s.tuteur ? ` · tuteur ${lieu.s.tuteur.nom}${lieu.s.tuteur.telephone ? `, ${lieu.s.tuteur.telephone}` : ""}` : lieu.ent.telephone ? ` · ${lieu.ent.telephone}` : ""}`
                       : "Aucun lieu de stage enregistré : l'élève est attendu au lycée."}
                   </div>
                   {lieu && <details style={{ marginTop: 6 }}><summary className="btn small">Horaires</summary><TableHoraires h={lieu.s.horaires} /></details>}

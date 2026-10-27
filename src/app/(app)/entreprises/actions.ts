@@ -22,6 +22,9 @@ const EntrepriseSchema = z.object({
   telephone: z.string().trim().max(30).optional(),
   placesParDefaut: z.coerce.number().int().min(0).max(50),
   notesInternes: z.string().trim().max(2000).optional(),
+  representantNom: z.string().trim().max(80).optional(),
+  representantFonction: z.string().trim().max(80).optional(),
+  representantEmail: z.union([z.string().trim().toLowerCase().email("Adresse e-mail du représentant invalide"), vide]).optional(),
 });
 
 function valeurs(v: z.infer<typeof EntrepriseSchema>) {
@@ -29,6 +32,7 @@ function valeurs(v: z.infer<typeof EntrepriseSchema>) {
     nom: v.nom, secteur: v.secteur, domaine: v.domaine || null, adresse: v.adresse || null, ville: v.ville || null,
     tuteurNom: v.tuteurNom || null, tuteurFonction: v.tuteurFonction || null, email: v.email || null,
     telephone: v.telephone || null, placesParDefaut: v.placesParDefaut, notesInternes: v.notesInternes || null,
+    representantNom: v.representantNom || null, representantFonction: v.representantFonction || null, representantEmail: v.representantEmail || null,
   };
 }
 

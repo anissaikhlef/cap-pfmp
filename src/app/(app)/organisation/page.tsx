@@ -68,6 +68,18 @@ export default async function Organisation() {
             ["enligne", "En ligne", "Chaque partie signe dans l'application (prestataire de signature à brancher)."],
             ["les2", "Les deux possibles"],
           ]} />
+          <b>Signature en ligne</b>
+          <Choix nom="signatureModele" valeur={r.signatureModele} options={[
+            ["simple", "Signature simple", "La personne coche « J'ai lu la convention » puis clique sur « Je signe »."],
+            ["dessinee", "Signature dessinée", "La personne dessine sa signature au doigt sur l'écran ; elle apparaît sur la convention."],
+            ["les2", "Les deux, au choix de chaque signataire"],
+          ]} />
+          <b>Qui signe en dernier, après avoir vérifié la convention ?</b>
+          <Choix nom="dernierSignataire" valeur={r.dernierSignataire} options={[
+            ["professeur", "Le professeur référent", "La direction peut signer à tout moment."],
+            ["direction", "La direction", "Le professeur référent peut signer à tout moment."],
+          ]} />
+          <p className="sub" style={{ margin: 0 }}>Celui qui signe en dernier ne peut le faire que lorsque toutes les autres parties ont signé et que le stage respecte les règles.</p>
         </div>
         <div className="panel pad section">
           <h2>Visites</h2>
@@ -89,6 +101,12 @@ export default async function Organisation() {
             <label className="f" htmlFor="nuitFin">jusqu&apos;à<input id="nuitFin" name="nuitFin" type="time" defaultValue={r.regles.nuitFin} /></label>
             <label className="f" htmlFor="dimancheInterdit">Stage le dimanche
               <select id="dimancheInterdit" name="dimancheInterdit" defaultValue={on(r.regles.dimancheInterdit)}><option value="oui">Interdit</option><option value="non">Autorisé</option></select>
+            </label>
+            <label className="f" htmlFor="reglesMineurs" style={{ gridColumn: "1 / -1" }}>Élèves mineurs (code du travail)
+              <select id="reglesMineurs" name="reglesMineurs" defaultValue={on(r.regles.reglesMineurs)}>
+                <option value="oui">Contrôler : 8 h par jour, pause après 4 h 30, pas de nuit, repos entre deux journées, dimanche</option>
+                <option value="non">Ne pas contrôler</option>
+              </select>
             </label>
           </div>
         </div>
