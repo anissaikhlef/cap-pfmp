@@ -101,7 +101,8 @@ export async function lireSourcesMaintenant(fd: FormData) {
   const r = (await veilleDeLaSemaine({ maintenant: true }))!;
   await journaliser(ctx, "veille_lecture", "plateforme", "cap-pfmp", r);
   revalidatePath("/admin/veille");
-  if (!r.lues) revenirAvec(fd, `Cap Veille n'a pu lire aucune des ${r.pages} source(s) : adresse à vérifier, ou site momentanément indisponible.`, "err");
+  if (!r.lues) revenirAvec(fd, `Cap Veille n'a pu lire aucune source. ${r.echecs.join(" ; ")}.`, "err");
   if (r.erreur) revenirAvec(fd, `${r.preparees} alerte(s) préparée(s). ${r.erreur}`, "err");
-  revenirAvec(fd, r.preparees ? `Cap Veille a préparé ${r.preparees} alerte(s) à relire.` : `Cap Veille a lu ${r.lues} source(s) : aucun nouveau texte sur les stages.`);
+  const detail = `${r.liens} lien(s) officiel(s) trouvé(s), dont ${r.surLesStages} sur les stages${r.echecs.length ? ` ; non lue(s) : ${r.echecs.join(" ; ")}` : ""}`;
+  revenirAvec(fd, r.preparees ? `Cap Veille a préparé ${r.preparees} alerte(s) à relire (${detail}).` : `Cap Veille a lu ${r.lues} source(s) : aucun nouveau texte sur les stages (${detail}).`);
 }

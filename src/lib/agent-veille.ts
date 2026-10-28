@@ -83,12 +83,25 @@ const UNE_SEMAINE_MS = 7 * 24 * 3600 * 1000;
 /** Au plus ce nombre de nouveaux textes lus à chaque passage (chacun est une demande à l'IA). */
 const MAX_TEXTES = 5;
 
-async function lire(url: string): Promise<string | null> {
+/** Lit une page officielle ; en cas d'échec, dit pourquoi en mots simples (pour l'administration). */
+async function lire(url: string): Promise<{ texte: string } | { raison: string }> {
   try {
-    const r = await fetch(url, { signal: AbortSignal.timeout(8000), headers: { "user-agent": "Cap PFMP (veille reglementaire)", accept: "text/html,application/rss+xml,application/xml" } });
-    return r.ok ? await r.text() : null;
-  } catch {
-    return null;
+    const r = await fetch(url, {
+      signal: AbortSignal.timeout(15000), redirect: "follow",
+      headers: {
+        "user-agent": "Mozilla/5.0 (compatible; CapPFMP-Veille/1.0; veille reglementaire des PFMP)",
+        accept: "text/html,application/xhtml+xml,application/rss+xml,application/xml;q=0.9,*/*;q=0.8", "accept-language": "fr-FR,fr;q=0.9",
+      },
+    });
+    if (r.ok) return { texte: await r.text() };
+    if (r.status === 404 || r.status === 410) return { raison: `page introuvable (réponse ${r.status}) : l'adresse a changé` };
+    if (r.status === 401 || r.status === 403 || r.status === 429) return { raison: `le site refuse la lecture automatique (réponse ${r.status})` };
+    return { raison: `le site a répondu par une erreur (réponse ${r.status})` };
+  } catch (e) {
+    const nom = e instanceof Error ? e.name : "";
+    if (nom === "TimeoutError" || nom === "AbortError") return { raison: "le site n'a pas répondu à temps" };
+    const cause = e instanceof Error && e.cause instanceof Error ? e.cause.message : e instanceof Error ? e.message : String(e);
+    return { raison: `connexion impossible (${cause.slice(0, 120)})` };
   }
 }
 
@@ -103,17 +116,22 @@ export async function veilleDeLaSemaine(opts: { maintenant?: boolean } = {}) {
   const pages = p?.veillePages.length ? p.veillePages : PAGES_VEILLE_PAR_DEFAUT;
   const vus = new Set(p?.veilleVus ?? []);
   const dejaAlertes = new Set((await db.select({ s: schema.alertesVeille.source }).from(schema.alertesVeille)).map((x) => x.s));
-  let lues = 0, trouves = 0, preparees = 0;
+  let lues = 0, trouves = 0, preparees = 0, liens = 0, surLesStages = 0;
   let erreur: string | null = null;
+  const echecs: string[] = [];
   for (const page of pages) {
-    const contenu = await lire(page);
-    if (contenu === null) continue;
+    const lu = await lire(page);
+    if ("raison" in lu) { echecs.push(`${page} : ${lu.raison}`); continue; }
     lues++;
-    const nouveaux = liensDePage(contenu, page).filter((l) => concerneLesPfmp(l.titre) && !vus.has(l.url) && !dejaAlertes.has(l.url));
+    const tous = liensDePage(lu.texte, page);
+    liens += tous.length;
+    const stages = tous.filter((l) => concerneLesPfmp(l.titre));
+    surLesStages += stages.length;
+    const nouveaux = stages.filter((l) => !vus.has(l.url) && !dejaAlertes.has(l.url));
     trouves += nouveaux.length;
     for (const l of nouveaux.slice(0, Math.max(0, MAX_TEXTES - preparees))) {
       const html = await lire(l.url);
-      const texte = html ? texteDePage(html) : "";
+      const texte = "texte" in html ? texteDePage(html.texte) : "";
       if (texte.length < 200) continue;
       const r = await preparerAlerte(null, { titre: l.titre.slice(0, 200), source: l.url, texte });
       if (!r.ok) { erreur = r.erreur; break; }
@@ -136,5 +154,5 @@ export async function veilleDeLaSemaine(opts: { maintenant?: boolean } = {}) {
       });
     }
   }
-  return { pages: pages.length, lues, trouves, preparees, erreur };
+  return { pages: pages.length, lues, liens, surLesStages, trouves, preparees, erreur, echecs };
 }
