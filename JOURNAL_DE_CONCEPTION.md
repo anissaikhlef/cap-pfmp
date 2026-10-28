@@ -408,3 +408,18 @@ Même décision d'Anissa que pour l'attestation : le tuteur remplit le livret av
 2. **Livret validé d'office** une fois signé (pas de jours à comparer, contrairement à l'attestation).
 3. **Rappel quotidien de l'élève** : il pourra lui rappeler de remplir son carnet de bord pendant le stage, si Anissa le souhaite.
 4. **Livret papier du lycée** : comme pour l'attestation, en attente de sa réponse (1, 2 ou 3) sur ses PDF sans champs.
+
+## 28 octobre 2026 : agents IA et abonnement (modifie la décision 7 du 27 octobre)
+
+Anissa : « l'application doit avoir trois agents IA comme prévu […] il faut donc une IA toujours et le prix va changer en fonction des niveaux d'intervention des IA », puis « l'agent 1 est obligatoire, le 2 et le 3, c'est le lycée qui sélectionne ce qu'il veut ».
+
+- **Plus d'abonnement sans IA** : chaque lycée a toujours l'agent 1.
+- **Agent 1, obligatoire** : l'agent administratif (mails et relances aux élèves, aux familles et aux entreprises, validés selon l'organisation du lycée).
+- **Agents 2 et 3, au choix du lycée** : l'agent de veille réglementaire, et l'agent de recherche d'entreprises (lieux de stage, relecture des CV). Le lycée peut prendre l'un, l'autre, les deux, ou aucun.
+- **Prix** : il dépend des agents choisis (agent 1 seul, agent 1 + un agent, ou les trois). Les formules « Essentiel / Plus / Complet » du 27 octobre sont abandonnées.
+- Les autres décisions sur les agents (données des élèves cachées à l'IA, validation par une personne, marque Cap PFMP) restent valables.
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Qui choisit les agents 2 et 3** : le DDFPT ou la direction, dans « Organisation » ; le changement prend effet au mois suivant, pour la facturation.
+2. **Montants** : fixés par Anissa depuis son compte administrateur de Cap PFMP, pour chaque combinaison d'agents.
