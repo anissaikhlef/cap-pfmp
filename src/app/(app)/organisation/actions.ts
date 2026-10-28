@@ -55,7 +55,7 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
   if (v.ordreMission === "oui" && !signatairesOrdreMission.length) return { erreur: "Ordre de mission : cochez qui le signe (la direction, la gestion des PFMP, ou les deux)." };
   const reglages: Reglages = {
     // Ce qui se règle ailleurs (barème des frais) est gardé tel quel.
-    frais: ctx.etab.reglages.frais,
+    frais: ctx.etab.reglages.frais, agents: ctx.etab.reglages.agents,
     gestion: v.gestion, visiteurs: v.visiteurs, repartition: v.repartition, signature: v.signature,
     signatureModele: v.signatureModele, dernierSignataire: v.dernierSignataire,
     ordreMission: v.ordreMission === "oui", signatairesOrdreMission: signatairesOrdreMission.length ? [...signatairesOrdreMission] : ["direction"],
@@ -92,4 +92,21 @@ export async function supprimerDominante(fd: FormData) {
   const id = z.string().uuid().parse(fd.get("id"));
   await db.delete(schema.dominantes).where(and(eq(schema.dominantes.id, id), eq(schema.dominantes.etablissementId, ctx.etab.id)));
   revalidatePath("/organisation");
+}
+
+/** Les agents IA du lycée : l'agent 1 toujours ; les agents 2 et 3 au choix (DDFPT ou direction). */
+export async function enregistrerAgents(_: Etat, fd: FormData): Promise<Etat> {
+  const ctx = await contexte({ roles: ["direction", "gestionnaire"] });
+  const p = z.object({
+    sansStageJours: z.coerce.number().int().min(0, "Élèves sans stage : entre 0 et 60 jours").max(60, "Élèves sans stage : entre 0 et 60 jours"),
+    absencesMail: z.coerce.number().int().min(0, "Absences : entre 0 et 10").max(10, "Absences : entre 0 et 10"),
+  }).safeParse(Object.fromEntries(fd));
+  if (!p.success) return { erreur: p.error.issues[0]?.message ?? "Valeurs invalides." };
+  const agents = { veille: fd.get("veille") === "on", entreprises: fd.get("entreprises") === "on", ...p.data };
+  const avant = ctx.etab.reglages.agents;
+  await db.update(schema.etablissements).set({ reglages: { ...ctx.etab.reglages, agents } }).where(eq(schema.etablissements.id, ctx.etab.id));
+  await journaliser(ctx, "agents_choisis", "etablissement", ctx.etab.id, { avant, apres: agents });
+  revalidatePath("/", "layout");
+  const change = avant.veille !== agents.veille || avant.entreprises !== agents.entreprises;
+  return { ok: change ? "Agents enregistrés. Ils sont disponibles tout de suite ; le nouveau montant s'applique à partir du mois prochain." : "Réglages des agents enregistrés." };
 }

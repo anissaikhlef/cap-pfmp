@@ -149,9 +149,10 @@ export function signatairesRequis(dateNaissance: string | null, auJour: string, 
 }
 
 export async function equipe(ctx: Contexte) {
-  return db.select().from(schema.users)
+  // Le compte de l'administration de Cap PFMP n'appartient pas à l'équipe du lycée.
+  return (await db.select().from(schema.users)
     .where(eq(schema.users.etablissementId, ctx.etab.id))
-    .orderBy(asc(schema.users.nom), asc(schema.users.prenom));
+    .orderBy(asc(schema.users.nom), asc(schema.users.prenom))).filter((u) => !u.roles.includes("admin"));
 }
 
 export async function professeurs(ctx: Contexte) {

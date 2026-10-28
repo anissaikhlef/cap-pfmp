@@ -41,7 +41,8 @@ export async function creerMembre(_: Etat, fd: FormData): Promise<Etat> {
 
 async function membreDuLycee(ctxEtab: string, id: string) {
   const [u] = await db.select().from(schema.users).where(and(eq(schema.users.id, id), eq(schema.users.etablissementId, ctxEtab))).limit(1);
-  return u;
+  // Le compte de l'administration de Cap PFMP n'est jamais géré par un lycée (ni mot de passe, ni désactivation).
+  return u?.roles.includes("admin") ? undefined : u;
 }
 
 export async function reinitialiserMotDePasse(_: Etat, fd: FormData): Promise<Etat> {

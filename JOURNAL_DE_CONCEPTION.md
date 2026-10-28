@@ -461,3 +461,24 @@ Sur les décisions d'Anissa du 27 octobre : visite guidée et bouton « ? », ly
 
 1. **Remettre à zéro** le lycée d'entraînement efface aussi ses missions réussies (l'attestation déjà obtenue se refait en refaisant les missions).
 2. **Élèves, parents et entreprises** : la visite guidée et l'aide « ? » suffisent, sans lycée d'entraînement ni quiz.
+
+## 28 octobre 2026 : lot 7, les trois agents IA
+
+Mise en œuvre des décisions d'Anissa : « l'agent 1 est obligatoire, le 2 et le 3, c'est le lycée qui sélectionne ce qu'il veut » ; le prix dépend des agents choisis ; l'IA ne voit aucun nom ; rien ne part sans validation d'une personne ; les agents portent la marque Cap PFMP.
+
+- **Agent 1, Cap Admin (inclus pour tous les lycées)** : chaque matin, il repère les élèves toujours sans stage à l'approche de leur période et les absences répétées non justifiées, et rédige le mail à la famille. L'équipe peut aussi lui demander un mail depuis la fiche d'un élève (pour la famille ou le tuteur). Les mails attendent dans « Mails à valider » : « Envoyer », « Modifier » ou « Ne pas envoyer ». Ils sont validés par le professeur référent de la classe de l'élève ; la gestion des PFMP peut tous les valider. Le mail envoyé porte la mention « Message préparé avec Cap Admin […] et relu par » la personne qui l'a validé. Les rappels automatiques déjà en place partent toujours seuls.
+- **Agent 2, Cap Veille (au choix)** : l'administration de Cap PFMP colle un texte officiel (Bulletin officiel, Légifrance, Éduscol, Service public, ministère du Travail : aucune autre source acceptée) ; Cap Veille le résume et propose des changements ; l'administration relit, corrige, puis publie. L'alerte arrive dans « Veille » chez chaque lycée qui a choisi Cap Veille, avec un mail à la direction et à la gestion des PFMP. Pour chaque proposition, le lycée note « C'est fait » ou « Pas pour nous » : rien ne change tout seul.
+- **Agent 3, Cap Partenaires (au choix)** : pour un élève sans stage, il propose jusqu'à 5 lieux (annuaire du lycée avec places libres et règles de la classe, puis annuaire public des entreprises), classés sur des faits (domaine proche de la formation, places libres, entreprise qui accueille déjà des élèves, ville), en écartant les entreprises déjà contactées ; la note de partenariat compte dans le classement sans jamais être montrée à l'élève. Il relit le CV : points forts, points à améliorer, un conseil. L'élève s'en sert dans « Mon stage », l'équipe sur la fiche de l'élève.
+- **Choix et montant** : dans « Organisation », « Agents IA », le DDFPT ou la direction coche Cap Veille et Cap Partenaires et voit le montant de sa formule ; le changement est immédiat, le montant compte à partir du mois suivant.
+- **Administration de Cap PFMP** (compte `admin`) : montant de chaque formule (Cap Admin seul, avec Cap Veille, avec Cap Partenaires, les trois), plafond de demandes par mois et par lycée pour Cap Admin et Cap Partenaires (au-delà, l'agent s'arrête jusqu'au mois suivant), liste des lycées avec leur formule, leur montant et leur usage du mois.
+- **Données** : l'IA reçoit « [ÉLÈVE] » à la place du nom et du prénom (même dans une demande écrite par l'équipe) ; Cap PFMP remet le prénom au retour. Le CV est envoyé sans nom, adresse, téléphone, mail ni date de naissance. Le journal d'usage ne garde aucun texte.
+- **Sans clé d'IA** (démonstration) et toujours dans le lycée d'entraînement : les agents répondent avec des textes d'exemple préparés par l'application, signalés comme tels.
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Seuils de Cap Admin** : mail à la famille d'un élève sans stage 15 jours avant la période, et à partir de 2 absences non justifiées pendant un stage ; réglables par le lycée.
+2. **Élève dont aucun responsable n'a de compte** : Cap Admin écrit à l'élève lui-même (en le tutoyant).
+3. **Montants de démonstration** : 49 €, 69 €, 79 € et 99 € par mois, fictifs, à remplacer par les montants d'Anissa dans « Administration ».
+4. **Plafonds par défaut** : 400 demandes par mois pour Cap Admin, 300 pour Cap Partenaires.
+5. **Annuaire public des entreprises** : recherche-entreprises.api.gouv.fr (gratuit, sans compte) ; « La bonne boîte » de France Travail demande une inscription, à faire par Anissa si elle le souhaite.
+6. **Surveillance automatique des sources officielles** : pour l'instant, l'administration colle le texte ; une lecture automatique du Bulletin officiel pourra suivre.

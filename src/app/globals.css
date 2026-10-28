@@ -192,3 +192,8 @@ details[open] > summary { margin-bottom: 10px; }
 .bandeau-entrainement .btn { background: rgba(255, 255, 255, .92); color: #2e1065; border-color: transparent; }
 .bandeau-entrainement .btn.primary { background: var(--accent); color: var(--accent-ink); }
 .bandeau-entrainement .btn:disabled { opacity: .55; }
+
+/* Agents IA : texte d'un mail préparé, alertes de veille, propositions */
+.corps-mail { white-space: pre-wrap; font-family: inherit; font-size: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 8px 0; max-width: 100%; overflow-wrap: anywhere; }
+.agent-ia { border-left: 3px solid #6d4bd8; }
+.agent-ia .marque { font-weight: 600; color: #6d4bd8; }

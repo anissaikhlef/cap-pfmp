@@ -71,7 +71,26 @@ export type Reglages = {
      */
     attestationAvant: number;
   };
+  /**
+   * Agents IA (décision d'Anissa : « l'agent 1 est obligatoire, le 2 et le 3, c'est le lycée qui sélectionne ce qu'il veut ») :
+   * l'agent administratif (Cap Admin) est toujours là ; veille réglementaire (Cap Veille) et recherche d'entreprises (Cap Partenaires) au choix.
+   */
+  agents: {
+    veille: boolean;
+    entreprises: boolean;
+    /** Cap Admin propose un mail à la famille d'un élève toujours sans stage à partir de ce nombre de jours avant la période (0 : jamais). */
+    sansStageJours: number;
+    /** Cap Admin propose un mail à la famille à partir de ce nombre d'absences non justifiées pendant un stage (0 : jamais). */
+    absencesMail: number;
+  };
 };
+
+/** Les agents IA de Cap PFMP. */
+export type Agent = "administratif" | "veille" | "entreprises";
+/** Prix mensuel (en euros) de chaque formule, fixé par l'administration de Cap PFMP. */
+export type Tarifs = { seul: number; veille: number; entreprises: number; complet: number };
+/** Nombre de demandes à l'IA par mois et par lycée, pour chaque agent (0 : sans plafond). */
+export type Plafonds = Record<Agent, number>;
 
 export const REGLAGES_PAR_DEFAUT: Reglages = {
   gestion: "referent",
@@ -87,6 +106,7 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   frais: { kilometrique: [], repas: 0, nuitees: [], consignes: "" },
   regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2, reglesMineurs: true },
   relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1, attestationAvant: 2 },
+  agents: { veille: false, entreprises: false, sansStageJours: 15, absencesMail: 2 },
 };
 
 /** Réglages enregistrés complétés par les valeurs par défaut : un lycée créé avant l'ajout d'un réglage le reçoit ainsi. */
@@ -109,6 +129,7 @@ export function completerReglages(r: Partial<Reglages> | null | undefined): Regl
     ...REGLAGES_PAR_DEFAUT, ...(r ?? {}),
     regles: { ...REGLAGES_PAR_DEFAUT.regles, ...(r?.regles ?? {}) },
     relances: { ...REGLAGES_PAR_DEFAUT.relances, ...(r?.relances ?? {}) },
+    agents: { ...REGLAGES_PAR_DEFAUT.agents, ...(r?.agents ?? {}) },
   };
 }
 
@@ -715,3 +736,94 @@ export const journal = pgTable("journal", {
   details: jsonb("details"),
   at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("journal_etab_idx").on(t.etablissementId, t.at)]);
+
+/* ------------------------------------------------------------------ */
+/* Agents IA (lot 7)                                                    */
+/* ------------------------------------------------------------------ */
+
+/** Réglages de la plateforme, fixés par l'administration de Cap PFMP (une seule ligne, id « cap-pfmp »). */
+export const plateforme = pgTable("plateforme", {
+  id: text("id").primaryKey(),
+  tarifs: jsonb("tarifs").$type<Tarifs>().notNull(),
+  plafonds: jsonb("plafonds").$type<Plafonds>().notNull(),
+  majLe: timestamp("maj_le", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Chaque demande faite à l'IA : pour le plafond du mois et le suivi des coûts (sans aucun texte). */
+export const usageIa = pgTable("usage_ia", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  /** Vide : demande de l'administration de Cap PFMP (veille réglementaire, pour tous les lycées). */
+  etablissementId: uuid("etablissement_id").references(() => etablissements.id, { onDelete: "cascade" }),
+  agent: text("agent").$type<Agent>().notNull(),
+  objet: text("objet").notNull(),
+  /** Sans clé d'IA configurée (démonstration, lycée d'entraînement) : texte d'exemple, sans appel à l'IA. */
+  simule: boolean("simule").notNull(),
+  tokensEntree: integer("tokens_entree").notNull().default(0),
+  tokensSortie: integer("tokens_sortie").notNull().default(0),
+  at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("usage_ia_etab_idx").on(t.etablissementId, t.agent, t.at)]);
+
+/**
+ * Mails préparés par un agent, à valider par une personne avant de partir (décision d'Anissa) : le professeur référent
+ * de la classe de l'élève, ou la gestion des PFMP (qui peut tout valider).
+ */
+export const mailsAValider = pgTable("mails_a_valider", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  agent: text("agent").$type<Agent>().notNull(),
+  eleveId: uuid("eleve_id").references(() => eleves.id, { onDelete: "cascade" }),
+  entrepriseId: uuid("entreprise_id").references(() => entreprises.id, { onDelete: "cascade" }),
+  /** Pour ne jamais proposer deux fois le même mail (ex. « sans-stage:<élève>:<période> »). */
+  cle: text("cle").notNull(),
+  /** Pourquoi l'agent propose ce mail. */
+  motif: text("motif").notNull(),
+  /** 1 : urgent · 2 : à faire · 3 : quand vous pouvez. */
+  priorite: integer("priorite").notNull().default(2),
+  destinataires: jsonb("destinataires").$type<{ email: string; nom: string }[]>().notNull(),
+  sujet: text("sujet").notNull(),
+  corps: text("corps").notNull(),
+  simule: boolean("simule").notNull().default(false),
+  statut: text("statut").$type<"a_valider" | "envoye" | "abandonne">().notNull().default("a_valider"),
+  demandeParId: uuid("demande_par_id").references(() => users.id, { onDelete: "set null" }),
+  traiteParId: uuid("traite_par_id").references(() => users.id, { onDelete: "set null" }),
+  traiteLe: timestamp("traite_le", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("mails_a_valider_cle_idx").on(t.etablissementId, t.cle), index("mails_a_valider_statut_idx").on(t.etablissementId, t.statut)]);
+
+/** Alertes de veille réglementaire (Cap Veille), préparées puis publiées par l'administration de Cap PFMP. */
+export const alertesVeille = pgTable("alertes_veille", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  titre: text("titre").notNull(),
+  /** Lien vers le texte officiel (Bulletin officiel, Légifrance, Éduscol). */
+  source: text("source").notNull(),
+  resume: text("resume").notNull(),
+  /** Ce qu'il faudrait changer dans Cap PFMP ou dans l'organisation du lycée : chaque lycée décide. */
+  propositions: jsonb("propositions").$type<string[]>().notNull(),
+  simule: boolean("simule").notNull().default(false),
+  publieeLe: timestamp("publiee_le", { withTimezone: true }),
+  creeParId: uuid("cree_par_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Ce que chaque lycée a fait d'une alerte : lue, et la décision prise pour chaque proposition. */
+export const suitesVeille = pgTable("suites_veille", {
+  alerteId: uuid("alerte_id").notNull().references(() => alertesVeille.id, { onDelete: "cascade" }),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  lueLe: timestamp("lue_le", { withTimezone: true }),
+  decisions: jsonb("decisions").$type<Record<string, "fait" | "pas_pour_nous">>().notNull().default({}),
+  parId: uuid("par_id").references(() => users.id, { onDelete: "set null" }),
+}, (t) => [primaryKey({ columns: [t.alerteId, t.etablissementId] })]);
+
+/** Propositions de Cap Partenaires pour un élève : lieux de stage, ou relecture de son CV (la dernière de chaque sorte compte). */
+export type PropositionEntreprise = { nom: string; ville: string | null; domaine: string | null; raison: string; entrepriseId: string | null; source: "annuaire" | "public" };
+export type RelectureCv = { pointsForts: string[]; aAmeliorer: string[]; conseil: string };
+export const suggestionsIa = pgTable("suggestions_ia", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  eleveId: uuid("eleve_id").notNull().references(() => eleves.id, { onDelete: "cascade" }),
+  type: text("type").$type<"entreprises" | "cv">().notNull(),
+  contenu: jsonb("contenu").$type<{ entreprises?: PropositionEntreprise[]; conseil?: string; cv?: RelectureCv }>().notNull(),
+  simule: boolean("simule").notNull().default(false),
+  parId: uuid("par_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("suggestions_ia_eleve_idx").on(t.eleveId, t.type, t.createdAt)]);

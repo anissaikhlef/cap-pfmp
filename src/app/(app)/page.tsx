@@ -13,6 +13,9 @@ import { piecesAllocation, piecesManquantes } from "@/lib/allocations";
 import { db, schema } from "@/db";
 import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { envoyerRelancesDuJour } from "./actions";
+import { mailsAValiderPour } from "@/lib/agent-administratif";
+import { alertesNonLues } from "@/lib/agent-veille";
+import { aLAgent } from "@/lib/agents";
 
 export const metadata = { title: "Tableau de bord" };
 
@@ -25,6 +28,7 @@ const ORDRE: Statut[] = ["sans_stage", "convention", "pret", "en_stage", "en_sta
 export default async function Accueil() {
   const ctx = await contexte();
   if (!(await estGestionnaire(ctx))) {
+    if (a(ctx, "admin")) redirect("/admin");
     if (a(ctx, "vie_scolaire")) redirect("/vie-scolaire");
     if (a(ctx, "eleve")) redirect("/mon-stage");
     if (a(ctx, "parent")) redirect("/mon-enfant");
@@ -60,7 +64,11 @@ export default async function Accueil() {
   const avecStage = lignes.filter((l) => l.stage).map((l) => l.eleve.id);
   const pieces = await piecesAllocation(avecStage);
   const sansPieces = avecStage.filter((id) => piecesManquantes(pieces.get(id)).length > 0).length;
+  const mailsAgent = (await mailsAValiderPour(ctx)).length;
+  const veille = peutAdministrer(ctx) && aLAgent(ctx.etab.reglages, "veille") ? await alertesNonLues(ctx) : 0;
   const aFaire: [number, string, string][] = ([
+    [mailsAgent, "mail(s) préparé(s) par Cap Admin à relire avant envoi", "/mails-a-valider"],
+    [veille, "alerte(s) de veille réglementaire (Cap Veille) à lire", "/veille"],
     [aVerifier, "document(s) déposé(s) à vérifier", "/documents"],
     [absencesNonJustifiees, "absence(s) en stage non justifiée(s)", "/eleves?statut=absences"],
     [sansPieces, "élève(s) avec un lieu de stage dont le RIB ou la pièce d'identité manque (allocation)", "/allocations?filtre=manquantes"],

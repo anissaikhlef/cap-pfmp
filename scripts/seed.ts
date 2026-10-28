@@ -88,7 +88,11 @@ async function main() {
 
   // Le lycée pilote répartit les visites selon les heures de face à face ; signature simple ou dessinée ; le référent signe en dernier.
   const [etab] = await db.insert(schema.etablissements).values({
-    nom: NOM_LYCEE, ville: "Ville-démo", anneeScolaire: "2026-2027", reglages: { ...REGLAGES_PAR_DEFAUT, repartition: "heures", signatureModele: "les2", dernierSignataire: "professeur", frais: FRAIS_EXEMPLE },
+    nom: NOM_LYCEE, ville: "Ville-démo", anneeScolaire: "2026-2027", reglages: {
+      ...REGLAGES_PAR_DEFAUT, repartition: "heures", signatureModele: "les2", dernierSignataire: "professeur", frais: FRAIS_EXEMPLE,
+      // Les trois agents IA, pour la démonstration ; Cap Admin écrit aux familles des élèves sans stage 30 jours avant la période.
+      agents: { ...REGLAGES_PAR_DEFAUT.agents, veille: true, entreprises: true, sansStageJours: 30 },
+    },
   }).returning();
   const E = etab.id;
   const hash = await bcrypt.hash(MOT_DE_PASSE_DEMO, 12);
@@ -110,6 +114,19 @@ async function main() {
   await compte("Nadia", "BERRADA", "vie.scolaire", ["vie_scolaire"]);
   // Le DDFPT (compte « Gestion des PFMP ») : seul, avec la direction, il crée les comptes et fixe les dates de PFMP.
   await compte("Julien", "ROUSSEL", "ddfpt", ["gestionnaire"]);
+  // L'administration de Cap PFMP : tarifs des formules, plafonds des agents, veille réglementaire.
+  await compte("Équipe", "CAP PFMP", "admin", ["admin"]);
+  // Tarifs d'exemple (fictifs), à remplacer par ceux d'Anissa dans « Administration ».
+  const plateforme = { tarifs: { seul: 49, veille: 69, entreprises: 79, complet: 99 }, plafonds: { administratif: 400, veille: 0, entreprises: 300 } };
+  await db.insert(schema.plateforme).values({ id: "cap-pfmp", ...plateforme }).onConflictDoUpdate({ target: schema.plateforme.id, set: plateforme });
+  // Une alerte de veille d'exemple, clairement fictive.
+  await db.delete(schema.alertesVeille).where(sql`${schema.alertesVeille.titre} like 'Exemple d''alerte%'`);
+  await db.insert(schema.alertesVeille).values({
+    titre: "Exemple d'alerte de veille (démonstration)", source: "https://www.education.gouv.fr/bulletin-officiel",
+    resume: "Ceci est un exemple d'alerte de démonstration : aucun texte réel n'est résumé ici. Une vraie alerte de Cap Veille résume un texte officiel sur les PFMP (ce qui change, pour qui, à partir de quand), avec le lien vers ce texte.",
+    propositions: ["Exemple : vérifier le modèle de convention du lycée.", "Exemple : informer l'équipe pédagogique au prochain conseil."],
+    simule: true, publieeLe: new Date(),
+  });
 
   const doms = await db.insert(schema.dominantes).values(
     ["Sûreté / gardiennage", "Sécurité incendie", "Sécurité publique"].map((libelle) => ({ etablissementId: E, libelle })),
@@ -375,7 +392,7 @@ async function main() {
   await db.insert(schema.journal).values({ etablissementId: E, action: "donnees_demo", entite: "etablissement", entiteId: E, details: { version: VERSION_DONNEES_DEMO } });
 
   console.log(`Lycée de démonstration créé. Mot de passe de tous les comptes : ${MOT_DE_PASSE_DEMO}`);
-  console.log(`Comptes : direction@${DOMAINE}, ddfpt@${DOMAINE} (DDFPT), p.martin@${DOMAINE} (référent 2nde), ines.haddad@${DOMAINE} et emma.laurent@${DOMAINE} (élèves), f.traore@${DOMAINE} et l.rahmani@${DOMAINE} (parents), k.ferhat@${DOMAINE} (entreprise), vie.scolaire@${DOMAINE} (vie scolaire)`);
+  console.log(`Comptes : direction@${DOMAINE}, ddfpt@${DOMAINE} (DDFPT), p.martin@${DOMAINE} (référent 2nde), ines.haddad@${DOMAINE} et emma.laurent@${DOMAINE} (élèves), f.traore@${DOMAINE} et l.rahmani@${DOMAINE} (parents), k.ferhat@${DOMAINE} (entreprise), vie.scolaire@${DOMAINE} (vie scolaire), admin@${DOMAINE} (administration de Cap PFMP)`);
   await pool.end();
 }
 

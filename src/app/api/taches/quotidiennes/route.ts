@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { isNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { relancesDuJour } from "@/lib/relances";
+import { mailsDuJour } from "@/lib/agent-administratif";
 
 /**
  * Tâche quotidienne (à appeler chaque matin par un planificateur) :
@@ -16,8 +17,12 @@ export async function GET(req: Request) {
   }
   // Les lycées d'entraînement (formation incluse) ne reçoivent aucune relance.
   const etabs = await db.select().from(schema.etablissements).where(isNull(schema.etablissements.entrainementDeId));
-  let total = 0;
+  let total = 0, mails = 0;
   const base = process.env.SITE_URL ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : new URL(req.url).origin);
-  for (const e of etabs) total += await relancesDuJour(e, { base });
-  return Response.json({ relances: total });
+  for (const e of etabs) {
+    total += await relancesDuJour(e, { base });
+    // Agent 1, Cap Admin : les mails du jour, qui attendent la validation d'une personne.
+    mails += (await mailsDuJour(e)).prepares;
+  }
+  return Response.json({ relances: total, mailsAValider: mails });
 }

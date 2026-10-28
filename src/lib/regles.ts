@@ -625,3 +625,84 @@ export function jourDuCarnetValable(date: string, debut: string, fin: string, jo
 export function anneeDExamen(c: { niveau: "CAP" | "2NDE" | "1RE" | "TLE"; anneeExamen: boolean }): boolean {
   return c.niveau === "TLE" || (c.niveau === "CAP" && c.anneeExamen);
 }
+
+/* ------------------- Agent 3, Cap Partenaires : lieux de stage et CV ------------------- */
+
+const simplifier = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const MOTS_VIDES = new Set(["metiers", "metier", "bac", "pro", "professionnel", "option", "agent", "dans", "avec", "pour", "classe", "seconde", "premiere", "terminale", "annee", "famille"]);
+
+/** Les mots qui décrivent une formation (filière, dominante), pour rapprocher le domaine d'une entreprise. */
+export function motsCles(...textes: (string | null | undefined)[]): string[] {
+  const mots = textes.flatMap((t) => simplifier(t ?? "").split(" ")).filter((m) => m.length >= 4 && !MOTS_VIDES.has(m));
+  return [...new Set(mots)];
+}
+
+export type CandidatLieu = {
+  id: string | null; nom: string; domaine: string | null; ville: string | null;
+  /** Places encore libres pour la période (null : inconnu, entreprise de l'annuaire public). */
+  restantes: number | null;
+  /** A déjà accueilli des élèves du lycée. */
+  accueilliAvant: boolean;
+  /** Note de partenariat élevée, sans souci : compte dans le classement, sans jamais être montré à l'élève. */
+  fiable: boolean;
+  source: "annuaire" | "public";
+};
+
+/**
+ * Classe les lieux de stage possibles pour un élève : domaine proche de sa formation, places libres, partenaires qui
+ * accueillent déjà des élèves, ville du lycée. Les entreprises déjà contactées par l'élève sont écartées. Les raisons
+ * données sont des faits, lisibles par l'élève.
+ */
+export function classerLieux(candidats: CandidatLieu[], o: { mots: string[]; ville: string | null; dejaContactees: { id: string | null; nom: string }[] }, max = 5) {
+  const contactees = new Set(o.dejaContactees.map((d) => d.id ?? `nom:${simplifier(d.nom)}`));
+  const vus = new Set<string>();
+  return candidats
+    .filter((c) => !contactees.has(c.id ?? "") && !contactees.has(`nom:${simplifier(c.nom)}`))
+    .filter((c) => { const k = simplifier(c.nom); return vus.has(k) ? false : (vus.add(k), true); })
+    .map((c) => {
+      const domaine = simplifier(`${c.domaine ?? ""} ${c.nom}`);
+      const proche = o.mots.some((m) => domaine.includes(m.slice(0, 5)));
+      const memeVille = !!c.ville && !!o.ville && simplifier(c.ville) === simplifier(o.ville);
+      const raisons: string[] = [];
+      let score = c.source === "public" ? -1 : 0;
+      if (proche) { score += 3; raisons.push("Domaine proche de ta formation"); }
+      if (c.restantes) { score += Math.min(c.restantes, 3); raisons.push(`${c.restantes} place${c.restantes > 1 ? "s" : ""} libre${c.restantes > 1 ? "s" : ""} pour ta période`); }
+      if (c.accueilliAvant) { score += 2; raisons.push("A déjà accueilli des élèves du lycée"); }
+      if (c.fiable) score += 2;
+      if (memeVille) { score += 1; raisons.push("Dans la ville du lycée"); }
+      if (c.source === "public") raisons.push("Trouvée dans l'annuaire public des entreprises : à appeler pour demander s'il y a de la place");
+      return { ...c, score, raisons };
+    })
+    .sort((a, b) => b.score - a.score || a.nom.localeCompare(b.nom))
+    .slice(0, max);
+}
+
+const RUBRIQUES_CV: [string, RegExp][] = [
+  ["Formation", /formation|diplome|scolarite|etudes/],
+  ["Expériences ou stages", /experience|stage|emploi|job|benevol/],
+  ["Compétences", /competence|savoir|qualites|atouts/],
+  ["Centres d'intérêt", /centres? d.?interet|loisirs|passions|sport/],
+  ["Langues", /langues?|anglais|espagnol|allemand|arabe|italien|portugais/],
+];
+
+/**
+ * Relecture d'exemple d'un CV, sans IA (démonstration) : les rubriques attendues, la longueur, les coordonnées
+ * (déjà retirées du texte et remplacées par des repères comme [téléphone]).
+ */
+export function relectureCvExemple(texte: string): { pointsForts: string[]; aAmeliorer: string[]; conseil: string } {
+  const t = simplifier(texte);
+  const mots = t.split(" ").filter(Boolean).length;
+  const presentes = RUBRIQUES_CV.filter(([, r]) => r.test(t)).map(([n]) => n);
+  const manquantes = RUBRIQUES_CV.filter(([n]) => !presentes.includes(n)).map(([n]) => n);
+  const pointsForts: string[] = [];
+  const aAmeliorer: string[] = [];
+  if (presentes.length) pointsForts.push(`Ton CV a déjà les rubriques : ${presentes.join(", ").toLowerCase()}.`);
+  if (/\[téléphone\]|\[adresse mail\]/.test(texte)) pointsForts.push("Tes coordonnées sont présentes : l'entreprise peut te joindre facilement.");
+  else aAmeliorer.push("Ajoute ton numéro de téléphone et une adresse mail sérieuse (prénom.nom), pour que l'entreprise puisse te joindre.");
+  if (manquantes.length) aAmeliorer.push(`Ajoute une rubrique : ${manquantes.join(", ").toLowerCase()}.`);
+  if (mots < 60) aAmeliorer.push("Ton CV est très court : décris en une ligne ce que tu as fait pendant chaque stage ou expérience.");
+  if (mots > 450) aAmeliorer.push("Ton CV est long : garde une seule page, avec l'essentiel.");
+  if (!/\b(20\d{2}|19\d{2})\b/.test(t)) aAmeliorer.push("Indique les années de ta formation et de tes expériences.");
+  if (!pointsForts.length) pointsForts.push("Tu as commencé ton CV : c'est la première étape.");
+  return { pointsForts, aAmeliorer, conseil: "Relis ton CV à voix haute pour repérer les fautes, puis montre-le à ton professeur référent avant de l'envoyer." };
+}

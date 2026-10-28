@@ -76,6 +76,10 @@ const AIDE: { prefixe: string; titre: string; points: string[] }[] = [
   { prefixe: "/mon-stage", titre: "Mon stage", points: ["Les étapes de ton stage, dans l'ordre.", "Ton carnet de bord : note chaque jour ce que tu as fait."] },
   { prefixe: "/mon-enfant", titre: "Mon enfant", points: ["La convention à signer, les absences à justifier, les pièces de l'allocation à déposer."] },
   { prefixe: "/stagiaires", titre: "Mes stagiaires", points: ["Signez la convention, choisissez le créneau de la visite, signalez une absence.", "À la fin du stage, remplissez l'attestation et le livret en ligne, avec l'élève si possible."] },
+  { prefixe: "/mails-a-valider", titre: "Mails à valider", points: ["Cap Admin, l'agent administratif, prépare les mails aux familles et aux entreprises : rien ne part sans vous.", "Envoyer, Modifier puis envoyer, ou Ne pas envoyer : les mails d'un élève sont validés par le référent de sa classe ou par la gestion des PFMP."] },
+  { prefixe: "/veille", titre: "Veille réglementaire", points: ["Cap Veille résume chaque texte officiel sur les PFMP, avec le lien vers le texte.", "Pour chaque proposition, notez « C'est fait » ou « Pas pour nous » : rien ne change sans votre décision."] },
+  { prefixe: "/organisation/agents", titre: "Agents IA", points: ["Cap Admin est inclus ; ajoutez Cap Veille et Cap Partenaires si votre lycée le souhaite.", "Le montant dépend des agents choisis ; un changement compte à partir du mois suivant."] },
+  { prefixe: "/admin", titre: "Administration de Cap PFMP", points: ["Les montants de chaque formule et les plafonds d'usage des agents.", "« Veille réglementaire » : collez un texte officiel, relisez l'alerte préparée par Cap Veille, puis publiez-la."] },
   { prefixe: "/formation", titre: "Formation", points: ["Le lycée d'entraînement : des données fictives, rien n'en sort.", "Faites les missions, puis le quiz : votre attestation de prise en main est prête à imprimer."] },
 ];
 

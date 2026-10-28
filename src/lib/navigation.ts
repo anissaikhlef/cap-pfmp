@@ -1,6 +1,7 @@
 import "server-only";
 import type { Contexte } from "./auth";
 import { a, estGestionnaire, idsElevesReferent, peutAdministrer, peutSignerOrdreMission } from "./acces";
+import { aLAgent } from "./agents";
 
 export type Lien = { href: string; libelle: string };
 
@@ -21,7 +22,10 @@ export async function liensPour(ctx: Contexte): Promise<Lien[]> {
     l.push({ href: "/campagne", libelle: "Campagne" });
   }
   if (a(ctx, "direction") || peutSignerOrdreMission(ctx)) l.push({ href: "/a-signer", libelle: "À signer" });
-  if (a(ctx, "professeur") && !gestion && (await idsElevesReferent(ctx)).length) l.push({ href: "/mes-eleves", libelle: "Mes élèves" });
+  const referent = a(ctx, "professeur") && !gestion && (await idsElevesReferent(ctx)).length > 0;
+  if (referent) l.push({ href: "/mes-eleves", libelle: "Mes élèves" });
+  // Agent 1, Cap Admin : les mails qu'il prépare sont validés par le référent de l'élève ou la gestion des PFMP.
+  if (gestion || referent || a(ctx, "direction", "gestionnaire")) l.push({ href: "/mails-a-valider", libelle: "Mails à valider" });
   if (a(ctx, "professeur")) l.push({ href: "/mes-visites", libelle: "Mes visites" });
   if (gestion) {
     l.push({ href: "/classes", libelle: "Classes" });
@@ -31,6 +35,8 @@ export async function liensPour(ctx: Contexte): Promise<Lien[]> {
     l.push({ href: "/equipe", libelle: "Équipe" });
     l.push({ href: "/organisation", libelle: "Organisation" });
   }
+  if (peutAdministrer(ctx) && aLAgent(ctx.etab.reglages, "veille")) l.push({ href: "/veille", libelle: "Veille" });
+  if (a(ctx, "admin")) l.push({ href: "/admin", libelle: "Administration" });
   if (a(ctx, "vie_scolaire")) l.push({ href: "/vie-scolaire", libelle: "Vie scolaire" });
   if (a(ctx, "eleve")) l.push({ href: "/mon-stage", libelle: "Mon stage" });
   if (a(ctx, "parent")) l.push({ href: "/mon-enfant", libelle: "Mon enfant" });

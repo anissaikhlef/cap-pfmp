@@ -28,6 +28,7 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | Lot 3.5 | Livret de compétences en ligne : carnet de bord de l'élève (ses activités de chaque jour), évaluation par le tuteur des attitudes professionnelles (grille du lycée) et des compétences de chaque diplôme (saisies par le lycée), avec l'élève et le professeur quand c'est possible, bilan, signature, PDF au modèle du lycée rangé dans le dossier de l'élève | Fait |
 | PDF du lycée | Pour la convention, l'ordre de mission, l'attestation et le livret : le PDF du lycée, même sans champs, rempli dans les zones que le lycée y place d'un clic (données, cases, signatures, texte fixe) ; un document signé garde le modèle du jour de sa signature | Fait |
 | Lot 6 | Formation incluse : visite guidée à la première connexion selon le rôle, bouton « ? » sur chaque page, lycée d'entraînement fictif pour chaque membre de l'équipe (à la place d'un élève, d'un parent ou d'une entreprise ; rien n'en sort), missions, quiz et attestation de prise en main | Fait |
+| Lot 7 | Agents IA : Cap Admin (agent 1, toujours inclus) prépare les mails aux familles et aux entreprises, validés par le référent ou la gestion des PFMP avant envoi ; au choix du lycée, Cap Veille (agent 2, veille réglementaire : alertes avec résumé, lien officiel et propositions) et Cap Partenaires (agent 3 : lieux de stage proposés à l'élève, relecture du CV) ; montant selon les agents choisis, plafond d'usage par mois ; aucun nom d'élève envoyé à l'IA ; textes d'exemple sans clé d'IA | Fait |
 | Rendez-vous | Prise de rendez-vous en ligne pour la visite de stage : le professeur propose ses créneaux et la forme de la visite (sur place, à distance, ou au choix de l'entreprise) ; l'entreprise choisit avec un lien personnel, sans compte, ou donne ses disponibilités ; confirmation par mail, avec le lien de visio pour une visite à distance | Fait |
 
 Les décisions de conception d'Anissa Ikhlef sont consignées, avec leur date, dans [JOURNAL_DE_CONCEPTION.md](JOURNAL_DE_CONCEPTION.md).
@@ -71,6 +72,7 @@ Comptes de démonstration (mot de passe `Demo-pfmp-2026`) :
 | `f.traore@demo.cap-pfmp.example` | Responsable légal (CAP), pièces de l'allocation à déposer |
 | `l.rahmani@demo.cap-pfmp.example` | Responsable légale de Mehdi (absence à justifier, RIB en cours de vérification) |
 | `k.ferhat@demo.cap-pfmp.example` | Tuteur en entreprise |
+| `admin@demo.cap-pfmp.example` | Administration de Cap PFMP : montants des formules, plafonds des agents, veille réglementaire |
 
 ## Vérifier
 
@@ -95,6 +97,7 @@ node e2e/attestation.mjs
 node e2e/livret.mjs
 node e2e/zones.mjs
 node e2e/formation.mjs
+node e2e/agents.mjs
 node e2e/mobile.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
 ```
 
@@ -109,7 +112,10 @@ Les parcours sont écrits pour le 26 octobre 2026 : lancez l'application avec `C
 | `COOKIE_SECURE` | `true` dès que le site est servi en HTTPS |
 | `SITE_URL` | Adresse publique du site (ex. `https://cap-pfmp.example.fr`), écrite dans les liens personnels envoyés par mail et SMS. Sur Vercel, l'adresse de production est trouvée automatiquement |
 | `DOUBLE_AUTH_OBLIGATOIRE` | `true` par défaut : la direction et les gestionnaires doivent activer un code sur téléphone. `false` seulement pour une démonstration |
-| `TACHES_JETON` | Jeton secret de la tâche quotidienne `/api/taches/quotidiennes` (relances automatiques, aux jours réglés dans « Organisation »), à appeler chaque matin |
+| `TACHES_JETON` | Jeton secret de la tâche quotidienne `/api/taches/quotidiennes` (relances automatiques, aux jours réglés dans « Organisation », et mails du jour de Cap Admin), à appeler chaque matin |
+| `ANTHROPIC_API_KEY` | Clé de l'IA des agents (fournisseur engagé à ne pas entraîner ses modèles sur les données). Sans clé, les agents répondent avec des textes d'exemple ; le lycée d'entraînement n'utilise jamais l'IA |
+| `CAP_PFMP_MODELE_IA` | Modèle d'IA des agents (par défaut `claude-opus-5-5`) |
+| `CAP_PFMP_ANNUAIRE_PUBLIC` | `non` pour que Cap Partenaires ne consulte pas l'annuaire public des entreprises (recherche-entreprises.api.gouv.fr) |
 
 ## Organisation du code
 
@@ -128,6 +134,9 @@ Les parcours sont écrits pour le 26 octobre 2026 : lancez l'application avec `C
 - `src/lib/rendez-vous.ts` : prise de rendez-vous pour la visite (forme retenue, confirmation au professeur et à l'entreprise, lien de l'entreprise)
 - `src/lib/partenariats.ts` : faits et note de partenariat de chaque entreprise (calcul dans `regles.ts`, testé)
 - `src/lib/entreprises-accueil.ts` : entreprises d'une période, adresse à utiliser pour un stage, lien de dépôt de l'attestation et du livret
+- `src/lib/agents.ts` (pur, testé) : les trois agents, formules et montants, plafond du mois, sources officielles de la veille ; `src/lib/anonymisation.ts` (pur, testé) : noms et coordonnées retirés avant l'IA
+- `src/lib/ia.ts` : le moteur des agents (choix du lycée, plafond, texte d'exemple sans clé, journal d'usage) ; `src/lib/plateforme.ts` : tarifs, plafonds et usage du mois
+- `src/lib/agent-administratif.ts` (Cap Admin, mails à valider), `src/lib/agent-veille.ts` (Cap Veille), `src/lib/agent-entreprises.ts` (Cap Partenaires ; classement des lieux et relecture d'exemple du CV dans `regles.ts`, testés)
 - `src/lib/auth.ts` : connexion, sessions, mots de passe
 - `src/app/(app)/` : les écrans, chacun avec ses actions serveur
 - `scripts/` : migrations et données de démonstration (`version-demo.ts` : à augmenter quand les données de démonstration changent)

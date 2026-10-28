@@ -9,6 +9,7 @@ import { BlocPresenceEleve } from "@/components/absences";
 import { BlocCandidature } from "@/components/candidature";
 import { BlocAllocation } from "@/components/allocation";
 import { BlocCarnetEleve } from "@/components/carnet";
+import { BlocCapPartenaires } from "@/components/agents";
 import { contacterSuggestion } from "../eleves/stage-actions";
 
 export const metadata = { title: "Mon stage" };
@@ -35,6 +36,7 @@ export default async function MonStage() {
       {!d.stage && d.periode && (
         <>
           <BlocCandidature ctx={ctx} eleve={e} />
+          <BlocCapPartenaires ctx={ctx} eleve={e} chercheUnStage pourEleve />
           <div className="section">
             <h2>Mes démarches</h2>
             <p className="sub">Notez chaque entreprise contactée. Sans réponse au bout de 7 jours, relancez-la par téléphone ou en vous déplaçant.</p>
