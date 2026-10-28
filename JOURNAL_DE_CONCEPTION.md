@@ -518,3 +518,11 @@ Le site du ministère refuse la lecture automatique du Bulletin officiel (répon
 3. **Sur place ou à distance** : « le choix vient après l'appel de l'entreprise, ou bien le prof l'indique et le modifie en fonction de la disponibilité du tuteur ». En prenant la visite, le professeur indique sur place, à distance, ou à décider après l'appel ; il peut le changer jusqu'au rendez-vous confirmé.
 4. **Coordonnées** : dès que le professeur prend une visite, il voit l'adresse du lieu de stage, le tuteur et son téléphone.
 5. **Qui visite quoi, selon chaque lycée** : dans le lycée d'Anissa, les premières visites sont faites par les professeurs de l'enseignement professionnel, les dernières par ceux de l'enseignement général, et les classes d'examen ne sont visitées que par les professeurs de l'enseignement professionnel ; d'autres lycées ont leur propre organisation. Réglage dans « Organisation » : pour la première période de l'année, la dernière, les autres, et les classes d'examen, qui peut visiter (enseignement professionnel, enseignement général, ou toute l'équipe).
+
+## 28 octobre 2026 : listes exportables
+
+Anissa : « une fois les cases renseignées, par exemple tous les RIB, générer une liste avec tous les élèves de la classe avec les RIB, une liste avec les lieux de stage, durée et date par année… », « ces listes peuvent être exportées », en Excel et en PDF (« les deux »), et « des listes que tu estimes utiles ».
+
+- **Droits** : « le DDFPT peut extraire tout, le prof tout sauf les RIB », et seulement « ses propres classes » (celles dont il est référent ou où il a des heures de cours). La direction, qui a tous les droits, exporte tout.
+- **Les neuf listes** (onglet « Listes », pour une année scolaire et une classe ou toutes) : RIB et pièces d'identité ; lieux de stage (spécialité, entreprise, adresse, tuteur, téléphone, dates, semaines, jours prévus) ; élèves sans stage (et entreprises déjà contactées) ; conventions (qui a signé, qui doit signer) ; attestations et livrets ; absences en stage (sans le motif) ; visites (professeur, date, sur place ou à distance, ordre de mission, compte rendu) ; entreprises partenaires (sans la note de partenariat) ; bilan de l'année par classe.
+- **Formats** : tableau pour Excel (fichier CSV, qui s'ouvre dans Excel et LibreOffice) et PDF à l'italienne prêt à imprimer.

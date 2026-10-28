@@ -81,6 +81,7 @@ const AIDE: { prefixe: string; titre: string; points: string[] }[] = [
   { prefixe: "/organisation/formations", titre: "Pôles et formations", points: ["Les pôles de votre lycée, leurs formations en voie scolaire et les spécialités de chaque formation.", "Dans une classe, une spécialité peut partir en PFMP à d'autres dates : ajoutez sa période dans la page de la classe."] },
   { prefixe: "/organisation/agents", titre: "Agents IA", points: ["Cap Admin est inclus ; ajoutez Cap Veille et Cap Partenaires si votre lycée le souhaite.", "Le montant dépend des agents choisis ; un changement compte à partir du mois suivant."] },
   { prefixe: "/admin", titre: "Administration de Cap PFMP", points: ["Les montants de chaque formule et les plafonds d'usage des agents.", "« Veille réglementaire » : collez un texte officiel, relisez l'alerte préparée par Cap Veille, puis publiez-la."] },
+  { prefixe: "/listes", titre: "Listes", points: ["Choisissez l'année et la classe, puis la liste : en tableau Excel pour trier et compléter, ou en PDF pour imprimer.", "Le professeur exporte les listes de ses classes ; la liste des RIB est réservée au DDFPT et à la direction."] },
   { prefixe: "/formation", titre: "Formation", points: ["Le lycée d'entraînement : des données fictives, rien n'en sort.", "Faites les missions, puis le quiz : votre attestation de prise en main est prête à imprimer."] },
 ];
 

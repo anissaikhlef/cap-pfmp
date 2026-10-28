@@ -35,6 +35,8 @@ export async function liensPour(ctx: Contexte): Promise<Lien[]> {
     l.push({ href: "/equipe", libelle: "Équipe" });
     l.push({ href: "/organisation", libelle: "Organisation" });
   }
+  // Listes à exporter (Excel, PDF) : la gestion des PFMP toutes, le professeur celles de ses classes.
+  if (gestion || a(ctx, "direction", "gestionnaire", "professeur")) l.push({ href: "/listes", libelle: "Listes" });
   if (peutAdministrer(ctx) && aLAgent(ctx.etab.reglages, "veille")) l.push({ href: "/veille", libelle: "Veille" });
   if (a(ctx, "admin")) l.push({ href: "/admin", libelle: "Administration" });
   if (a(ctx, "vie_scolaire")) l.push({ href: "/vie-scolaire", libelle: "Vie scolaire" });
