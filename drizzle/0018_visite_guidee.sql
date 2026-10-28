@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "visite_guidee_le" timestamp with time zone;

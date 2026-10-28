@@ -19,6 +19,9 @@ export async function session(email, viewport = { width: 1200, height: 900 }) {
   await p.fill("#motdepasse", MDP);
   await Promise.all([p.waitForURL((u) => !u.pathname.startsWith("/connexion")), p.click("button:has-text('Se connecter')")]);
   await p.waitForLoadState("networkidle");
+  // Formation incluse : la visite guidée s'ouvre à la première connexion ; les parcours la passent.
+  const passer = p.locator("button:has-text('Passer la visite')");
+  if (await passer.isVisible().catch(() => false)) { await passer.click(); await p.waitForTimeout(300); }
   return p;
 }
 export async function fin() {

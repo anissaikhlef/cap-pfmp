@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { isNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { relancesDuJour } from "@/lib/relances";
 
@@ -13,7 +14,8 @@ export async function GET(req: Request) {
   if (!attendu || attendu.length < 24 || recu.length !== attendu.length || !timingSafeEqual(Buffer.from(recu), Buffer.from(attendu))) {
     return new Response("Non autorisé", { status: 401 });
   }
-  const etabs = await db.select().from(schema.etablissements);
+  // Les lycées d'entraînement (formation incluse) ne reçoivent aucune relance.
+  const etabs = await db.select().from(schema.etablissements).where(isNull(schema.etablissements.entrainementDeId));
   let total = 0;
   const base = process.env.SITE_URL ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : new URL(req.url).origin);
   for (const e of etabs) total += await relancesDuJour(e, { base });

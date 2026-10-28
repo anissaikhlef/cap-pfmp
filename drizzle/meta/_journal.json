@@ -127,6 +127,20 @@
       "when": 1793176364933,
       "tag": "0017_zones_pdf",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793186982900,
+      "tag": "0018_visite_guidee",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793187182314,
+      "tag": "0019_formation",
+      "breakpoints": true
     }
   ]
 }

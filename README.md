@@ -27,6 +27,7 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | Lot 3.4 | Attestation de stage en ligne : remplie par le tuteur avec l'élève et le professeur quand c'est possible (sur le téléphone du professeur), avec l'élève, ou seul (dans son compte ou avec son lien personnel), signée, et rangée en PDF au modèle du lycée dans le dossier de l'élève ; validée d'office, ou à vérifier si les jours déclarés diffèrent de ceux de Cap PFMP | Fait |
 | Lot 3.5 | Livret de compétences en ligne : carnet de bord de l'élève (ses activités de chaque jour), évaluation par le tuteur des attitudes professionnelles (grille du lycée) et des compétences de chaque diplôme (saisies par le lycée), avec l'élève et le professeur quand c'est possible, bilan, signature, PDF au modèle du lycée rangé dans le dossier de l'élève | Fait |
 | PDF du lycée | Pour la convention, l'ordre de mission, l'attestation et le livret : le PDF du lycée, même sans champs, rempli dans les zones que le lycée y place d'un clic (données, cases, signatures, texte fixe) ; un document signé garde le modèle du jour de sa signature | Fait |
+| Lot 6 | Formation incluse : visite guidée à la première connexion selon le rôle, bouton « ? » sur chaque page, lycée d'entraînement fictif pour chaque membre de l'équipe (à la place d'un élève, d'un parent ou d'une entreprise ; rien n'en sort), missions, quiz et attestation de prise en main | Fait |
 | Rendez-vous | Prise de rendez-vous en ligne pour la visite de stage : le professeur propose ses créneaux et la forme de la visite (sur place, à distance, ou au choix de l'entreprise) ; l'entreprise choisit avec un lien personnel, sans compte, ou donne ses disponibilités ; confirmation par mail, avec le lien de visio pour une visite à distance | Fait |
 
 Les décisions de conception d'Anissa Ikhlef sont consignées, avec leur date, dans [JOURNAL_DE_CONCEPTION.md](JOURNAL_DE_CONCEPTION.md).
@@ -93,6 +94,7 @@ node e2e/rendez-vous.mjs
 node e2e/attestation.mjs
 node e2e/livret.mjs
 node e2e/zones.mjs
+node e2e/formation.mjs
 node e2e/mobile.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
 ```
 

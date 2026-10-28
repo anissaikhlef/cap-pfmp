@@ -170,6 +170,11 @@ export const etablissements = pgTable("etablissements", {
   reglages: jsonb("reglages").$type<Reglages>().notNull(),
   /** Logo du lycée (image PNG ou JPG), en tête des documents du modèle Cap PFMP. */
   logoCle: text("logo_cle"),
+  /**
+   * Formation incluse : lycée d'entraînement d'un membre de l'équipe (son compte dans son vrai lycée). Données fictives ;
+   * rien n'en sort (aucun vrai message, pas de relances automatiques).
+   */
+  entrainementDeId: uuid("entrainement_de_id").references((): AnyPgColumn => users.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -219,6 +224,11 @@ export const users = pgTable("users", {
   totpSecret: text("totp_secret"),
   totpActif: boolean("totp_actif").notNull().default(false),
   derniereConnexion: timestamp("derniere_connexion", { withTimezone: true }),
+  /** Formation incluse : la visite guidée, montrée à la première connexion, vue (ou passée) ce jour-là. */
+  visiteGuideeLe: timestamp("visite_guidee_le", { withTimezone: true }),
+  /** Formation incluse : meilleure note au quiz (sur 5) et date de cette note. */
+  quizNote: integer("quiz_note"),
+  quizLe: timestamp("quiz_le", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("users_email_idx").on(t.email), index("users_etab_idx").on(t.etablissementId)]);
 

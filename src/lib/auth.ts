@@ -8,6 +8,7 @@ import { db, schema } from "@/db";
 import { completerReglages, type Role } from "@/db/schema";
 
 const COOKIE = "cap_session";
+const COOKIE_REEL = "cap_session_reel";
 const DUREE_SESSION_MS = 1000 * 60 * 60 * 12; // 12 h
 const MAX_ECHECS = 5;
 const FENETRE_ECHECS_MIN = 15;
@@ -86,11 +87,49 @@ export async function ouvrirSession(userId: string, verifiee = true) {
   });
 }
 
+/**
+ * Formation incluse : entrer dans un compte du lycée d'entraînement. La session du vrai compte est mise de côté
+ * (cookie « cap_session_reel ») pour y revenir ; on ne quitte jamais son vrai compte sans pouvoir y revenir.
+ */
+export async function ouvrirSessionEntrainement(userId: string) {
+  const c = await cookies();
+  const actuel = c.get(COOKIE)?.value;
+  if (actuel && !c.get(COOKIE_REEL)) c.set(COOKIE_REEL, actuel, { httpOnly: true, sameSite: "lax", secure: process.env.COOKIE_SECURE === "true", path: "/", maxAge: DUREE_SESSION_MS / 1000 });
+  else if (actuel) await db.delete(schema.sessions).where(eq(schema.sessions.id, empreinte(actuel)));
+  await ouvrirSession(userId);
+}
+
+/** Le vrai compte de la personne qui s'entraîne (session mise de côté), ou null. */
+export async function compteReel(): Promise<Contexte | null> {
+  const jeton = (await cookies()).get(COOKIE_REEL)?.value;
+  if (!jeton) return null;
+  const [r] = await db.select({ user: schema.users, etab: schema.etablissements, expiresAt: schema.sessions.expiresAt }).from(schema.sessions)
+    .innerJoin(schema.users, eq(schema.users.id, schema.sessions.userId))
+    .innerJoin(schema.etablissements, eq(schema.etablissements.id, schema.users.etablissementId))
+    .where(eq(schema.sessions.id, empreinte(jeton))).limit(1);
+  return r && r.expiresAt > new Date() && r.user.actif ? { user: r.user, etab: { ...r.etab, reglages: completerReglages(r.etab.reglages) } } : null;
+}
+
+/** Quitte le lycée d'entraînement : la session du vrai compte reprend. */
+export async function revenirAuVraiCompte() {
+  const c = await cookies();
+  const reel = c.get(COOKIE_REEL)?.value;
+  const actuel = c.get(COOKIE)?.value;
+  if (actuel && actuel !== reel) await db.delete(schema.sessions).where(eq(schema.sessions.id, empreinte(actuel)));
+  if (reel) {
+    c.set(COOKIE, reel, { httpOnly: true, sameSite: "lax", secure: process.env.COOKIE_SECURE === "true", path: "/", maxAge: DUREE_SESSION_MS / 1000 });
+    c.delete(COOKIE_REEL);
+  }
+}
+
 export async function fermerSession() {
   const c = await cookies();
   const jeton = c.get(COOKIE)?.value;
   if (jeton) await db.delete(schema.sessions).where(eq(schema.sessions.id, empreinte(jeton)));
   c.delete(COOKIE);
+  // Se déconnecter pendant l'entraînement ferme aussi le vrai compte.
+  const reel = c.get(COOKIE_REEL)?.value;
+  if (reel) { await db.delete(schema.sessions).where(eq(schema.sessions.id, empreinte(reel))); c.delete(COOKIE_REEL); }
 }
 
 export type Utilisateur = typeof schema.users.$inferSelect;
@@ -128,7 +167,8 @@ export async function contexte(opts: { roles?: Role[]; ignorerChangementMdp?: bo
   const ctx = await contexteOptionnel();
   if (!ctx) redirect("/connexion");
   if (ctx.user.doitChangerMotDePasse && !opts.ignorerChangementMdp) redirect("/mot-de-passe");
-  if (doubleAuthRequise(ctx.user) && !ctx.user.totpActif && !opts.ignorerDoubleAuth && !opts.ignorerChangementMdp) redirect("/double-authentification/activer");
+  // Le lycée d'entraînement : on y entre depuis son vrai compte, déjà protégé.
+  if (!ctx.etab.entrainementDeId && doubleAuthRequise(ctx.user) && !ctx.user.totpActif && !opts.ignorerDoubleAuth && !opts.ignorerChangementMdp) redirect("/double-authentification/activer");
   if (opts.roles && !opts.roles.some((r) => ctx.user.roles.includes(r))) redirect("/");
   return ctx;
 }

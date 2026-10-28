@@ -446,3 +446,18 @@ Anissa : « l'essentiel est de prendre en compte le fait que chaque lycée a ses
 1. **Écriture dans les zones** : en bleu foncé, sur plusieurs lignes si besoin, en réduisant la taille du texte pour qu'il tienne dans la zone.
 2. **Signature dessinée** placée dans sa zone ; une signature simple y laisse la mention « Signé en ligne dans Cap PFMP le … ».
 3. **PDF remplacé** : les zones déjà placées sont gardées quand elles tiennent dans les pages du nouveau PDF.
+
+## 28 octobre 2026 : réalisation du lot 6 (formation incluse)
+
+Sur les décisions d'Anissa du 27 octobre : visite guidée et bouton « ? », lycée d'entraînement (« très bien »), missions, quiz et attestation de prise en main (« cette dernière apporte une plus-value »).
+
+- **Visite guidée** à la première connexion, adaptée au rôle (gestion des PFMP et direction, professeur, vie scolaire, élève, parent, entreprise), de deux à six étapes ; on peut la passer, et la revoir à tout moment.
+- **Bouton « ? »** en haut de chaque page : ce que fait la page, en quelques points, et un lien vers la formation.
+- **Lycée d'entraînement** (onglet « Formation », pour l'équipe du lycée) : un lycée rien qu'à soi, avec les réglages et les modèles de documents de son vrai lycée, des élèves, entreprises et stages fictifs (un stage terminé, un en cours, un à venir). Un bandeau violet le signale ; on peut s'y mettre à la place d'un élève, d'un parent ou d'une entreprise, revenir à son lycée, ou le remettre à zéro. Rien n'en sort : aucune relance automatique, aucun vrai message.
+- **Missions** à réussir dans le lycée d'entraînement, cochées toutes seules (gestion des PFMP : fixer des dates, préparer les fiches de connexion, envoyer et faire signer une convention, adapter un modèle, envoyer les relances ; professeur : créneaux de visite, appel, compte rendu, souci signalé ; vie scolaire : absence, note de suivi).
+- **Quiz** de cinq questions (quatre bonnes réponses pour le réussir, à repasser autant qu'on veut) et **attestation de prise en main** en PDF, prête dès que les missions et le quiz sont réussis.
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Remettre à zéro** le lycée d'entraînement efface aussi ses missions réussies (l'attestation déjà obtenue se refait en refaisant les missions).
+2. **Élèves, parents et entreprises** : la visite guidée et l'aide « ? » suffisent, sans lycée d'entraînement ni quiz.

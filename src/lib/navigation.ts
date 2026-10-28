@@ -38,6 +38,8 @@ export async function liensPour(ctx: Contexte): Promise<Lien[]> {
   if (!l.length) l.push({ href: "/", libelle: "Accueil" });
   // Le calendrier des PFMP est visible par tous (décision d'Anissa).
   l.push({ href: "/calendrier", libelle: "Calendrier" });
+  // Formation incluse : lycée d'entraînement, missions, quiz et attestation, pour l'équipe du lycée.
+  if (a(ctx, "direction", "gestionnaire", "professeur", "vie_scolaire")) l.push({ href: "/formation", libelle: "Formation" });
   return dedoublonner(l);
 }
 

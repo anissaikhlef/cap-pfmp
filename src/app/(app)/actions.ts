@@ -7,6 +7,8 @@ export async function seDeconnecter() {
   redirect("/connexion");
 }
 
+import { eq } from "drizzle-orm";
+import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
 import { classesGerees, gereToutLEtablissement } from "@/lib/acces";
 import { relancesDuJour } from "@/lib/relances";
@@ -22,4 +24,10 @@ export async function envoyerRelancesDuJour(fd: FormData) {
   const n = await relancesDuJour(ctx.etab, { classes, userId: ctx.user.id, campagne: gereToutLEtablissement(ctx) });
   await journaliser(ctx, "relances_du_jour", "etablissement", ctx.etab.id, { n });
   revenirAvec(fd, n ? `${n} relance(s) envoyée(s). Retrouvez-les dans « Messages ».` : "Aucune relance à envoyer aujourd'hui. Les jours de relance se règlent dans « Organisation ».");
+}
+
+/** Formation incluse : la visite guidée est vue (ou passée) ; elle se revoit à tout moment avec le bouton « ? ». */
+export async function terminerVisiteGuidee() {
+  const ctx = await contexte();
+  await db.update(schema.users).set({ visiteGuideeLe: new Date() }).where(eq(schema.users.id, ctx.user.id));
 }
