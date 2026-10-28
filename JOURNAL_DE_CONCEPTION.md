@@ -423,3 +423,11 @@ Anissa : « l'application doit avoir trois agents IA comme prévu […] il faut 
 
 1. **Qui choisit les agents 2 et 3** : le DDFPT ou la direction, dans « Organisation » ; le changement prend effet au mois suivant, pour la facturation.
 2. **Montants** : fixés par Anissa depuis son compte administrateur de Cap PFMP, pour chaque combinaison d'agents.
+
+## 28 octobre 2026 : livret de compétences et année d'examen
+
+Anissa : « l'élève et parent peuvent consulter les livrets de compétences en seconde, en première, mais pas en terminale car c'est l'année du bac » ; pour le CAP : « la deuxième est une année d'examen ».
+
+- En **seconde, première et 1re année de CAP**, l'élève et sa famille consultent le livret.
+- En **terminale et en 2e année de CAP**, le livret est transmis au lycée sans être communiqué à l'élève ni à sa famille : ni résumé, ni fichier (l'ouverture directe du fichier est refusée). L'élève garde son carnet de bord, qu'il écrit lui-même. L'équipe et l'entreprise voient le livret.
+- **Fiche de la classe** : un réglage « Pour un CAP : année » (1re année, ou 2e année, année d'examen).
