@@ -14,9 +14,10 @@ import { ChampsACompleter } from "./ChampsACompleter";
 import { modeleDeLaConvention, utiliseLePdf } from "@/lib/modeles-documents";
 import { Pill } from "./ui";
 import { VisitesDuDossier } from "./visites";
-import { deposer, envoyerPourSignature, relancer, remplirAttestationCompte, signer } from "@/app/(app)/documents/actions";
+import { deposer, envoyerPourSignature, relancer, remplirAttestationCompte, remplirLivretCompte, signer } from "@/app/(app)/documents/actions";
 import { etatAttestation } from "@/lib/attestation";
-import { FormulaireAttestation, ResumeAttestation } from "./attestation";
+import { etatLivret } from "@/lib/livret";
+import { CarnetDeBord, FormulaireAttestation, FormulaireLivret, ResumeAttestation, ResumeLivret } from "./fin-de-stage";
 import type { TypeDocument } from "@/db/schema";
 
 const LIBELLES_DOC: Record<TypeDocument, string> = {
@@ -143,10 +144,13 @@ export async function BlocFinDeStage({ ctx, stageId }: { ctx: Contexte; stageId:
   // Le professeur référent dépose aussi un document reçu sur papier ou par courrier.
   const peutDeposer = gestion || tuteur || (await estReferentDe(ctx, cv.e));
   const att = await etatAttestation(ctx.etab, cv);
+  const liv = await etatLivret(ctx.etab, cv);
+  // L'élève a son propre carnet de bord sur sa page ; les autres le lisent ici.
+  const eleve = a(ctx, "eleve");
   return (
     <div className="panel pad section" id="fin-de-stage">
       <h2>Fin de stage</h2>
-      {!termine && <p className="sub" style={{ margin: 0 }}>L&apos;attestation se remplit en ligne à partir du {dateCourte(att.ouverture)} ; le livret se dépose après le {dateCourte(cv.p.fin)}, dernier jour du stage.</p>}
+      {!termine && <p className="sub" style={{ margin: 0 }}>L&apos;attestation et le livret se remplissent en ligne à partir du {dateCourte(att.ouverture)}, ou se déposent signés après le {dateCourte(cv.p.fin)}, dernier jour du stage.</p>}
       <div className="grid2">
         {(["attestation", "livret"] as const).map((t) => {
           const d = docs.find((x) => x.type === t);
@@ -159,6 +163,19 @@ export async function BlocFinDeStage({ ctx, stageId }: { ctx: Contexte; stageId:
                 <details open>
                   <summary className="btn small primary">Remplir l&apos;attestation en ligne</summary>
                   <FormulaireAttestation action={remplirAttestationCompte} cv={cv} etat={att} cache={{ stageId }} modeles={modelesAutorises(ctx.etab.reglages)} rempliePar="tuteur_eleve" />
+                </details>
+              )}
+              {t === "livret" && liv.remplie && <ResumeLivret livret={liv.remplie} />}
+              {t === "livret" && !eleve && liv.carnet.length > 0 && (
+                <details>
+                  <summary className="btn small">Carnet de bord de l&apos;élève ({liv.carnet.length} jour{liv.carnet.length > 1 ? "s" : ""})</summary>
+                  <CarnetDeBord carnet={liv.carnet} />
+                </details>
+              )}
+              {t === "livret" && tuteur && liv.aRemplir && liv.ouverte && (
+                <details open>
+                  <summary className="btn small primary">Remplir le livret en ligne</summary>
+                  <FormulaireLivret action={remplirLivretCompte} cv={cv} etat={liv} cache={{ stageId }} modeles={modelesAutorises(ctx.etab.reglages)} rempliePar="tuteur_eleve" />
                 </details>
               )}
               {peutDeposer && d?.statut !== "valide" && <Depot stageId={stageId} type={t} libelle={d ? "Remplacer le fichier" : "Déposer le document signé"} />}

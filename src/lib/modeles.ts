@@ -208,6 +208,36 @@ export const REMPLIE_PAR: Record<RempliePar, string> = {
   tuteur: "le tuteur",
 };
 
+export const TITRE_LIVRET = "Livret de compétences";
+export const INTRO_LIVRET = "Le tuteur évalue les attitudes professionnelles et les compétences du diplôme travaillées pendant la période, à partir des activités notées chaque jour par l'élève.";
+/** Niveaux d'acquisition des compétences, tant que le lycée n'a pas les siens (du plus faible au plus fort). */
+export const NIVEAUX_COMPETENCES = ["Non évaluée", "Non acquise", "En cours d'acquisition", "Acquise"];
+
+/** Les compétences d'un diplôme saisies par le lycée, une par ligne (au plus 30). */
+export function lireCompetences(texte: string): string[] {
+  return texte.split("\n").map((l) => l.trim().slice(0, 200)).filter(Boolean).slice(0, 30);
+}
+
+/** Des niveaux saisis sur une ligne, séparés par « / » (de 2 à 8) ; null s'il y en a moins de 2. */
+export function lireNiveaux(texte: string): string[] | null {
+  const n = texte.split("/").map((x) => x.trim().slice(0, 80)).filter(Boolean).slice(0, 8);
+  return n.length >= 2 ? n : null;
+}
+
+/** Les compétences du diplôme d'une classe (sa formation), saisies par le lycée dans le modèle du livret. */
+export function competencesDe(p: { competences?: { filiere: string; liste: string[] }[] }, filiere: string | null): string[] {
+  return (filiere && p.competences?.find((c) => c.filiere === filiere)?.liste) || [];
+}
+
+/**
+ * Le niveau retenu pour chaque ligne d'une grille (attitudes ou compétences) ; null s'il en manque un ou si une réponse
+ * ne fait pas partie des niveaux proposés.
+ */
+export function niveauxRetenus(grille: { libelle: string; niveaux: string[] }[], choix: (string | null)[]): { libelle: string; niveau: string }[] | null {
+  const res = grille.map((g, i) => ({ libelle: g.libelle, niveau: choix[i] ?? "" }));
+  return res.every((r, i) => grille[i].niveaux.includes(r.niveau)) ? res : null;
+}
+
 export const TITRE_ORDRE_MISSION = "Compte rendu de visite et ordre de mission";
 export const INTRO_ORDRE_MISSION = "Cet ordre de mission est signé avant la visite en entreprise. Après la visite, il est complété avec la signature ou le cachet de l'entreprise visitée.";
 

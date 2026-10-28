@@ -594,13 +594,13 @@ export function modeRetenu(
   return proposes ?? actuel;
 }
 
-/* ------------------------- Attestation de stage en ligne ------------------------- */
+/* ------------------------- Attestation et livret en ligne, carnet de bord ------------------------- */
 
 /**
- * Premier jour où l'attestation se remplit en ligne : `avant` jours avant la fin du stage (0 : le dernier jour),
- * pour que le tuteur la remplisse avec l'élève encore présent ; jamais avant le début du stage.
+ * Premier jour où l'attestation et le livret se remplissent en ligne : `avant` jours avant la fin du stage (0 : le dernier jour),
+ * pour que le tuteur les remplisse avec l'élève encore présent ; jamais avant le début du stage.
  */
-export function ouvertureAttestation(debut: string, fin: string, avant: number): string {
+export function ouvertureFinDeStage(debut: string, fin: string, avant: number): string {
   const d = ajouterJours(fin, -Math.max(0, avant));
   return d < debut ? debut : d;
 }
@@ -611,4 +611,9 @@ export function ouvertureAttestation(debut: string, fin: string, avant: number):
  */
 export function statutAttestation(declare: { effectues: number; absences: number }, calcule: { effectues: number; absences: number }): "valide" | "a_verifier" {
   return declare.effectues === calcule.effectues && declare.absences === calcule.absences ? "valide" : "a_verifier";
+}
+
+/** Carnet de bord : l'élève note les activités d'un jour de son stage, passé ou en cours, jamais d'un jour à venir. */
+export function jourDuCarnetValable(date: string, debut: string, fin: string, jour: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) && date >= debut && date <= fin && date <= jour;
 }

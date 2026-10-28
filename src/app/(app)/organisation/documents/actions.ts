@@ -9,12 +9,12 @@ import { enregistrerFichier } from "@/lib/stockage";
 import { journaliser } from "@/lib/journal";
 import { revenirAvec } from "@/lib/retour";
 import { lireChampsPdf } from "@/lib/modeles-pdf";
-import { lireGrille, lireQuestions, SOURCES_SPECIALES, sourceValable } from "@/lib/modeles";
+import { lireCompetences, lireGrille, lireNiveaux, lireQuestions, SOURCES_SPECIALES, sourceValable } from "@/lib/modeles";
 import { modeleDuLycee } from "@/lib/modeles-documents";
 import type { Etat } from "@/components/Formulaire";
 import type { ChampPdf, PersonnalisationModele, TypeModele } from "@/db/schema";
 
-const TYPES = ["convention", "ordre_mission", "attestation"] as const;
+const TYPES = ["convention", "ordre_mission", "attestation", "livret"] as const;
 /** Documents dont le lycée peut déposer son propre PDF (avec des champs) : la convention, pour l'instant. */
 const TYPES_PDF = ["convention"] as const;
 const REFUS = "Seuls le DDFPT et la direction adaptent les modèles de documents.";
@@ -67,10 +67,18 @@ export async function enregistrerPersonnalisation(_: Etat, fd: FormData): Promis
     p.questions = questions;
     p.grille = grille;
   }
+  if (type === "livret") {
+    const niveaux = lireNiveaux(String(fd.get("niveauxCompetences") ?? ""));
+    if (!niveaux) return { erreur: "Indiquez au moins deux niveaux d'acquisition des compétences, séparés par « / »." };
+    p.niveauxCompetences = niveaux;
+    p.competences = Array.from({ length: 20 }, (_, i) => ({ filiere: texte(`filiere_${i}`, 200), liste: lireCompetences(String(fd.get(`competences_${i}`) ?? "")) }))
+      .filter((c) => c.filiere && c.liste.length);
+  }
   await enregistrerModele(ctx, type, { personnalisation: p });
   await journaliser(ctx, "modele_adapte", "etablissement", ctx.etab.id, { type });
   return { ok: type === "convention" ? "Modèle enregistré. Il s'applique aux conventions qui ne sont pas encore signées."
     : type === "attestation" ? "Modèle enregistré. Il s'applique aux attestations remplies à partir de maintenant ; celles déjà signées ne changent pas."
+    : type === "livret" ? "Modèle enregistré. Il s'applique aux livrets remplis à partir de maintenant ; ceux déjà signés ne changent pas."
     : "Modèle enregistré." };
 }
 

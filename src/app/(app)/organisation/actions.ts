@@ -38,7 +38,7 @@ const Schema = z.object({
   entrepriseMax: z.coerce.number().int().min(1, "Rappels des entreprises : entre 1 et 20 fois").max(20, "Rappels des entreprises : entre 1 et 20 fois"),
   accueilAvant: z.coerce.number().int().min(0, "Mail d'accueil : entre 0 et 30 jours").max(30, "Mail d'accueil : entre 0 et 30 jours"),
   remerciementApres: z.coerce.number().int().min(0, "Remerciements : entre 0 et 30 jours").max(30, "Remerciements : entre 0 et 30 jours"),
-  attestationAvant: z.coerce.number().int().min(0, "Attestation de stage : entre 0 et 10 jours").max(10, "Attestation de stage : entre 0 et 10 jours"),
+  attestationAvant: z.coerce.number().int().min(0, "Attestation et livret : entre 0 et 10 jours").max(10, "Attestation et livret : entre 0 et 10 jours"),
 });
 
 export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Etat> {

@@ -202,6 +202,18 @@ async function main() {
         nomFichier: "cv_ines_haddad.pdf", cleStockage: cle, typeMime: "application/pdf", taille: b.length, deposeParId: u.id, statut: "a_verifier",
       });
     }
+    if (l.prenom === "Emma") {
+      // Élève de terminale en stage : elle note chaque jour ses activités dans son carnet de bord (pas le 22, jour d'absence).
+      const u = await compte("Emma", "LAURENT", "emma.laurent", ["eleve"]);
+      await db.update(schema.eleves).set({ userId: u.id }).where(eq(schema.eleves.id, e.id));
+      const [st] = await db.select().from(schema.stages).where(eq(schema.stages.eleveId, e.id)).limit(1);
+      await db.insert(schema.activitesJour).values([
+        ["2026-10-21", "Accueil par mon tuteur, visite du site et présentation des consignes de sécurité. Remise de la tenue."],
+        ["2026-10-23", "Contrôle des accès à l'entrée du salon avec un agent confirmé : vérification des badges."],
+        ["2026-10-24", "Rondes de surveillance dans les allées du salon. Main courante remplie avec mon tuteur."],
+        ["2026-10-25", "Gestion des flux à la sortie du public, puis fermeture du site et ronde de fin de journée."],
+      ].map(([date, texte]) => ({ etablissementId: E, stageId: st.id, date, texte, parId: u.id })));
+    }
     if (l.prenom === "Moussa") {
       const u = await compte("Fatou", "TRAORÉ", "f.traore", ["parent"], { telephone: "06 39 98 20 15" });
       await db.insert(schema.responsables).values({ eleveId: e.id, userId: u.id });
@@ -276,6 +288,22 @@ async function main() {
   await doc("NGUYEN", "attestation", "a_verifier");
   for (const n of ["LAURENT", "CISSÉ", "FONTAINE", "MANSOURI", "BOUZID", "KONÉ", "NGUYEN", "RAHMANI"]) await doc(n, "convention", "valide");
 
+  // Livret de compétences : les compétences de chaque diplôme du lycée (exemple fictif), évaluées par le tuteur
+  await db.insert(schema.modelesDocuments).values({
+    etablissementId: E, type: "livret", mode: "cap_pfmp", personnalisation: {
+      competences: [
+        { filiere: "Bac Pro Métiers de la sécurité", liste: [
+          "Surveiller un site et protéger les biens et les personnes", "Contrôler les accès et filtrer les entrées",
+          "Prévenir les risques d'incendie et de panique", "Intervenir face à un incident et alerter les secours",
+          "Porter assistance et secourir", "Rendre compte de son activité à l'écrit et à l'oral",
+        ] },
+        { filiere: "CAP Agent de sécurité", liste: [
+          "Accueillir le public et contrôler les accès", "Effectuer une ronde de surveillance", "Prévenir les risques et alerter", "Rendre compte de son activité",
+        ] },
+      ],
+    },
+  });
+
   // Allocation de stage : RIB et pièce d'identité déposés par les familles, gardés pour toute la scolarité
   async function piece(eleveNom: string, type: "rib" | "piece_identite", statut: "valide" | "a_verifier", deposeParId: string | null, annee = "2026-2027", classeLibelle?: string) {
     const [el] = await db.select().from(schema.eleves).where(and(eq(schema.eleves.nom, eleveNom), eq(schema.eleves.etablissementId, E))).limit(1);
@@ -347,7 +375,7 @@ async function main() {
   await db.insert(schema.journal).values({ etablissementId: E, action: "donnees_demo", entite: "etablissement", entiteId: E, details: { version: VERSION_DONNEES_DEMO } });
 
   console.log(`Lycée de démonstration créé. Mot de passe de tous les comptes : ${MOT_DE_PASSE_DEMO}`);
-  console.log(`Comptes : direction@${DOMAINE}, ddfpt@${DOMAINE} (DDFPT), p.martin@${DOMAINE} (référent 2nde), ines.haddad@${DOMAINE} (élève), f.traore@${DOMAINE} et l.rahmani@${DOMAINE} (parents), k.ferhat@${DOMAINE} (entreprise), vie.scolaire@${DOMAINE} (vie scolaire)`);
+  console.log(`Comptes : direction@${DOMAINE}, ddfpt@${DOMAINE} (DDFPT), p.martin@${DOMAINE} (référent 2nde), ines.haddad@${DOMAINE} et emma.laurent@${DOMAINE} (élèves), f.traore@${DOMAINE} et l.rahmani@${DOMAINE} (parents), k.ferhat@${DOMAINE} (entreprise), vie.scolaire@${DOMAINE} (vie scolaire)`);
   await pool.end();
 }
 

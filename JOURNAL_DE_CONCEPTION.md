@@ -390,3 +390,21 @@ Sur la décision d'Anissa : « deux options : tuteur avec élève et prof quand 
 2. **Signature** : dessinée sur le téléphone du professeur ; dans le compte du tuteur ou avec son lien, simple ou dessinée, selon le réglage du lycée.
 3. **Ouverture 2 jours avant la fin** : l'élève est encore là pour la remplir avec son tuteur ; le lycée peut changer ce nombre de jours.
 4. **Le PDF de son lycée** (attestation sans champs) : en attente de la réponse d'Anissa sur la façon de remplir ses PDF (1, 2 ou 3) ; d'ici là, le modèle Cap PFMP adapté.
+
+## 28 octobre 2026 : réalisation du lot 3.5 (livret de compétences en ligne)
+
+Même décision d'Anissa que pour l'attestation : le tuteur remplit le livret avec l'élève et le professeur quand c'est possible, sinon avec l'élève, sinon seul.
+
+- **Carnet de bord** : pendant le stage, l'élève note chaque jour ce qu'il a fait (« Mon stage » › « Mon carnet de bord »), depuis son téléphone. Une note par jour, qu'il peut compléter. Le tuteur, l'équipe et la famille la lisent.
+- **Évaluation par le tuteur**, aux mêmes endroits que l'attestation (téléphone du professeur pendant la visite, compte du tuteur, lien personnel) et aux mêmes dates (quelques jours avant la fin) : un niveau pour chaque attitude professionnelle (la grille du lycée, la même qu'à la visite), un niveau pour chaque compétence du diplôme de la classe, un bilan, la signature.
+- **Compétences de chaque diplôme** : le lycée les saisit dans « Modèles de documents » › « Livret de compétences », une liste par formation de ses classes, avec ses niveaux d'acquisition (par défaut : non évaluée, non acquise, en cours d'acquisition, acquise).
+- **Le PDF** au modèle du lycée reprend les évaluations, le bilan et le carnet de bord ; il est rangé, validé, dans le dossier de l'élève.
+- Le mail envoyé au tuteur avant la fin du stage et les remerciements proposent l'attestation et le livret en ligne, avec le même lien.
+- **Démonstration** : Emma LAURENT (terminale, compte `emma.laurent`) a déjà noté quelques jours ; compétences d'exemple pour le bac pro Métiers de la sécurité et le CAP Agent de sécurité.
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Attitudes professionnelles** : la même grille qu'au compte rendu de visite, pour ne la saisir qu'une fois.
+2. **Livret validé d'office** une fois signé (pas de jours à comparer, contrairement à l'attestation).
+3. **Rappel quotidien de l'élève** : il pourra lui rappeler de remplir son carnet de bord pendant le stage, si Anissa le souhaite.
+4. **Livret papier du lycée** : comme pour l'attestation, en attente de sa réponse (1, 2 ou 3) sur ses PDF sans champs.

@@ -3,10 +3,11 @@ import { documentsManquants } from "@/lib/entreprises-accueil";
 import { etablissementDuLien, lienParJeton } from "@/lib/liens";
 import { dateLongue } from "@/lib/dates";
 import { Formulaire } from "@/components/Formulaire";
-import { FormulaireAttestation, ResumeAttestation } from "@/components/attestation";
+import { FormulaireAttestation, FormulaireLivret, ResumeAttestation, ResumeLivret } from "@/components/fin-de-stage";
 import { etatAttestation } from "@/lib/attestation";
+import { etatLivret } from "@/lib/livret";
 import { modelesAutorises } from "@/lib/signature";
-import { deposerParLien, remplirAttestationParLien } from "./actions";
+import { deposerParLien, remplirAttestationParLien, remplirLivretParLien } from "./actions";
 
 export const metadata = { title: "Documents de fin de stage" };
 
@@ -39,7 +40,9 @@ export default async function DeposerParLien({ params }: { params: Promise<{ jet
   if (lien.utiliseLe || !manquent.length) return <Message titre="Merci, les documents sont transmis" texte={`${etab.nom} a bien reçu ${recus > 1 ? "les documents" : "le document"} de fin de stage de ${cv.e.prenom} ${cv.e.nom}.${manquent.length ? ` Il manque encore : ${manquent.map((t) => LIBELLES[t].toLowerCase()).join(" et ")} ; vous recevrez un nouveau lien.` : ""}`} />;
   if (lien.expireLe < new Date()) return <Message titre="Lien expiré" texte={`Ce lien personnel n'est plus valable. Répondez simplement au mail de ${etab.nom} avec les documents.`} />;
   const att = await etatAttestation(etab, cv);
-  const enLigne = att.aRemplir && att.ouverte;
+  const liv = await etatLivret(etab, cv);
+  const attEnLigne = att.aRemplir && att.ouverte;
+  const livEnLigne = liv.aRemplir && liv.ouverte;
   return (
     <main className="login">
       <div className="panel pad section" style={{ width: "min(560px, 100%)" }}>
@@ -51,14 +54,23 @@ export default async function DeposerParLien({ params }: { params: Promise<{ jet
         </p>
         {att.remplie && <div className="msg ok" style={{ margin: 0 }}>Attestation de stage signée en ligne : merci.</div>}
         {att.remplie && <ResumeAttestation att={att.remplie} />}
-        {enLigne && (
+        {liv.remplie && <div className="msg ok" style={{ margin: 0 }}>Livret de compétences signé en ligne : merci.</div>}
+        {liv.remplie && <ResumeLivret livret={liv.remplie} />}
+        {attEnLigne && (
           <section className="stack" aria-labelledby="titre-attestation">
             <h2 id="titre-attestation">Attestation de stage, en ligne</h2>
             <p className="sub" style={{ margin: 0 }}>Remplissez-la avec {cv.e.prenom} si possible, puis signez : rien à imprimer ni à scanner.</p>
             <FormulaireAttestation action={remplirAttestationParLien} cv={cv} etat={att} cache={{ jeton }} modeles={modelesAutorises(etab.reglages)} rempliePar="tuteur_eleve" />
           </section>
         )}
-        {enLigne && <h2>Ou déposer les documents signés</h2>}
+        {livEnLigne && (
+          <section className="stack" aria-labelledby="titre-livret">
+            <h2 id="titre-livret">Livret de compétences, en ligne</h2>
+            <p className="sub" style={{ margin: 0 }}>Évaluez {cv.e.prenom}, avec lui ou elle si possible, à l&apos;aide de son carnet de bord, puis signez.</p>
+            <FormulaireLivret action={remplirLivretParLien} cv={cv} etat={liv} cache={{ jeton }} modeles={modelesAutorises(etab.reglages)} rempliePar="tuteur_eleve" />
+          </section>
+        )}
+        {(attEnLigne || livEnLigne) && <h2>Ou déposer les documents signés</h2>}
         <p className="sub" style={{ margin: 0 }}>Déposez les documents complétés et signés, en PDF ou en photo.</p>
         <Formulaire action={deposerParLien} bouton="Envoyer les documents">
           <input type="hidden" name="jeton" value={jeton} />

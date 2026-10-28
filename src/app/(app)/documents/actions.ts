@@ -17,6 +17,7 @@ import { SIGNATAIRES, libelleSignataire } from "@/lib/regles";
 import type { Etat } from "@/components/Formulaire";
 import { revenirAvec } from "@/lib/retour";
 import { enregistrerAttestation } from "@/lib/attestation";
+import { enregistrerLivret } from "@/lib/livret";
 import type { Signataire, Signatures, TypeDocument } from "@/db/schema";
 
 function rafraichir(eleveId: string) {
@@ -36,6 +37,17 @@ export async function remplirAttestationCompte(_: Etat, fd: FormData): Promise<E
   revenirAvec(fd, r.statut === "valide"
     ? `Attestation de ${cv.e.prenom} ${cv.e.nom} signée et transmise au lycée. Merci !`
     : `Attestation de ${cv.e.prenom} ${cv.e.nom} signée et transmise : le lycée vérifie les jours indiqués.`);
+}
+
+/** Le tuteur remplit et signe le livret de compétences de son stagiaire depuis son compte. */
+export async function remplirLivretCompte(_: Etat, fd: FormData): Promise<Etat> {
+  const ctx = await contexte({ roles: ["entreprise"] });
+  const cv = await chargerConvention(ctx, z.string().uuid().parse(fd.get("stageId")));
+  if (!cv || !ctx.user.entrepriseId || ctx.user.entrepriseId !== cv.s.entrepriseId) return { erreur: "Stage introuvable." };
+  const r = await enregistrerLivret(ctx.etab, cv, fd, { depuis: "compte", parId: ctx.user.id });
+  if ("erreur" in r) return r;
+  rafraichir(cv.e.id);
+  revenirAvec(fd, `Livret de ${cv.e.prenom} ${cv.e.nom} signé et transmis au lycée. Merci !`);
 }
 
 /* -------------------------- Signature en ligne -------------------------- */

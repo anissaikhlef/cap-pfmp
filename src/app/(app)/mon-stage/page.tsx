@@ -8,6 +8,7 @@ import { BlocConvention, BlocFinDeStage, DossierEleve } from "@/components/conve
 import { BlocPresenceEleve } from "@/components/absences";
 import { BlocCandidature } from "@/components/candidature";
 import { BlocAllocation } from "@/components/allocation";
+import { BlocCarnetEleve } from "@/components/carnet";
 import { contacterSuggestion } from "../eleves/stage-actions";
 
 export const metadata = { title: "Mon stage" };
@@ -28,6 +29,7 @@ export default async function MonStage() {
       <div><h1>Bonjour {e.prenom}</h1><p className="sub">Votre stage, étape par étape.</p></div>
       <ResumeStage d={d} statut={statut} />
       {d.stage && <BlocConvention ctx={ctx} stageId={d.stage.id} />}
+      {d.stage && <BlocCarnetEleve ctx={ctx} stageId={d.stage.id} />}
       {d.stage && <BlocFinDeStage ctx={ctx} stageId={d.stage.id} />}
       <BlocPresenceEleve ctx={ctx} eleve={e} />
       {!d.stage && d.periode && (

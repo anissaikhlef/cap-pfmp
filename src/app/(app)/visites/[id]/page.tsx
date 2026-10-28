@@ -20,10 +20,11 @@ import { texteMode } from "@/lib/rendez-vous";
 import { LienVisio } from "@/components/LienVisio";
 import { demanderRemboursement } from "../../frais/actions";
 import { ZoneSignature } from "@/components/ChoixSignature";
-import { choisirCreneau, demanderOrdreMission, deposerPhotoOrdreMission, enregistrerAppel, enregistrerCompteRendu, proposerCreneaux, remplirAttestationVisite, signerCachet } from "../actions";
+import { choisirCreneau, demanderOrdreMission, deposerPhotoOrdreMission, enregistrerAppel, enregistrerCompteRendu, proposerCreneaux, remplirAttestationVisite, remplirLivretVisite, signerCachet } from "../actions";
 import { chargerConvention } from "@/lib/convention";
 import { etatAttestation } from "@/lib/attestation";
-import { FormulaireAttestation, ResumeAttestation } from "@/components/attestation";
+import { etatLivret } from "@/lib/livret";
+import { CarnetDeBord, FormulaireAttestation, FormulaireLivret, ResumeAttestation, ResumeLivret } from "@/components/fin-de-stage";
 
 const ADEQUATION = { oui: "Oui", en_partie: "En partie", non: "Non" } as const;
 
@@ -61,6 +62,7 @@ export default async function Visite({ params }: { params: Promise<{ id: string 
   // Attestation de stage : le tuteur peut la remplir sur le téléphone du professeur, avec l'élève, à la fin du stage.
   const cvAtt = peutAgir ? await chargerConvention(ctx, l.s.id) : null;
   const att = cvAtt ? await etatAttestation(ctx.etab, cvAtt) : null;
+  const liv = cvAtt ? await etatLivret(ctx.etab, cvAtt) : null;
   const qui = r.signatairesOrdreMission.length > 1 ? "la direction ou la gestion des PFMP" : r.signatairesOrdreMission[0] === "direction" ? "la direction" : "la gestion des PFMP";
   return (
     <>
@@ -289,6 +291,27 @@ export default async function Visite({ params }: { params: Promise<{ id: string 
               consigne="Le tuteur vérifie l'attestation avec vous et l'élève, puis signe dans le cadre, avec le doigt." />
           ) : (
             <p className="sub" style={{ margin: 0 }}>À partir du {dateLongue(att.ouverture)}, le tuteur la remplit ici avec vous et l&apos;élève, ou en ligne avec le lien qu&apos;il reçoit.</p>
+          )}
+        </div>
+      )}
+      {cvAtt && liv && (
+        <div className="panel pad section" id="livret">
+          <h2>Livret de compétences</h2>
+          {liv.remplie ? (
+            <>
+              <ResumeLivret livret={liv.remplie} />
+              <div><a className="btn small" href={`/fichiers/${liv.remplie.documentId}`} target="_blank" rel="noopener">Ouvrir le livret</a></div>
+            </>
+          ) : !liv.aRemplir ? (
+            <p className="sub" style={{ margin: 0 }}>Le livret de ce stage est déjà déposé : il est dans le dossier de l&apos;élève.</p>
+          ) : liv.ouverte ? (
+            <FormulaireLivret action={remplirLivretVisite} cv={cvAtt} etat={liv} cache={{ visiteId: l.v.id }} modeles={["dessinee"]} rempliePar="tuteur_eleve_professeur"
+              consigne="Le tuteur évalue l'élève avec vous et avec lui, puis signe dans le cadre, avec le doigt." />
+          ) : (
+            <>
+              <p className="sub" style={{ margin: 0 }}>À partir du {dateLongue(liv.ouverture)}, le tuteur le remplit ici avec vous et l&apos;élève, ou en ligne avec le lien qu&apos;il reçoit. L&apos;élève note chaque jour ses activités dans son carnet de bord.</p>
+              {liv.carnet.length > 0 && <details><summary className="btn small">Carnet de bord de l&apos;élève ({liv.carnet.length} jour{liv.carnet.length > 1 ? "s" : ""})</summary><CarnetDeBord carnet={liv.carnet} /></details>}
+            </>
           )}
         </div>
       )}

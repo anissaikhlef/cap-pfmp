@@ -66,8 +66,8 @@ export type Reglages = {
     /** Remerciements à l'entreprise, avec le lien pour l'attestation et le livret, ce nombre de jours après la fin (0 : pas de mail). */
     remerciementApres: number;
     /**
-     * Attestation de stage : elle se remplit en ligne à partir de ce nombre de jours avant la fin du stage, et le tuteur reçoit
-     * alors son lien, pour la remplir avec l'élève encore présent (0 : à partir du dernier jour, sans ce mail).
+     * Attestation et livret : ils se remplissent en ligne à partir de ce nombre de jours avant la fin du stage, et le tuteur reçoit
+     * alors son lien, pour les remplir avec l'élève encore présent (0 : à partir du dernier jour, sans ce mail).
      */
     attestationAvant: number;
   };
@@ -315,11 +315,22 @@ export const demarches = pgTable("demarches", {
 /** Qui a rempli l'attestation : le tuteur avec l'élève et le professeur quand c'est possible, sinon avec l'élève, sinon seul (décision d'Anissa). */
 export type RempliePar = "tuteur_eleve_professeur" | "tuteur_eleve" | "tuteur";
 
-/** L'attestation de stage remplie en ligne : ce que le tuteur déclare et signe, et ce que Cap PFMP comptait au même moment. */
-export type AttestationStage = {
+/** Un document de fin de stage rempli et signé en ligne par le tuteur ; le PDF produit est rangé dans les documents de l'élève. */
+export type RemplissageEnLigne = {
   rempliePar: RempliePar;
   /** Le professeur présent, quand il y en a un. */
   professeur: string | null;
+  signataire: { nom: string; fonction: string | null };
+  signature: { modele: "simple" | "dessinee"; image?: string };
+  le: string;
+  /** Rempli sur le téléphone du professeur, dans le compte du tuteur, ou avec le lien personnel de l'entreprise. */
+  depuis: "professeur" | "compte" | "lien";
+  parId: string | null;
+  documentId: string;
+};
+
+/** L'attestation de stage remplie en ligne : ce que le tuteur déclare et signe, et ce que Cap PFMP comptait au même moment. */
+export type AttestationStage = RemplissageEnLigne & {
   joursEffectues: number;
   joursAbsence: number;
   /** Jours prévus moins les absences signalées dans Cap PFMP : un écart avec la déclaration du tuteur est à vérifier. */
@@ -327,13 +338,16 @@ export type AttestationStage = {
   absencesCalculees: number;
   activites: string;
   appreciation: string | null;
-  signataire: { nom: string; fonction: string | null };
-  signature: { modele: "simple" | "dessinee"; image?: string };
-  le: string;
-  /** Remplie sur le téléphone du professeur, dans le compte du tuteur, ou avec le lien personnel de l'entreprise. */
-  depuis: "professeur" | "compte" | "lien";
-  parId: string | null;
-  documentId: string;
+};
+
+/**
+ * Le livret de compétences rempli en ligne : le niveau retenu pour chaque attitude professionnelle (grille du lycée) et chaque
+ * compétence du diplôme, tels qu'ils étaient au moment de le remplir, et le bilan du tuteur.
+ */
+export type LivretStage = RemplissageEnLigne & {
+  attitudes: { critere: string; niveau: string }[];
+  competences: { competence: string; niveau: string }[];
+  bilan: string | null;
 };
 
 export const stages = pgTable("stages", {
@@ -356,6 +370,8 @@ export const stages = pgTable("stages", {
   modeles: jsonb("modeles").$type<ModelesFiges>().notNull().default({}),
   /** Attestation de stage remplie en ligne par le tuteur ; le PDF produit est rangé dans les documents de l'élève. */
   attestation: jsonb("attestation").$type<AttestationStage>(),
+  /** Livret de compétences rempli en ligne par le tuteur ; le PDF produit est rangé dans les documents de l'élève. */
+  livret: jsonb("livret").$type<LivretStage>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("stages_eleve_periode_idx").on(t.eleveId, t.periodeId), index("stages_entreprise_idx").on(t.entrepriseId)]);
 
@@ -410,6 +426,17 @@ export const documents = pgTable("documents", {
   valideParId: uuid("valide_par_id").references(() => users.id, { onDelete: "set null" }),
   valideLe: timestamp("valide_le", { withTimezone: true }),
 }, (t) => [index("documents_eleve_idx").on(t.eleveId), index("documents_statut_idx").on(t.etablissementId, t.statut)]);
+
+/** Carnet de bord : les activités de chaque jour de stage, notées par l'élève (une note par jour). */
+export const activitesJour = pgTable("activites_jour", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  stageId: uuid("stage_id").notNull().references(() => stages.id, { onDelete: "cascade" }),
+  date: date("date").notNull(),
+  texte: text("texte").notNull(),
+  parId: uuid("par_id").references(() => users.id, { onDelete: "set null" }),
+  majLe: timestamp("maj_le", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("activites_jour_stage_date_idx").on(t.stageId, t.date)]);
 
 export const visites = pgTable("visites", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -542,8 +569,8 @@ export const soucisEntreprises = pgTable("soucis_entreprises", {
 /* Modèles de documents propres à chaque lycée                          */
 /* ------------------------------------------------------------------ */
 
-/** Documents dont le lycée choisit le modèle (le livret suivra). */
-export type TypeModele = "convention" | "ordre_mission" | "attestation";
+/** Documents dont le lycée choisit le modèle. */
+export type TypeModele = "convention" | "ordre_mission" | "attestation" | "livret";
 
 /**
  * Un champ du PDF du lycée et ce qu'on y écrit. `source` : une donnée de Cap PFMP (ex. « eleve.nomPrenom »),
@@ -572,6 +599,10 @@ export type PersonnalisationModele = {
   questions?: string[];
   /** Ordre de mission : grille d'évaluation des attitudes professionnelles (critères et niveaux, du plus faible au plus fort). */
   grille?: { critere: string; niveaux: string[] }[];
+  /** Livret : les compétences de chaque diplôme (formation des classes), évaluées par le tuteur. */
+  competences?: { filiere: string; liste: string[] }[];
+  /** Livret : niveaux d'acquisition des compétences, du plus faible au plus fort. */
+  niveauxCompetences?: string[];
 };
 
 export type Complements = Partial<Record<TypeModele, Record<string, string>>>;

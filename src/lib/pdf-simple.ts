@@ -99,6 +99,8 @@ export class DocumentPdf {
     const gauche = this.lignes(libelle, this.police, taille, col - 10);
     const droite = this.lignes(valeur || "—", this.gras, taille, LARGEUR - 2 * MARGE - col);
     const n = Math.max(gauche.length, droite.length);
+    // Une ligne « intitulé : valeur » n'est pas coupée entre deux pages (sauf si elle est plus haute qu'une page).
+    if (n * h < HAUTEUR - 2 * MARGE - 24) this.place(n * h);
     for (let i = 0; i < n; i++) {
       this.place(h);
       this.y -= h;

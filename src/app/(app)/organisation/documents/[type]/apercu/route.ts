@@ -5,6 +5,7 @@ import { lireFichier } from "@/lib/stockage";
 import { modeleDuLycee, pdfConvention, reponsePdf } from "@/lib/modeles-documents";
 import { remplirPdf } from "@/lib/modeles-pdf";
 import { etatAttestation, pdfAttestation } from "@/lib/attestation";
+import { carnetDeBord, grillesDuLivret, pdfLivret } from "@/lib/livret";
 
 /**
  * Aperçus du PDF du lycée, pour le DDFPT et la direction : chaque champ avec son propre nom (« repérage »),
@@ -15,6 +16,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ type: st
   const ctx = await contexteOptionnel();
   if (!ctx || ctx.user.doitChangerMotDePasse || !peutAdministrer(ctx)) return new Response("Accès réservé", { status: 403 });
   if (type === "attestation") return apercuAttestation(ctx, new URL(req.url).searchParams.get("stage") ?? "");
+  if (type === "livret") return apercuLivret(ctx, new URL(req.url).searchParams.get("stage") ?? "");
   if (type !== "convention") return new Response("Introuvable", { status: 404 });
   const m = await modeleDuLycee(ctx.etab.id, type);
   if (!m.pdfCle) return new Response("Aucun PDF déposé", { status: 404 });
@@ -42,4 +44,20 @@ async function apercuAttestation(ctx: Contexte, stageId: string) {
     signature: { modele: "simple" }, le: new Date().toISOString(), depuis: "lien", parId: null,
   });
   return reponsePdf(pdf, `apercu-attestation-${cv.e.nom}.pdf`);
+}
+
+/** Un livret d'exemple au modèle du lycée, avec un stage de l'année : le niveau du milieu partout, et son carnet de bord. */
+async function apercuLivret(ctx: Contexte, stageId: string) {
+  const cv = /^[0-9a-f-]{36}$/.test(stageId) ? await chargerConvention(ctx, stageId) : null;
+  if (!cv) return new Response("Stage introuvable", { status: 404 });
+  const g = await grillesDuLivret(ctx.etab.id, cv.c.filiere);
+  const milieu = (n: string[]) => n[Math.floor(n.length / 2)];
+  const pdf = await pdfLivret(ctx.etab, cv, {
+    rempliePar: "tuteur_eleve_professeur", professeur: `${ctx.user.prenom} ${ctx.user.nom}`,
+    attitudes: g.attitudes.map((a) => ({ critere: a.critere, niveau: milieu(a.niveaux) })),
+    competences: g.competences.map((c) => ({ competence: c, niveau: milieu(g.niveaux) })), bilan: "Exemple : le bilan du tuteur.",
+    signataire: { nom: cv.s.tuteur?.nom ?? cv.ent.tuteurNom ?? "Le tuteur", fonction: cv.s.tuteur?.fonction ?? cv.ent.tuteurFonction ?? null },
+    signature: { modele: "simple" }, le: new Date().toISOString(), depuis: "lien", parId: null,
+  }, await carnetDeBord(cv.s.id));
+  return reponsePdf(pdf, `apercu-livret-${cv.e.nom}.pdf`);
 }
