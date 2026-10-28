@@ -13,9 +13,19 @@ export function Aide({ etapes, premiereFois }: { etapes: Etape[]; premiereFois: 
   const chemin = usePathname();
   const [aide, setAide] = useState(false);
   const [visite, setVisite] = useState<number | null>(null);
-  useEffect(() => { if (premiereFois) setVisite(0); }, [premiereFois]);
+  // Une visite fermée ne se rouvre pas dans cet onglet, même si l'enregistrement sur le serveur n'est pas encore terminé.
+  useEffect(() => {
+    let dejaFermee = false;
+    try { dejaFermee = sessionStorage.getItem("cap_visite_fermee") === "1"; } catch { /* stockage indisponible */ }
+    if (premiereFois && !dejaFermee) setVisite(0);
+  }, [premiereFois]);
   const page = aideDe(chemin);
-  const fermerVisite = () => { setVisite(null); if (premiereFois) void terminerVisiteGuidee(); };
+  const fermerVisite = () => {
+    setVisite(null);
+    if (!premiereFois) return;
+    try { sessionStorage.setItem("cap_visite_fermee", "1"); } catch { /* stockage indisponible */ }
+    void terminerVisiteGuidee();
+  };
   const e = visite !== null ? etapes[visite] : null;
   return (
     <>

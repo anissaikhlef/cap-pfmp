@@ -20,8 +20,9 @@ export async function session(email, viewport = { width: 1200, height: 900 }) {
   await Promise.all([p.waitForURL((u) => !u.pathname.startsWith("/connexion")), p.click("button:has-text('Se connecter')")]);
   await p.waitForLoadState("networkidle");
   // Formation incluse : la visite guidée s'ouvre à la première connexion ; les parcours la passent.
+  // Elle peut s'ouvrir un instant après le chargement : on l'attend quelques secondes.
   const passer = p.locator("button:has-text('Passer la visite')");
-  if (await passer.isVisible().catch(() => false)) { await passer.click(); await p.waitForTimeout(300); }
+  if (await passer.waitFor({ timeout: 4000 }).then(() => true, () => false)) { await passer.click(); await p.waitForLoadState("networkidle"); }
   return p;
 }
 export async function fin() {

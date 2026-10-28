@@ -20,6 +20,9 @@ async function session(email) {
   await p.fill("#email", `${email}@${D}`);
   await p.fill("#motdepasse", MDP);
   await Promise.all([p.waitForURL((u) => !u.pathname.startsWith("/connexion")), p.click("button:has-text('Se connecter')")]);
+  // Formation incluse : la visite guidée s'ouvre à la première connexion ; le parcours la passe.
+  const passer = p.locator("button:has-text('Passer la visite')");
+  if (await passer.waitFor({ timeout: 4000 }).then(() => true, () => false)) { await passer.click(); await p.waitForLoadState("networkidle"); }
   return p;
 }
 
