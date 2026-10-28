@@ -9,6 +9,7 @@ import { demanderIA } from "./ia";
 import { envoyer } from "./messages";
 import { adresseDuSite } from "./liens";
 import { concerneLesPfmp, liensDePage, texteDePage } from "./agents";
+import { legifranceBranche, textesLegifrance } from "./legifrance";
 
 /**
  * Agent 2, au choix du lycée : Cap Veille, la veille réglementaire (décision d'Anissa : « une alerte avec un résumé et le
@@ -77,8 +78,11 @@ export async function alertesNonLues(ctx: Contexte) {
   return (await alertesDuLycee(ctx)).filter((x) => !x.s?.lueLe).length;
 }
 
-/** Les pages lues chaque semaine quand l'administration n'en a pas choisi : le Bulletin officiel de l'éducation nationale. */
-export const PAGES_VEILLE_PAR_DEFAUT = ["https://www.education.gouv.fr/bo"];
+/**
+ * Les pages lues chaque semaine quand l'administration n'en a pas choisi : aucune. Le site du ministère refuse la lecture
+ * automatique du Bulletin officiel (réponse 403) ; on ne le contourne pas : Légifrance et le bulletin du jeudi le remplacent.
+ */
+export const PAGES_VEILLE_PAR_DEFAUT: string[] = [];
 const UNE_SEMAINE_MS = 7 * 24 * 3600 * 1000;
 /** Au plus ce nombre de nouveaux textes lus à chaque passage (chacun est une demande à l'IA). */
 const MAX_TEXTES = 5;
@@ -140,6 +144,26 @@ export async function veilleDeLaSemaine(opts: { maintenant?: boolean } = {}) {
     }
     if (erreur) break;
   }
+  // Légifrance (Journal officiel), quand l'accès est branché : les textes publiés depuis le dernier passage.
+  if (legifranceBranche() && !erreur) {
+    const depuis = (p?.veilleLe ?? new Date(Date.now() - UNE_SEMAINE_MS)).toISOString().slice(0, 10);
+    const lf = await textesLegifrance(depuis);
+    if ("raison" in lf) echecs.push(`Légifrance : ${lf.raison}`);
+    else {
+      lues++;
+      liens += lf.length;
+      const stages = lf.filter((t) => concerneLesPfmp(t.titre) || concerneLesPfmp(t.texte.slice(0, 2000)));
+      surLesStages += stages.length;
+      const nouveaux = stages.filter((t) => !vus.has(t.url) && !dejaAlertes.has(t.url));
+      trouves += nouveaux.length;
+      for (const t of nouveaux.slice(0, Math.max(0, MAX_TEXTES - preparees))) {
+        const r = await preparerAlerte(null, { titre: t.titre.slice(0, 200), source: t.url, texte: t.texte });
+        if (!r.ok) { erreur = r.erreur; break; }
+        vus.add(t.url);
+        preparees++;
+      }
+    }
+  }
   const veilleVus = [...vus].slice(-1000);
   await db.insert(schema.plateforme).values({ id: "cap-pfmp", tarifs: TARIFS_VIDES, plafonds: PLAFONDS_VIDES, veilleVus, veilleLe: new Date() })
     .onConflictDoUpdate({ target: schema.plateforme.id, set: { veilleVus, veilleLe: new Date() } });
@@ -154,5 +178,5 @@ export async function veilleDeLaSemaine(opts: { maintenant?: boolean } = {}) {
       });
     }
   }
-  return { pages: pages.length, lues, liens, surLesStages, trouves, preparees, erreur, echecs };
+  return { pages: pages.length, legifrance: legifranceBranche(), lues, liens, surLesStages, trouves, preparees, erreur, echecs };
 }

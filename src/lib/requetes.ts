@@ -5,7 +5,7 @@ import { db, schema } from "@/db";
 import type { Contexte } from "./auth";
 import { classesGerees } from "./acces";
 import { aujourdhui, ecartJours, ageAu } from "./dates";
-import { periodeDeReference, periodeDeReferenceEleve, estRattrapage } from "./periodes";
+import { concerneLEleve, periodeDeReference, periodeDeReferenceEleve, estRattrapage } from "./periodes";
 import { aRelire, candidaturesDe } from "./candidatures";
 import { signatairesAttendus, signaturesCompletes, statutEleve, verifierStage, stageConforme, type Statut } from "./regles";
 import type { Signataire } from "@/db/schema";
@@ -70,7 +70,7 @@ export async function elevesSuivis(ctx: Contexte, filtreClasse?: string) {
   const rattrapages = (await rattrapagesDe(idsEleves)).filter((r) => ids.includes(r.classeId));
   const periodesRef = new Map(eleves.map(({ e }) => {
     const classe = classes.find((c) => c.id === e.classeId)!;
-    return [e.id, periodeDeReferenceEleve([...classe.periodes, ...rattrapages.filter((r) => r.eleveId === e.id)], jour)];
+    return [e.id, periodeDeReferenceEleve([...classe.periodes.filter((p) => concerneLEleve(p, e)), ...rattrapages.filter((r) => r.eleveId === e.id)], jour)];
   }));
   const idsPeriodes = [...new Set([...periodesRef.values()].filter(Boolean).map((p) => p!.id))];
   const stages = idsPeriodes.length
@@ -166,4 +166,17 @@ export async function referentDe(e: { referentId: string | null; classeId: strin
   if (!e.classeId) return null;
   const [c] = await db.select({ ref: schema.classes.referentId }).from(schema.classes).where(eq(schema.classes.id, e.classeId)).limit(1);
   return c?.ref ?? null;
+}
+
+/** Les formations du lycée, avec le nom de leur pôle (pour les choisir dans une classe). */
+export async function formationsDuLycee(etabId: string) {
+  return db.select({ id: schema.formations.id, libelle: schema.formations.libelle, codeRome: schema.formations.codeRome, pole: schema.poles.libelle })
+    .from(schema.formations).leftJoin(schema.poles, eq(schema.poles.id, schema.formations.poleId))
+    .where(eq(schema.formations.etablissementId, etabId)).orderBy(asc(schema.poles.libelle), asc(schema.formations.libelle));
+}
+
+/** Les spécialités d'une classe : celles de sa formation ; toutes celles du lycée si la classe n'a pas de formation. */
+export async function specialitesDeLaClasse(etabId: string, c: { formationId: string | null }) {
+  const toutes = await db.select().from(schema.dominantes).where(eq(schema.dominantes.etablissementId, etabId)).orderBy(asc(schema.dominantes.libelle));
+  return c.formationId ? toutes.filter((d) => d.formationId === c.formationId) : toutes;
 }

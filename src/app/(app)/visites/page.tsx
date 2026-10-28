@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { contexte } from "@/lib/auth";
 import { estGestionnaire, peutAdministrer } from "@/lib/acces";
-import { repartitionParHeures, visiteursPossibles, visitesAOrganiser } from "@/lib/visites";
+import { peutFaireLaVisite, reglesDesPeriodes, repartitionParHeures, visiteursPossibles, visitesAOrganiser } from "@/lib/visites";
+import { LIBELLES_QUI_VISITE } from "@/lib/regles";
 import { aujourdhui, dateCourte } from "@/lib/dates";
 import { ChampRetour } from "@/components/ChampRetour";
 import { Formulaire } from "@/components/Formulaire";
@@ -24,7 +25,7 @@ async function RepartitionParHeures({ ctx }: { ctx: Awaited<ReturnType<typeof co
         <Link className="btn small" href="/visites/heures">Heures de face à face</Link>
       </div>
       <p className="sub" style={{ margin: 0 }}>
-        Pour chaque période, l&apos;application propose le nombre de visites de chaque professeur, en proportion de ses heures de cours dans la classe.
+        Pour chaque période, Cap Admin propose le nombre de visites de chaque professeur, en proportion de ses heures de cours dans la classe, parmi les professeurs qui peuvent faire ces visites d&apos;après l&apos;organisation du lycée.
         Ajustez si besoin, puis validez : chaque professeur est prévenu et choisit lui-même ses lieux de stage dans « Mes visites ».
       </p>
       {periodes.length === 0 && <p className="empty">Aucun stage à visiter pour l&apos;instant.</p>}
@@ -80,6 +81,7 @@ export default async function Visites() {
   if (!(await estGestionnaire(ctx))) redirect("/mes-visites");
   const lignes = await visitesAOrganiser(ctx, { gerees: true });
   const pool = await visiteursPossibles(ctx);
+  const regles = await reglesDesPeriodes(ctx, [...new Set(lignes.map((l) => l.p.id))]);
   const jour = aujourdhui();
   const actives = lignes.filter((l) => l.p.fin >= jour);
   const charge = pool.map((p) => ({ p, n: lignes.filter((l) => l.v?.visiteurId === p.id).length }));
@@ -92,7 +94,7 @@ export default async function Visites() {
         <div>
           <h1>Visites de stage</h1>
           <p className="sub">
-            Une visite par élève, faite par {ctx.etab.reglages.visiteurs === "pro" ? "les professeurs de l'enseignement professionnel" : "toute l'équipe pédagogique"}.
+            Une visite par élève, faite selon l&apos;organisation du lycée : première période, {LIBELLES_QUI_VISITE[ctx.etab.reglages.quiVisite.premiere]} ; dernière période, {LIBELLES_QUI_VISITE[ctx.etab.reglages.quiVisite.derniere]} ; autres périodes, {LIBELLES_QUI_VISITE[ctx.etab.reglages.quiVisite.autres]} ; classes d&apos;examen, {LIBELLES_QUI_VISITE[ctx.etab.reglages.quiVisite.examen]}.
             {ctx.etab.reglages.ordreMission && " Chaque visite demande un ordre de mission signé avant la visite."}
             {parHeures && " Le nombre de visites de chacun suit ses heures de face à face ; les rattrapages s'attribuent directement dans la liste."}
           </p>
@@ -129,7 +131,7 @@ export default async function Visites() {
               <input type="hidden" name="stageId" value={l.s.id} />
               <select className="inp" name="visiteurId" defaultValue={l.v?.visiteurId ?? ""} aria-label={`Visiteur de ${l.e.prenom} ${l.e.nom}`} style={{ width: "auto" }}>
                 <option value="">— Visiteur —</option>
-                {pool.map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
+                {pool.filter((p) => peutFaireLaVisite(regles, l.p.id, p) || p.id === l.v?.visiteurId).map((p) => <option key={p.id} value={p.id}>{p.prenom} {p.nom}</option>)}
               </select>
               <input className="inp" type="date" name="date" defaultValue={l.v?.date ?? ""} aria-label={`Date de visite de ${l.e.prenom} ${l.e.nom}`} style={{ width: "auto" }} />
               <button className="btn small">Enregistrer</button>

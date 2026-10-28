@@ -1,4 +1,5 @@
 import "server-only";
+import { avecSpecialite } from "./specialites";
 import { and, asc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { Contexte } from "./auth";
@@ -12,7 +13,8 @@ export async function periodesDuLycee(etab: { id: string; anneeScolaire: string 
   if (!classes.length) return [];
   const periodes = await db.select().from(schema.periodes)
     .where(and(inArray(schema.periodes.classeId, classes.map((c) => c.id)), isNull(schema.periodes.eleveId)))
-    .orderBy(asc(schema.periodes.debut));
+    .orderBy(asc(schema.periodes.debut))
+    .then((ps) => avecSpecialite(etab.id, ps));
   return classes.map((c) => ({ classe: c, periodes: periodes.filter((p) => p.classeId === c.id) }));
 }
 

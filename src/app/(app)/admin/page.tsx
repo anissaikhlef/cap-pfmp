@@ -6,6 +6,7 @@ import { contexte } from "@/lib/auth";
 import { AGENTS, LIBELLES_FORMULES, LISTE_AGENTS, euros, formuleDe, prixMensuel } from "@/lib/agents";
 import { iaBranchee } from "@/lib/ia";
 import { laBonneBoiteBranchee } from "@/lib/la-bonne-boite";
+import { legifranceBranche } from "@/lib/legifrance";
 import { reglagesPlateforme, usageDuMois } from "@/lib/plateforme";
 import { Formulaire } from "@/components/Formulaire";
 import { Entete } from "@/components/ui";
@@ -28,6 +29,17 @@ export default async function Admin() {
       <Entete titre="Administration de Cap PFMP" sous="Les montants de l'abonnement selon les agents choisis, les plafonds d'usage, et les lycées.">
         <div className="actions"><Link className="btn" href="/admin/veille">Veille réglementaire</Link></div>
       </Entete>
+      {!legifranceBranche() && (
+        <div className="panel pad section agent-ia">
+          <h2>À faire : Légifrance pour Cap Veille</h2>
+          <ol className="sub" style={{ margin: 0, paddingLeft: 18 }}>
+            <li>Créez votre compte sur piste.gouv.fr (le portail des accès officiels de l&apos;État pour les logiciels) et souscrivez à l&apos;API « Légifrance ».</li>
+            <li>Vous recevez deux codes (identifiant et clé secrète). Ajoutez-les dans les réglages de Vercel (« Settings », « Environment Variables ») sous les noms LEGIFRANCE_ID et LEGIFRANCE_SECRET, puis redéployez. Ne les écrivez à personne.</li>
+            <li>Abonnez-vous aussi à la lettre du jeudi du ministère (sommaire du Bulletin officiel), pour coller dans Cap Veille les notes de service sur les stages.</li>
+          </ol>
+          <p className="sub" style={{ margin: "6px 0 0" }}>Ce rappel disparaît dès que Légifrance est branché.</p>
+        </div>
+      )}
       {!laBonneBoiteBranchee() && (
         <div className="panel pad section agent-ia">
           <h2>À faire : La bonne boîte</h2>

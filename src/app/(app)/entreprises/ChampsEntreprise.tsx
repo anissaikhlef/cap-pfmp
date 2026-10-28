@@ -7,7 +7,7 @@ export function ChampsEntreprise({ v = {}, domaines }: { v?: V; domaines: string
       <label className="f" htmlFor="x-secteur">Secteur
         <select id="x-secteur" name="secteur" defaultValue={v.secteur ?? "prive"}><option value="prive">Privé</option><option value="public">Public</option></select>
       </label>
-      <label className="f" htmlFor="x-domaine">Domaine (doit correspondre à une dominante pour la 1re et la Tle)
+      <label className="f" htmlFor="x-domaine">Domaine (doit correspondre à une spécialité pour la 1re et la Tle)
         <input id="x-domaine" name="domaine" list="domaines" defaultValue={v.domaine ?? ""} />
         <datalist id="domaines">{domaines.map((d) => <option key={d} value={d} />)}</datalist>
       </label>

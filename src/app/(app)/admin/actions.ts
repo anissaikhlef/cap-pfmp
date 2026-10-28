@@ -92,7 +92,7 @@ export async function enregistrerSourcesVeille(_: Etat, fd: FormData): Promise<E
     .onConflictDoUpdate({ target: schema.plateforme.id, set: { veillePages: pages } });
   await journaliser(ctx, "veille_sources", "plateforme", "cap-pfmp", { pages });
   revalidatePath("/admin/veille");
-  return { ok: pages.length ? `${pages.length} source(s) enregistrée(s) : Cap Veille les lit chaque semaine.` : "Sources par défaut : Cap Veille lit le Bulletin officiel chaque semaine." };
+  return { ok: pages.length ? `${pages.length} source(s) enregistrée(s) : Cap Veille les lit chaque semaine.` : "Aucune page à lire : Cap Veille s'appuie sur Légifrance et sur les textes que vous collez." };
 }
 
 /** « Lire les sources maintenant » : Cap Veille passe tout de suite, sans attendre la semaine. */
@@ -101,6 +101,7 @@ export async function lireSourcesMaintenant(fd: FormData) {
   const r = (await veilleDeLaSemaine({ maintenant: true }))!;
   await journaliser(ctx, "veille_lecture", "plateforme", "cap-pfmp", r);
   revalidatePath("/admin/veille");
+  if (!r.pages && !r.legifrance) revenirAvec(fd, "Aucune source automatique pour l'instant : branchez Légifrance (voir « À faire » dans Administration). En attendant, collez ci-dessous les textes du bulletin du jeudi qui parlent des stages.", "err");
   if (!r.lues) revenirAvec(fd, `Cap Veille n'a pu lire aucune source. ${r.echecs.join(" ; ")}.`, "err");
   if (r.erreur) revenirAvec(fd, `${r.preparees} alerte(s) préparée(s). ${r.erreur}`, "err");
   const detail = `${r.liens} lien(s) officiel(s) trouvé(s), dont ${r.surLesStages} sur les stages${r.echecs.length ? ` ; non lue(s) : ${r.echecs.join(" ; ")}` : ""}`;

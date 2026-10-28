@@ -48,7 +48,7 @@ ok(await visible(ddfpt.getByText("Période mise à jour.")), "le DDFPT avance la
 /* ------------------- Avec le professeur : le tuteur remplit sur son téléphone, avec l'élève ------------------- */
 const diallo = await session("a.diallo");
 await diallo.goto(BASE + "/mes-visites");
-await Promise.all([diallo.waitForURL(/\/visites\/[0-9a-f-]{36}/), diallo.click("a.row:has-text('MANSOURI')")]);
+await Promise.all([diallo.waitForURL(/\/visites\/[0-9a-f-]{36}/), diallo.click(".row:has-text(\'MANSOURI\') a:has-text(\'Détails\')")]);
 const urlRayan = diallo.url().replace(/#.*/, "");
 const att = diallo.locator("#attestation");
 ok(await att.locator("input[name=rempliePar][value=tuteur_eleve_professeur]").isChecked(), "sur le téléphone du professeur : « le tuteur, avec l'élève et le professeur » est proposé");

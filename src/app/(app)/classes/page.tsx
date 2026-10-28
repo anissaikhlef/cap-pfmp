@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { contexte } from "@/lib/auth";
 import { classesGerees, peutAdministrer } from "@/lib/acces";
-import { classesAvecPeriodes, periodeDeReference, professeurs, texteperiode } from "@/lib/requetes";
+import { classesAvecPeriodes, formationsDuLycee, periodeDeReference, professeurs, texteperiode } from "@/lib/requetes";
 import { dateCourte } from "@/lib/dates";
 import { Formulaire } from "@/components/Formulaire";
 import { ChampsClasse } from "./ChampsClasse";
@@ -43,7 +43,7 @@ export default async function Classes() {
         <div className="panel pad section">
           <h2>Nouvelle classe</h2>
           <Formulaire action={creerClasse} bouton="Créer la classe">
-            <ChampsClasse profs={profs} />
+            <ChampsClasse profs={profs} formations={await formationsDuLycee(ctx.etab.id)} />
           </Formulaire>
         </div>
       )}

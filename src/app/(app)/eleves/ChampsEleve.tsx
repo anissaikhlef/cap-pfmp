@@ -13,7 +13,7 @@ export function ChampsEleve({ v = {}, classes, dominantes, profs }: { v?: V; cla
         </select>
       </label>
       <label className="f" htmlFor="e-naiss">Date de naissance (pour savoir si l&apos;élève est majeur)<input id="e-naiss" name="dateNaissance" type="date" defaultValue={v.dateNaissance ?? ""} /></label>
-      <label className="f" htmlFor="e-dom">Dominante (1re et terminale)
+      <label className="f" htmlFor="e-dom">Spécialité (l&apos;élève suit les dates de PFMP de sa spécialité)
         <select id="e-dom" name="dominanteId" defaultValue={v.dominanteId ?? ""}>
           <option value="">— Aucune —</option>
           {dominantes.map((d) => <option key={d.id} value={d.id}>{d.libelle}</option>)}

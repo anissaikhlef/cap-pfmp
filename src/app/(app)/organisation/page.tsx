@@ -1,11 +1,9 @@
 import Link from "next/link";
-import { asc, eq } from "drizzle-orm";
-import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
 import { Formulaire } from "@/components/Formulaire";
 import { Entete } from "@/components/ui";
 import { adresseDuSite } from "@/lib/liens";
-import { ajouterDominante, enregistrerOrganisation, supprimerDominante } from "./actions";
+import { enregistrerOrganisation } from "./actions";
 
 export const metadata = { title: "Organisation" };
 
@@ -25,7 +23,6 @@ function Choix({ nom, valeur, options }: { nom: string; valeur: string; options:
 export default async function Organisation() {
   const ctx = await contexte({ roles: ["direction", "gestionnaire"] });
   const r = ctx.etab.reglages;
-  const dominantes = await db.select().from(schema.dominantes).where(eq(schema.dominantes.etablissementId, ctx.etab.id)).orderBy(asc(schema.dominantes.libelle));
   const on = (b: boolean) => (b ? "oui" : "non");
   const base = await adresseDuSite();
   return (
@@ -35,6 +32,7 @@ export default async function Organisation() {
           <Link className="btn" href="/organisation/documents">Modèles de documents</Link>
           <Link className="btn" href="/organisation/frais">Barème des frais</Link>
           <Link className="btn" href="/organisation/agents">Agents IA</Link>
+          <Link className="btn" href="/organisation/formations">Pôles et formations</Link>
         </div>
       </Entete>
       <Formulaire action={enregistrerOrganisation} bouton="Enregistrer l'organisation">
@@ -56,10 +54,23 @@ export default async function Organisation() {
         </div>
         <div className="panel pad section">
           <h2>Qui fait les visites de stage ?</h2>
-          <Choix nom="visiteurs" valeur={r.visiteurs} options={[
-            ["pro", "Les professeurs de l'enseignement professionnel"],
-            ["equipe", "Toute l'équipe pédagogique", "Professeurs d'enseignement général compris."],
-          ]} />
+          <p className="sub">Chaque lycée a son organisation. Par exemple : les premières visites par les professeurs de l&apos;enseignement professionnel, les dernières par ceux de l&apos;enseignement général, et les classes d&apos;examen seulement par l&apos;enseignement professionnel. Cap Admin en tient compte pour répartir les visites, et chaque professeur ne voit que celles qu&apos;il peut prendre.</p>
+          <div className="grid2">
+            {([
+              ["quiPremiere", "Première période de PFMP de l'année", r.quiVisite.premiere],
+              ["quiDerniere", "Dernière période de PFMP de l'année", r.quiVisite.derniere],
+              ["quiAutres", "Autres périodes", r.quiVisite.autres],
+              ["quiExamen", "Classes d'examen (terminale, 2e année de CAP), toutes périodes", r.quiVisite.examen],
+            ] as const).map(([nom, libelle, valeur]) => (
+              <label key={nom} className="f" htmlFor={nom}>{libelle}
+                <select id={nom} name={nom} defaultValue={valeur}>
+                  <option value="tous">Toute l&apos;équipe pédagogique</option>
+                  <option value="pro">Les professeurs de l&apos;enseignement professionnel</option>
+                  <option value="general">Les professeurs de l&apos;enseignement général</option>
+                </select>
+              </label>
+            ))}
+          </div>
         </div>
         <div className="panel pad section">
           <h2>Comment les visites sont-elles réparties ?</h2>
@@ -112,7 +123,7 @@ export default async function Organisation() {
         </div>
         <div className="panel pad section">
           <h2>Règles de stage</h2>
-          <p className="sub">Vérifiées automatiquement pour chaque stage. La règle de structure (privé ou dominante) se règle par classe.</p>
+          <p className="sub">Vérifiées automatiquement pour chaque stage. La règle de structure (privé ou spécialité) se règle par classe.</p>
           <div className="grid3">
             <label className="f" htmlFor="heuresMin">Heures par semaine, minimum<input id="heuresMin" name="heuresMin" type="number" min={0} max={48} step={0.5} defaultValue={r.regles.heuresMin} /></label>
             <label className="f" htmlFor="heuresMax">Heures par semaine, maximum<input id="heuresMax" name="heuresMax" type="number" min={1} max={48} step={0.5} defaultValue={r.regles.heuresMax} /></label>
@@ -158,22 +169,6 @@ export default async function Organisation() {
         </div>
       </Formulaire>
 
-      <div className="panel pad section">
-        <h2>Dominantes</h2>
-        <p className="sub">Utilisées pour vérifier qu&apos;un stage de 1re ou de terminale se déroule dans la dominante de l&apos;élève.</p>
-        <div className="rows panel">
-          {dominantes.length === 0 && <div className="empty">Aucune dominante.</div>}
-          {dominantes.map((d) => (
-            <div key={d.id} className="row">
-              <div className="main">{d.libelle}</div>
-              <form action={supprimerDominante}><input type="hidden" name="id" value={d.id} /><button className="btn small danger">Retirer</button></form>
-            </div>
-          ))}
-        </div>
-        <Formulaire action={ajouterDominante} className="actions" bouton="Ajouter" boutonClasse="btn">
-          <label className="f" htmlFor="libelle" style={{ flex: 1 }}>Nouvelle dominante<input id="libelle" name="libelle" placeholder="Ex. Sécurité incendie" /></label>
-        </Formulaire>
-      </div>
     </>
   );
 }

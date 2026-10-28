@@ -174,7 +174,7 @@ export async function importerEleves(_: RapportImport, fd: FormData): Promise<Ra
   const col = (...noms: string[]) => entetes.findIndex((h) => noms.includes(h));
   const iNom = col("nom"), iPrenom = col("prenom"), iClasse = col("classe", "division"),
     iNaiss = col("date_de_naissance", "date_naissance", "naissance", "ne_e_le"), iEmail = col("email", "mail", "e_mail", "courriel"),
-    iDom = col("dominante");
+    iDom = col("specialite", "dominante");
   if (iNom < 0 || iPrenom < 0 || iClasse < 0) return { erreur: "Colonnes obligatoires : nom, prenom, classe." };
 
   const gerees = await classesGerees(ctx);

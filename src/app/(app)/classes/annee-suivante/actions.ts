@@ -26,7 +26,7 @@ export async function passerAnneeSuivante(_: Etat, fd: FormData): Promise<Etat> 
         const niv = String(fd.get(`niveau_${c.id}`) ?? c.niveau);
         const niveau = (["CAP", "2NDE", "1RE", "TLE"].includes(niv) ? niv : c.niveau) as Niveau;
         const [n] = await tx.insert(schema.classes).values({
-          etablissementId: ctx.etab.id, libelle, niveau, filiere: c.filiere, anneeScolaire: suivante, regleStructure: REGLE[niveau], referentId: c.referentId,
+          etablissementId: ctx.etab.id, libelle, niveau, filiere: c.filiere, formationId: c.formationId, codeRome: c.codeRome, anneeScolaire: suivante, regleStructure: REGLE[niveau], referentId: c.referentId,
         }).returning();
         crees++;
         for (const e of eleves) { await tx.update(schema.eleves).set({ classeId: n.id }).where(eq(schema.eleves.id, e.id)); deplaces++; }

@@ -1,4 +1,5 @@
 import "server-only";
+import { concerneLEleve } from "./periodes";
 import { and, eq, gte, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { envoyer } from "./messages";
@@ -324,7 +325,7 @@ async function rappelerEleves(ctx: Expediteur, etab: EtabC, conds: SQL[], journa
     if (journal.fait(cle)) continue;
     const taches = tachesEleve({
       jour, rechercheJours: etab.reglages.relances.eleveRechercheJours, signatureEnLigne: etab.reglages.signature !== "papier", aUnCv: !!candidatures.get(e.id)?.cv,
-      periodes: periodes.filter((p) => p.classeId === e.classeId && (!p.eleveId || p.eleveId === e.id)),
+      periodes: periodes.filter((p) => p.classeId === e.classeId && concerneLEleve(p, e)),
       stages: stages.filter((x) => x.s.eleveId === e.id).map((x) => ({ periodeId: x.s.periodeId, entreprise: x.ent, signeeParLEleve: !!x.s.signatures.eleve })),
       demarchesEnAttente: demarches.filter((d) => d.eleveId === e.id).map((d) => ({ entreprise: d.entrepriseNom, date: d.date })),
     });

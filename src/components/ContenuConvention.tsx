@@ -40,7 +40,7 @@ export async function ContenuConvention({ etab, cv }: { etab: { id: string; nom:
         {ligne("Représentant de l'organisme", cv.ent.representantNom ? `${cv.ent.representantNom}${cv.ent.representantFonction ? `, ${cv.ent.representantFonction}` : ""}` : "—")}
         {ligne("Tuteur de stage", t ? `${t.nom}${t.fonction ? `, ${t.fonction}` : ""}${t.telephone ? ` · ${t.telephone}` : ""}` : "Non désigné")}
         {ligne("Élève", `${cv.e.prenom} ${cv.e.nom}${cv.e.dateNaissance ? `, né(e) le ${dateLongue(cv.e.dateNaissance)}` : ""}`)}
-        {ligne("Formation", `${cv.c.filiere ?? ""} · ${cv.c.libelle}${cv.dominante ? ` · dominante ${cv.dominante}` : ""}`)}
+        {ligne("Formation", `${cv.c.filiere ?? ""} · ${cv.c.libelle}${cv.dominante ? ` · spécialité ${cv.dominante}` : ""}`)}
       </tbody></table>
 
       <h2>2. Période et horaires</h2>

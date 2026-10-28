@@ -1,4 +1,5 @@
 import "server-only";
+import { concerneLEleve } from "./periodes";
 import { and, asc, eq, gte, inArray, isNull, lte, ne, sql } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { Contexte } from "./auth";
@@ -77,7 +78,8 @@ export async function dossierStage(ctx: Contexte, eleve: typeof schema.eleves.$i
     ? await db.select().from(schema.periodes).where(and(eq(schema.periodes.classeId, classe.id), isNull(schema.periodes.eleveId))).orderBy(asc(schema.periodes.debut))
     : [];
   const rattrapages = classe ? (await rattrapagesDe([eleve.id])).filter((r) => r.classeId === classe.id) : [];
-  const periodes = [...deLaClasse, ...rattrapages].sort((x, y) => x.debut.localeCompare(y.debut));
+  // Les périodes de toute la classe et celles de la spécialité de l'élève, puis ses rattrapages.
+  const periodes = [...deLaClasse.filter((p) => concerneLEleve(p, eleve)), ...rattrapages].sort((x, y) => x.debut.localeCompare(y.debut));
   const periode = periodes.find((p) => p.id === periodeId) ?? periodeDeReferenceEleve(periodes);
   const [dom] = eleve.dominanteId ? await db.select().from(schema.dominantes).where(eq(schema.dominantes.id, eleve.dominanteId)).limit(1) : [];
   const [st] = periode

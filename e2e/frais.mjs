@@ -28,7 +28,7 @@ await ddfpt.screenshot({ path: `${OUT}/frais-bareme.png`, fullPage: true });
 /* ------------------- Le professeur : sa demande après la visite ------------------- */
 const diallo = await session("a.diallo");
 await diallo.goto(BASE + "/mes-visites");
-await Promise.all([diallo.waitForURL(/\/visites\/[0-9a-f-]{36}/), diallo.click("a.row:has-text('MANSOURI')")]);
+await Promise.all([diallo.waitForURL(/\/visites\/[0-9a-f-]{36}/), diallo.click(".row:has-text(\'MANSOURI\') a:has-text(\'Détails\')")]);
 const urlRayan = diallo.url();
 let t = await diallo.textContent("#frais");
 ok(t.includes("le trajet retenu est celui entre le lycée et le lieu de stage"), "les consignes du lycée accompagnent la demande");

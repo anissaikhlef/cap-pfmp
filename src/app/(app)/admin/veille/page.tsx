@@ -9,6 +9,7 @@ import { Formulaire } from "@/components/Formulaire";
 import { Entete, Pill } from "@/components/ui";
 import { corrigerAlerte, enregistrerSourcesVeille, lireSourcesMaintenant, nouvelleAlerte, publier, supprimerAlerte } from "../actions";
 import { PAGES_VEILLE_PAR_DEFAUT } from "@/lib/agent-veille";
+import { legifranceBranche } from "@/lib/legifrance";
 import { eq } from "drizzle-orm";
 
 export const metadata = { title: "Veille réglementaire · administration" };
@@ -28,9 +29,10 @@ export default async function AdminVeille() {
       </Entete>
       <div className="panel pad section">
         <h2>Lecture des sources chaque semaine</h2>
-        <p className="sub">Une fois par semaine, {nom} lit ces pages officielles et prépare une alerte pour chaque nouveau texte qui parle des stages. Vous recevez un mail ; rien n&apos;est publié sans vous.{plat?.veilleLe ? ` Dernier passage : ${dateCourte(plat.veilleLe.toISOString().slice(0, 10))}.` : " Pas encore de passage."}</p>
+        <p className="sub">Une fois par semaine, {nom} lit le Journal officiel sur Légifrance{legifranceBranche() ? "" : " (dès que l'accès est branché : voir « À faire » dans Administration)"}, et les pages officielles ci-dessous s&apos;il y en a. Il prépare une alerte pour chaque nouveau texte qui parle des stages ; vous recevez un mail, et rien n&apos;est publié sans vous.{plat?.veilleLe ? ` Dernier passage : ${dateCourte(plat.veilleLe.toISOString().slice(0, 10))}.` : " Pas encore de passage."}</p>
+        <p className="note" style={{ margin: 0 }}>Le site du ministère refuse la lecture automatique du Bulletin officiel. Pour ses notes de service, abonnez-vous à la lettre gratuite du ministère qui envoie chaque jeudi le sommaire du Bulletin officiel (page « Kiosque actu » d&apos;education.gouv.fr) : quand un texte parle des stages, collez-le ci-dessous dans « Nouveau texte officiel ».</p>
         <Formulaire action={enregistrerSourcesVeille} bouton="Enregistrer les sources" boutonClasse="btn" viderApres={false}>
-          <label className="f" htmlFor="v-pages">Pages lues (une adresse par ligne)<textarea id="v-pages" name="pages" rows={3} defaultValue={pages.join("\n")} /></label>
+          <label className="f" htmlFor="v-pages">Autres pages officielles à lire (facultatif, une adresse par ligne)<textarea id="v-pages" name="pages" rows={3} defaultValue={pages.join("\n")} /></label>
         </Formulaire>
         <form action={lireSourcesMaintenant} className="actions" style={{ marginTop: 8 }}><ChampRetour /><button className="btn small">Lire les sources maintenant</button></form>
       </div>

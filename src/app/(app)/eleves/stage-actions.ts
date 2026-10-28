@@ -1,4 +1,5 @@
 "use server";
+import { concerneLEleve } from "@/lib/periodes";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
@@ -23,7 +24,8 @@ async function eleveEtPeriode(ctx: Awaited<ReturnType<typeof contexte>>, eleveId
     eq(schema.periodes.id, periodeId), eq(schema.periodes.classeId, e.classeId),
     or(isNull(schema.periodes.eleveId), eq(schema.periodes.eleveId, e.id)),
   )).limit(1);
-  if (!p) return null;
+  // Une période d'une autre spécialité de la classe ne concerne pas l'élève.
+  if (!p || !concerneLEleve(p, e)) return null;
   return { e, p };
 }
 

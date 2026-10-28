@@ -197,3 +197,6 @@ details[open] > summary { margin-bottom: 10px; }
 .corps-mail { white-space: pre-wrap; font-family: inherit; font-size: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin: 8px 0; max-width: 100%; overflow-wrap: anywhere; }
 .agent-ia { border-left: 3px solid #6d4bd8; }
 .agent-ia .marque { font-weight: 600; color: #6d4bd8; }
+.lien-discret { background: none; border: 0; padding: 0 0 0 6px; font: inherit; color: var(--muted); cursor: pointer; }
+.lien-discret:hover { color: var(--ink); }
+.coordonnees a { color: inherit; font-weight: 600; }

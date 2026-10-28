@@ -98,9 +98,9 @@ export default async function Visite({ params }: { params: Promise<{ id: string 
               <input type="hidden" name="visiteId" value={l.v.id} />
               <fieldset className="choices" style={{ flexDirection: "row", flexWrap: "wrap", border: 0, padding: 0, margin: 0 }}>
                 <legend className="sub">Forme de la visite</legend>
-                <label className="choice"><input type="radio" name="mode" value="presentiel" defaultChecked={l.v.modesProposes === "presentiel"} /> Sur place</label>
-                <label className="choice"><input type="radio" name="mode" value="distanciel" defaultChecked={l.v.modesProposes === "distanciel"} /> À distance</label>
-                <label className="choice"><input type="radio" name="mode" value="les2" defaultChecked={!l.v.modesProposes || l.v.modesProposes === "les2"} /> Au choix de l&apos;entreprise</label>
+                <label className="choice"><input type="radio" name="mode" value="presentiel" defaultChecked={(l.v.modesProposes ?? l.v.formePrevue) === "presentiel"} /> Sur place</label>
+                <label className="choice"><input type="radio" name="mode" value="distanciel" defaultChecked={(l.v.modesProposes ?? l.v.formePrevue) === "distanciel"} /> À distance</label>
+                <label className="choice"><input type="radio" name="mode" value="les2" defaultChecked={(l.v.modesProposes ?? l.v.formePrevue ?? "les2") === "les2"} /> Au choix de l&apos;entreprise</label>
               </fieldset>
               {propositions.map(([d, h], i) => (
                 <div key={i} className="grid2" style={{ gridTemplateColumns: "1fr 120px" }}>

@@ -1,3 +1,4 @@
+import { concerneLEleve } from "@/lib/periodes";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { and, asc, desc, eq, isNull, or } from "drizzle-orm";
@@ -29,7 +30,7 @@ export default async function FicheVieScolaire({ params }: { params: Promise<{ i
   const periodes = classe
     ? await db.select().from(schema.periodes)
       .where(and(eq(schema.periodes.classeId, classe.id), or(isNull(schema.periodes.eleveId), eq(schema.periodes.eleveId, e.id))))
-      .orderBy(asc(schema.periodes.debut))
+      .orderBy(asc(schema.periodes.debut)).then((ps) => ps.filter((p) => concerneLEleve(p, e)))
     : [];
   const lieux = (await lieuxDesPeriodes(periodes.map((p) => p.id))).filter((l) => l.s.eleveId === e.id);
   const absences = await db.select().from(schema.absences).where(eq(schema.absences.eleveId, e.id)).orderBy(desc(schema.absences.debut));

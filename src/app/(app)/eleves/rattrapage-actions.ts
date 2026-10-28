@@ -1,4 +1,5 @@
 "use server";
+import { concerneLEleve } from "@/lib/periodes";
 import { revalidatePath } from "next/cache";
 import { and, eq, isNull, or } from "drizzle-orm";
 import { z } from "zod";
@@ -21,8 +22,10 @@ async function eleveAutorise(ctx: Ctx, eleveId: string) {
 
 /** Les périodes de l'élève cette année : celles de sa classe et ses rattrapages. */
 async function periodesDeLEleve(classeId: string, eleveId: string) {
-  return db.select().from(schema.periodes)
+  const [e] = await db.select({ id: schema.eleves.id, dominanteId: schema.eleves.dominanteId }).from(schema.eleves).where(eq(schema.eleves.id, eleveId)).limit(1);
+  const ps = await db.select().from(schema.periodes)
     .where(and(eq(schema.periodes.classeId, classeId), or(isNull(schema.periodes.eleveId), eq(schema.periodes.eleveId, eleveId))));
+  return e ? ps.filter((p) => concerneLEleve(p, e)) : ps;
 }
 
 const Dates = z.object({

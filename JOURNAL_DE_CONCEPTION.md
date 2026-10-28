@@ -496,3 +496,25 @@ Mise en œuvre des décisions d'Anissa : « l'agent 1 est obligatoire, le 2 et l
 
 - **La bonne boîte** : l'adresse de l'API et le nom des paramètres sont dans la documentation remise à l'inscription sur francetravail.io. Ils se règlent sans toucher au code (FRANCE_TRAVAIL_LBB_URL, FRANCE_TRAVAIL_SCOPE) ; en cas d'erreur, Cap Partenaires continue avec l'annuaire du lycée et l'annuaire public.
 - **Page lue par Cap Veille** : la page du Bulletin officiel (ou son flux RSS) se confirme en ligne au premier passage, avec le bouton « Lire les sources maintenant ».
+
+## 28 octobre 2026 : veille, pôles, spécialités et visites
+
+### Veille réglementaire
+
+Le site du ministère refuse la lecture automatique du Bulletin officiel (réponse 403 au premier essai en ligne). Anissa choisit l'option 3 : **Légifrance automatiquement** (accès officiel gratuit pour les logiciels, après inscription d'Anissa sur piste.gouv.fr) **et le bulletin du jeudi** (lettre gratuite du ministère qui envoie le sommaire du BO chaque jeudi ; Anissa colle dans Cap Veille les textes qui parlent des stages). Le contournement du blocage du ministère est exclu.
+
+### Pôles de formation
+
+« Dans les lycées professionnels, on trouve plusieurs pôles » : chaque lycée a ses pôles, chaque pôle ses formations, chaque formation ses spécialités. Les formations en apprentissage sont exclues de Cap PFMP (« que je ferai plus tard dans une autre appli »). Démonstration, formations en voie scolaire : Sécurité (CAP Agent de sécurité, Bac pro Métiers de la sécurité), Automobile (CAP Maintenance des véhicules, option véhicules légers), Maintenance industrielle (2de pro Métiers du pilotage et de la maintenance d'installations automatisées, Bac pro Maintenance des systèmes de production connectés), Informatique, réseaux et électronique (2de pro Métiers des transitions numérique et énergétique, Bac pro CIEL).
+
+### Spécialités et dates de PFMP
+
+« Parfois, dans la même classe, des groupes d'élèves partent en stage à des périodes différentes » (par exemple, à partir de la première, sûreté et sécurité) ; c'est « toujours en lien avec des spécialités ». Une période de PFMP concerne toute la classe ou une spécialité de la classe ; chaque élève suit les dates de sa spécialité ; le calendrier les montre. Le mot « dominante » devient « spécialité ».
+
+### Visites
+
+1. **Nombre de visites** : réparti par Cap Admin en proportion des heures de cours du professeur dans la classe, validé par le DDFPT.
+2. **Choix des élèves** : chaque professeur se positionne sur les lieux de stage qu'aucun collègue n'a pris, « premier arrivé, premier servi ».
+3. **Sur place ou à distance** : « le choix vient après l'appel de l'entreprise, ou bien le prof l'indique et le modifie en fonction de la disponibilité du tuteur ». En prenant la visite, le professeur indique sur place, à distance, ou à décider après l'appel ; il peut le changer jusqu'au rendez-vous confirmé.
+4. **Coordonnées** : dès que le professeur prend une visite, il voit l'adresse du lieu de stage, le tuteur et son téléphone.
+5. **Qui visite quoi, selon chaque lycée** : dans le lycée d'Anissa, les premières visites sont faites par les professeurs de l'enseignement professionnel, les dernières par ceux de l'enseignement général, et les classes d'examen ne sont visitées que par les professeurs de l'enseignement professionnel ; d'autres lycées ont leur propre organisation. Réglage dans « Organisation » : pour la première période de l'année, la dernière, les autres, et les classes d'examen, qui peut visiter (enseignement professionnel, enseignement général, ou toute l'équipe).

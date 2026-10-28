@@ -57,7 +57,7 @@ ok(await garnier.locator("#cachet").count() === 0, "la signature de l'entreprise
 /* ------------------- Pendant la visite : signature de l'entreprise, compte rendu ------------------- */
 const diallo = await session("a.diallo");
 await diallo.goto(BASE + "/mes-visites");
-await Promise.all([diallo.waitForURL(/\/visites\/[0-9a-f-]{36}/), diallo.click("a.row:has-text('MANSOURI')")]);
+await Promise.all([diallo.waitForURL(/\/visites\/[0-9a-f-]{36}/), diallo.click(".row:has-text(\'MANSOURI\') a:has-text(\'Détails\')")]);
 const urlRayan = diallo.url();
 ok((await diallo.textContent("#appel")).includes("Tuteur joint au téléphone"), "l'appel de la première semaine est noté");
 ok((await diallo.inputValue("#ca-nom")) === "S. Roux", "le nom du tuteur est proposé pour la signature de l'entreprise");

@@ -11,7 +11,7 @@ import { revenirAvec } from "@/lib/retour";
 import { adresseDuSite, creerLien } from "@/lib/liens";
 import { confirmerRendezVous, fermerLienRendezVous, JOURS_LIEN_RENDEZ_VOUS, texteCreneau, texteMode, visitePourRendezVous } from "@/lib/rendez-vous";
 import { modeRetenu } from "@/lib/regles";
-import { chargerVisite, visiteursPossibles, visitesAOrganiser } from "@/lib/visites";
+import { chargerVisite, peutFaireLaVisite, reglesDesPeriodes, visiteursPossibles, visitesAOrganiser } from "@/lib/visites";
 import { dateProposee, repartir } from "@/lib/repartition";
 import { aujourdhui, dateLongue } from "@/lib/dates";
 import type { Etat } from "@/components/Formulaire";
@@ -52,7 +52,12 @@ export async function attribuer(fd: FormData) {
   const date = String(fd.get("date") ?? "");
   const pool = await visiteursPossibles(ctx);
   const v = await visiteDuStage(stageId);
-  const nouveauVisiteur = visiteurId && pool.some((p) => p.id === visiteurId) ? visiteurId : null;
+  const [st] = await db.select({ periodeId: schema.stages.periodeId }).from(schema.stages).where(eq(schema.stages.id, stageId)).limit(1);
+  const regles = await reglesDesPeriodes(ctx, [st.periodeId]);
+  const prof = pool.find((p) => p.id === visiteurId);
+  // Les règles du lycée (qui visite quoi) s'appliquent aussi à l'attribution par la gestion.
+  if (prof && !peutFaireLaVisite(regles, st.periodeId, prof)) revenirAvec(fd, `${prof.prenom} ${prof.nom} ne peut pas faire cette visite, d'après l'organisation du lycée (« Organisation », « Qui fait les visites de stage ? »).`, "err");
+  const nouveauVisiteur = prof ? prof.id : null;
   const change = nouveauVisiteur !== v.visiteurId;
   await db.update(schema.visites).set({
     visiteurId: nouveauVisiteur,
@@ -71,10 +76,12 @@ export async function repartirAutomatiquement(fd: FormData) {
   const ctx = await contexte();
   const lignes = (await visitesAOrganiser(ctx, { gerees: true })).filter((l) => l.p.fin >= aujourdhui());
   const pool = await visiteursPossibles(ctx);
+  const regles = await reglesDesPeriodes(ctx, [...new Set(lignes.map((l) => l.p.id))]);
+  const autorise = (periodeId: string, id: string) => { const u = pool.find((p) => p.id === id); return !!u && peutFaireLaVisite(regles, periodeId, u); };
   const res = repartir(lignes.map((l) => ({
     stageId: l.s.id, entrepriseId: l.ent.id, periodeId: l.p.id, referentId: l.referentId,
-    visiteurId: l.v?.visiteurId && pool.some((p) => p.id === l.v!.visiteurId) ? l.v.visiteurId : null,
-  })), pool.map((p) => p.id));
+    visiteurId: l.v?.visiteurId && autorise(l.p.id, l.v.visiteurId) ? l.v.visiteurId : null,
+  })), pool.map((p) => p.id), 1, (x, v) => autorise(x.periodeId, v));
   for (const [stageId, visiteurId] of res) {
     const l = lignes.find((x) => x.s.id === stageId)!;
     const v = await visiteDuStage(stageId);
@@ -143,6 +150,7 @@ export async function proposerCreneaux(_: Etat, fd: FormData): Promise<Etat> {
   }
   await db.update(schema.visites).set({
     mode: modes.data === "les2" ? l.v.mode : modes.data, modesProposes: modes.data, lienDistance,
+    ...(modes.data !== "les2" ? { formePrevue: modes.data } : {}),
     creneauxProposes: creneaux, propositionEnvoyeeLe: new Date(), heure: null, rdvCommentaire: null,
   }).where(eq(schema.visites.id, visiteId));
   await journaliser(ctx, "creneaux_proposes", "visite", visiteId, { creneaux, modes: modes.data });
@@ -351,7 +359,8 @@ export async function validerQuotas(_: Etat, fd: FormData): Promise<Etat> {
     .innerJoin(schema.classes, eq(schema.classes.id, schema.periodes.classeId))
     .where(and(eq(schema.periodes.id, periodeId), eq(schema.classes.etablissementId, ctx.etab.id))).limit(1);
   if (!r || r.p.eleveId || !(await peutGererClasse(ctx, r.c.id))) return { erreur: "Vous ne gérez pas cette période." };
-  const pool = await visiteursPossibles(ctx);
+  const regles = await reglesDesPeriodes(ctx, [periodeId]);
+  const pool = (await visiteursPossibles(ctx)).filter((u) => peutFaireLaVisite(regles, periodeId, u));
   const nouveaux = new Map<string, number>();
   for (const [k, v] of fd.entries()) {
     const m = k.match(/^q_([0-9a-f-]{36})$/);
@@ -395,6 +404,9 @@ export async function prendreVisite(fd: FormData) {
     .innerJoin(schema.classes, eq(schema.classes.id, schema.periodes.classeId))
     .where(and(eq(schema.stages.id, stageId), eq(schema.classes.etablissementId, ctx.etab.id))).limit(1);
   if (!l || ctx.etab.reglages.repartition !== "heures") return;
+  if (!peutFaireLaVisite(await reglesDesPeriodes(ctx, [l.p.id]), l.p.id, ctx.user)) revenirAvec(fd, "D'après l'organisation du lycée, cette visite revient à d'autres professeurs.", "err");
+  // Sur place, à distance, ou à décider après l'appel au tuteur (vide).
+  const formePrevue = lireForme(fd.get("forme"));
   const resultat = await db.transaction(async (tx) => {
     const [q] = await tx.select().from(schema.quotasVisites)
       .where(and(eq(schema.quotasVisites.periodeId, l.p.id), eq(schema.quotasVisites.professeurId, ctx.user.id))).for("update");
@@ -408,15 +420,34 @@ export async function prendreVisite(fd: FormData) {
       .innerJoin(schema.stages, eq(schema.stages.id, schema.visites.stageId))
       .where(and(eq(schema.stages.periodeId, l.p.id), eq(schema.stages.entrepriseId, l.s.entrepriseId), eq(schema.visites.visiteurId, ctx.user.id))).limit(1);
     const date = voisine?.date ?? dateProposee(l.p.debut, l.p.fin, aujourdhui());
-    const pris = await tx.insert(schema.visites).values({ stageId, visiteurId: ctx.user.id, date })
-      .onConflictDoUpdate({ target: schema.visites.stageId, set: { visiteurId: ctx.user.id, date }, setWhere: isNull(schema.visites.visiteurId) })
+    const pris = await tx.insert(schema.visites).values({ stageId, visiteurId: ctx.user.id, date, formePrevue })
+      .onConflictDoUpdate({ target: schema.visites.stageId, set: { visiteurId: ctx.user.id, date, formePrevue }, setWhere: isNull(schema.visites.visiteurId) })
       .returning({ id: schema.visites.id });
     return pris.length ? null : "Un collègue vient de choisir cette visite.";
   });
   if (resultat) revenirAvec(fd, resultat, "err");
   await journaliser(ctx, "visite_choisie", "stage", stageId);
   rafraichir();
-  revenirAvec(fd, "Visite ajoutée à vos visites. Proposez un créneau au tuteur depuis le détail de la visite.");
+  revenirAvec(fd, "Visite ajoutée à vos visites : les coordonnées de l'entreprise s'affichent ci-dessous. Proposez un créneau au tuteur depuis le détail de la visite.");
+}
+
+const lireForme = (x: FormDataEntryValue | null) => (x === "presentiel" || x === "distanciel" ? x : null);
+
+/**
+ * Le professeur change la forme prévue de sa visite selon les disponibilités du tuteur (décision d'Anissa), tant que le
+ * rendez-vous n'est pas confirmé.
+ */
+export async function changerFormePrevue(fd: FormData) {
+  const ctx = await contexte({ roles: ["professeur", "direction", "gestionnaire"] });
+  const visiteId = z.string().uuid().parse(fd.get("visiteId"));
+  const l = await chargerVisite(ctx, visiteId);
+  if (!l?.v || l.v.visiteurId !== ctx.user.id) revenirAvec(fd, "Cette visite ne vous est pas attribuée.", "err");
+  if (l.v.heure) revenirAvec(fd, "Le rendez-vous est déjà confirmé : changez la forme de la visite depuis son détail, en proposant de nouveaux créneaux.", "err");
+  const formePrevue = lireForme(fd.get("forme"));
+  await db.update(schema.visites).set({ formePrevue }).where(eq(schema.visites.id, l.v.id));
+  await journaliser(ctx, "visite_forme_prevue", "visite", l.v.id, { formePrevue });
+  rafraichir();
+  revenirAvec(fd, `Visite de ${l.e.prenom} ${l.e.nom} : ${formePrevue === "presentiel" ? "sur place" : formePrevue === "distanciel" ? "à distance" : "forme à décider après l'appel au tuteur"}.`);
 }
 
 /** Le professeur rend une visite qu'il avait choisie (tant que l'ordre de mission n'est pas signé et sans compte rendu). */

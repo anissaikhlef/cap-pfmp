@@ -77,7 +77,7 @@ ok(await visible(ddfpt.getByText("Période mise à jour.")), "le DDFPT avance la
 /* ------------------- Avec le professeur : le tuteur évalue sur son téléphone, avec l'élève ------------------- */
 const leroy = await session("h.leroy");
 await leroy.goto(BASE + "/mes-visites");
-await Promise.all([leroy.waitForURL(/\/visites\/[0-9a-f-]{36}/), leroy.click("a.row:has-text('LAURENT')")]);
+await Promise.all([leroy.waitForURL(/\/visites\/[0-9a-f-]{36}/), leroy.click(".row:has-text(\'LAURENT\') a:has-text(\'Détails\')")]);
 const urlEmma = leroy.url().replace(/#.*/, "");
 const liv = leroy.locator("#livret");
 ok(await liv.locator("input[name=rempliePar][value=tuteur_eleve_professeur]").isChecked(), "sur le téléphone du professeur : « le tuteur, avec l'élève et le professeur » est proposé");

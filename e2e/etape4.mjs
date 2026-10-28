@@ -21,7 +21,7 @@ await diallo.screenshot({ path: `${OUT}/e4-visites.png`, fullPage: true });
 
 // Compte rendu de la visite passée de Rayan, avec alerte
 await diallo.goto(BASE + "/mes-visites");
-await Promise.all([diallo.waitForURL(/\/visites\/[0-9a-f-]{36}/), diallo.click("a.row:has-text('MANSOURI')")]);
+await Promise.all([diallo.waitForURL(/\/visites\/[0-9a-f-]{36}/), diallo.click(".row:has-text(\'MANSOURI\') a:has-text(\'Détails\')")]);
 for (let i = 0; i < 8; i++) await diallo.selectOption(`#cr-att-${i}`, { index: 4 });
 await diallo.selectOption("#cr-adequation", "oui");
 await diallo.selectOption("#cr-accueil", "Satisfaisant");
@@ -81,7 +81,7 @@ ok(!garnier.url().includes("/eleves"), "il n'accède pas à la gestion des élè
 
 // Organisation : visites réservées à l'enseignement professionnel
 await dir.goto(BASE + "/organisation");
-await dir.check("input[name=visiteurs][value=pro]");
+for (const q of ["quiPremiere", "quiDerniere", "quiAutres", "quiExamen"]) await dir.selectOption(`#${q}`, "pro");
 await dir.click("button:has-text(\"Enregistrer l'organisation\")");
 await visible(dir.getByText("Organisation enregistrée"));
 await dir.goto(BASE + "/visites");

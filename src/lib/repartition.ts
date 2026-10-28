@@ -8,7 +8,8 @@ import { ajouterJours, jourSemaine, versJour, depuisJour } from "./dates";
 
 export type AVisiter = { stageId: string; entrepriseId: string; periodeId: string; referentId: string | null; visiteurId: string | null };
 
-export function repartir(liste: AVisiter[], visiteurs: string[], tolerance = 1): Map<string, string> {
+/** `autorise` : les règles du lycée (qui visite quoi) ; par défaut, tout visiteur peut faire toute visite. */
+export function repartir(liste: AVisiter[], visiteurs: string[], tolerance = 1, autorise: (x: AVisiter, v: string) => boolean = () => true): Map<string, string> {
   const res = new Map<string, string>();
   if (!visiteurs.length) return res;
   const charge = new Map(visiteurs.map((v) => [v, 0]));
@@ -19,10 +20,12 @@ export function repartir(liste: AVisiter[], visiteurs: string[], tolerance = 1):
   const aFaire = liste.filter((x) => !x.visiteurId).sort((a, b) => groupe(a).localeCompare(groupe(b)));
   for (const x of aFaire) {
     let v = parGroupe.get(groupe(x));
-    if (!v || !charge.has(v)) {
-      const min = Math.min(...charge.values());
-      if (x.referentId && charge.has(x.referentId) && charge.get(x.referentId)! <= min + tolerance) v = x.referentId;
-      else v = [...charge.entries()].sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))[0][0];
+    if (!v || !charge.has(v) || !autorise(x, v)) {
+      const possibles = [...charge.entries()].filter(([id]) => autorise(x, id));
+      if (!possibles.length) continue;
+      const min = Math.min(...possibles.map(([, n]) => n));
+      if (x.referentId && possibles.some(([id]) => id === x.referentId) && charge.get(x.referentId)! <= min + tolerance) v = x.referentId;
+      else v = possibles.sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))[0][0];
     }
     res.set(x.stageId, v);
     charge.set(v, charge.get(v)! + 1);

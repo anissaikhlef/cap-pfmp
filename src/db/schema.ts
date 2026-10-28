@@ -10,9 +10,18 @@ import {
 export type Role = "admin" | "direction" | "gestionnaire" | "professeur" | "vie_scolaire" | "eleve" | "parent" | "entreprise";
 
 /** Organisation propre à chaque lycée (cahier des charges, section 3). */
+/** Qui peut faire une visite : les professeurs de l'enseignement professionnel, de l'enseignement général, ou toute l'équipe. */
+export type QuiVisite = "pro" | "general" | "tous";
+
 export type Reglages = {
   gestion: "referent" | "bde" | "ddfpt";
+  /** Résumé de `quiVisite` (« pro » si seuls les professeurs de l'enseignement professionnel visitent), gardé pour l'affichage. */
   visiteurs: "pro" | "equipe";
+  /**
+   * Qui visite quoi, selon l'organisation du lycée (décision d'Anissa) : la première période de PFMP de l'année de la classe,
+   * la dernière, les autres, et les classes d'examen (terminale, 2e année de CAP), qui passent avant tout le reste.
+   */
+  quiVisite: { premiere: QuiVisite; derniere: QuiVisite; autres: QuiVisite; examen: QuiVisite };
   /**
    * auto : l'application attribue chaque visite (référent, charge équilibrée) ·
    * heures : nombre de visites de chaque professeur en proportion de ses heures de face à face, puis chacun choisit ses lieux de stage.
@@ -95,6 +104,7 @@ export type Plafonds = Record<Agent, number>;
 export const REGLAGES_PAR_DEFAUT: Reglages = {
   gestion: "referent",
   visiteurs: "equipe",
+  quiVisite: { premiere: "tous", derniere: "tous", autres: "tous", examen: "tous" },
   repartition: "auto",
   signature: "les2",
   signatureModele: "simple",
@@ -125,8 +135,11 @@ export type BaremeFrais = {
 };
 
 export function completerReglages(r: Partial<Reglages> | null | undefined): Reglages {
+  // Un lycée réglé avant « qui visite quoi » garde son choix : professeurs de l'enseignement professionnel, ou toute l'équipe.
+  const tous: QuiVisite = r?.visiteurs === "pro" ? "pro" : "tous";
   return {
     ...REGLAGES_PAR_DEFAUT, ...(r ?? {}),
+    quiVisite: r?.quiVisite ?? { premiere: tous, derniere: tous, autres: tous, examen: tous },
     regles: { ...REGLAGES_PAR_DEFAUT.regles, ...(r?.regles ?? {}) },
     relances: { ...REGLAGES_PAR_DEFAUT.relances, ...(r?.relances ?? {}) },
     agents: { ...REGLAGES_PAR_DEFAUT.agents, ...(r?.agents ?? {}) },
@@ -273,9 +286,32 @@ export const tentativesConnexion = pgTable("tentatives_connexion", {
 /* Classes, périodes, élèves                                            */
 /* ------------------------------------------------------------------ */
 
+/** Pôles de formation du lycée (décision d'Anissa : « dans les lycées professionnels, on trouve plusieurs pôles »). */
+export const poles = pgTable("poles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  libelle: text("libelle").notNull(),
+}, (t) => [index("poles_etab_idx").on(t.etablissementId)]);
+
+/** Formations (diplômes en voie scolaire) de chaque pôle ; les formations en apprentissage n'entrent pas dans Cap PFMP. */
+export const formations = pgTable("formations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  poleId: uuid("pole_id").references(() => poles.id, { onDelete: "set null" }),
+  /** Le diplôme préparé, ex. « Bac pro Métiers de la sécurité » ou « CAP Maintenance des véhicules, option véhicules légers ». */
+  libelle: text("libelle").notNull(),
+  /** Code métier ROME, pour La bonne boîte (Cap Partenaires). */
+  codeRome: text("code_rome"),
+}, (t) => [index("formations_etab_idx").on(t.etablissementId)]);
+
+/**
+ * Spécialités (autrefois « dominantes ») : rattachées à une formation. Dans une même classe, les élèves d'une spécialité
+ * peuvent partir en PFMP à d'autres dates que le reste de la classe (`periodes.dominanteId`).
+ */
 export const dominantes = pgTable("dominantes", {
   id: uuid("id").primaryKey().defaultRandom(),
   etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  formationId: uuid("formation_id").references(() => formations.id, { onDelete: "set null" }),
   libelle: text("libelle").notNull(),
 });
 
@@ -292,6 +328,8 @@ export const classes = pgTable("classes", {
   regleStructure: text("regle_structure").$type<"prive" | "dominante" | "libre">().notNull(),
   /** Code métier ROME de la formation (ex. K2503, sécurité privée) : Cap Partenaires s'en sert pour La bonne boîte. */
   codeRome: text("code_rome"),
+  /** La formation (et donc le pôle) de la classe ; `filiere` reprend alors son libellé. */
+  formationId: uuid("formation_id").references((): AnyPgColumn => formations.id, { onDelete: "set null" }),
   referentId: uuid("referent_id").references(() => users.id, { onDelete: "set null" }),
 }, (t) => [index("classes_etab_idx").on(t.etablissementId)]);
 
@@ -306,6 +344,8 @@ export const periodes = pgTable("periodes", {
   debut: date("debut").notNull(),
   fin: date("fin").notNull(),
   eleveId: uuid("eleve_id").references((): AnyPgColumn => eleves.id, { onDelete: "cascade" }),
+  /** Période d'une seule spécialité de la classe (ses élèves partent à d'autres dates) ; vide : toute la classe. */
+  dominanteId: uuid("dominante_id").references((): AnyPgColumn => dominantes.id, { onDelete: "no action" }),
   /** Rattrapage : la période de la classe qui est rattrapée, et pourquoi. */
   rattrapeId: uuid("rattrape_id").references((): AnyPgColumn => periodes.id, { onDelete: "set null" }),
   motif: text("motif"),
@@ -480,6 +520,11 @@ export const visites = pgTable("visites", {
   date: date("date"),
   heure: text("heure"),
   mode: text("mode").$type<"presentiel" | "distanciel">().notNull().default("presentiel"),
+  /**
+   * Ce que prévoit le professeur en prenant la visite (décision d'Anissa) : sur place, à distance, ou vide (à décider après
+   * l'appel au tuteur). Il le change selon les disponibilités du tuteur, jusqu'au rendez-vous confirmé.
+   */
+  formePrevue: text("forme_prevue").$type<"presentiel" | "distanciel">(),
   creneauxProposes: jsonb("creneaux_proposes").$type<[string, string][]>(),
   propositionEnvoyeeLe: timestamp("proposition_envoyee_le", { withTimezone: true }),
   ordreMission: text("ordre_mission").$type<"aucun" | "a_signer" | "signe">().notNull().default("aucun"),

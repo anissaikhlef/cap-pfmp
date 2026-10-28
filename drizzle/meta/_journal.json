@@ -155,6 +155,13 @@
       "when": 1793193535838,
       "tag": "0021_veille_et_prevenus",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1793221623347,
+      "tag": "0022_poles_specialites",
+      "breakpoints": true
     }
   ]
 }

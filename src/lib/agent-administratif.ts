@@ -1,4 +1,5 @@
 import "server-only";
+import { concerneLEleve } from "./periodes";
 import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
@@ -94,7 +95,7 @@ export async function mailsDuJour(etabBrut: Etab, opts: { classes?: string[] } =
         .leftJoin(schema.stages, and(eq(schema.stages.eleveId, schema.eleves.id), eq(schema.stages.periodeId, p.id)))
         .where(and(eq(schema.eleves.classeId, c.id), eq(schema.eleves.archive, false), isNull(schema.stages.id)))
         .orderBy(asc(schema.eleves.nom));
-      for (const { e } of eleves) {
+      for (const { e } of eleves.filter((x) => concerneLEleve(p, x.e))) {
         const cle = `sans-stage:${e.id}:${p.id}`;
         if (deja.has(cle) || prepares >= MAX_PAR_PASSAGE) continue;
         const { dest, aLEleve, prevenir } = await famille(e);

@@ -128,8 +128,22 @@ async function main() {
     simule: true, publieeLe: new Date(),
   });
 
+  // Pôles et formations en voie scolaire (décision d'Anissa ; les formations en apprentissage n'entrent pas dans Cap PFMP).
+  const POLES: [string, [string, string | null][]][] = [
+    ["Sécurité", [["CAP Agent de sécurité", "K2503"], ["Bac Pro Métiers de la sécurité", "K2503"]]],
+    ["Automobile", [["CAP Maintenance des véhicules, option véhicules légers", "I1604"]]],
+    ["Maintenance industrielle", [["2de pro Métiers du pilotage et de la maintenance d'installations automatisées", "I1304"], ["Bac Pro Maintenance des systèmes de production connectés", "I1304"]]],
+    ["Informatique, réseaux et électronique", [["2de pro Métiers des transitions numérique et énergétique", "I1401"], ["Bac Pro Cybersécurité, informatique et réseaux, électronique (CIEL)", "I1401"]]],
+  ];
+  const formations: (typeof schema.formations.$inferSelect)[] = [];
+  for (const [libelle, liste] of POLES) {
+    const [pole] = await db.insert(schema.poles).values({ etablissementId: E, libelle }).returning();
+    formations.push(...await db.insert(schema.formations).values(liste.map(([l, codeRome]) => ({ etablissementId: E, poleId: pole.id, libelle: l, codeRome }))).returning());
+  }
+  const formation = (l: string) => formations.find((f) => f.libelle === l)!.id;
+  // Les spécialités du bac pro Métiers de la sécurité, à partir de la 1re.
   const doms = await db.insert(schema.dominantes).values(
-    ["Sûreté / gardiennage", "Sécurité incendie", "Sécurité publique"].map((libelle) => ({ etablissementId: E, libelle })),
+    ["Sûreté / gardiennage", "Sécurité incendie", "Sécurité publique"].map((libelle) => ({ etablissementId: E, libelle, formationId: formation("Bac Pro Métiers de la sécurité") })),
   ).returning();
   const dom = (l: string) => doms.find((d) => d.libelle === l)!.id;
 
@@ -137,6 +151,7 @@ async function main() {
     const [c] = await db.insert(schema.classes).values({
       etablissementId: E, libelle, niveau, anneeScolaire: "2026-2027", referentId, codeRome: "K2503",
       filiere: niveau === "CAP" ? "CAP Agent de sécurité" : "Bac Pro Métiers de la sécurité",
+      formationId: formation(niveau === "CAP" ? "CAP Agent de sécurité" : "Bac Pro Métiers de la sécurité"),
       regleStructure: niveau === "CAP" || niveau === "2NDE" ? "prive" : "dominante",
     }).returning();
     const [p] = await db.insert(schema.periodes).values({ classeId: c.id, libelle: "PFMP 1", debut, fin }).returning();

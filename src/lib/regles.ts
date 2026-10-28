@@ -2,7 +2,7 @@
  * Moteur de règles PFMP (cahier des charges, section 5).
  * Fonctions pures, sans accès à la base : faciles à tester et réutilisées partout.
  */
-import type { BaremeFrais, Horaires, Plage, Reglages, Signataire, Signatures, TrancheBareme } from "@/db/schema";
+import type { BaremeFrais, Horaires, Plage, QuiVisite, Reglages, Signataire, Signatures, TrancheBareme } from "@/db/schema";
 import { ajouterJours, dateLongue, ecartJours, jourSemaine } from "./dates";
 
 export type ResultatRegle = { code: string; ok: boolean; libelle: string };
@@ -14,7 +14,7 @@ export const PROBLEMES: Record<string, string> = {
   dimanche: "stage le dimanche",
   repos: "repos consécutifs insuffisants",
   structure: "structure non privée",
-  dominante: "hors de la dominante",
+  dominante: "hors de la spécialité",
   mineur_jour: "plus de 8 h par jour pour un mineur",
   mineur_pause: "pause manquante pour un mineur",
   mineur_nuit: "travail de nuit d'un mineur",
@@ -260,7 +260,7 @@ export function verifierStage(c: ContexteStage, r: Reglages["regles"]): Resultat
     res.push({
       code: "dominante",
       ok,
-      libelle: c.dominanteEleve ? `Stage dans la dominante de l'élève : ${c.dominanteEleve}` : "Stage dans la dominante (dominante de l'élève non renseignée)",
+      libelle: c.dominanteEleve ? `Stage dans la spécialité de l'élève : ${c.dominanteEleve}` : "Stage dans la spécialité (spécialité de l'élève non renseignée)",
     });
   }
   if (r.reglesMineurs !== false && c.ageAuDebut != null && c.ageAuDebut < 18) res.push(...reglesMineurs(c.horaires, c.ageAuDebut));
@@ -710,3 +710,25 @@ export function relectureCvExemple(texte: string): { pointsForts: string[]; aAme
   if (!pointsForts.length) pointsForts.push("Tu as commencé ton CV : c'est la première étape.");
   return { pointsForts, aAmeliorer, conseil: "Relis ton CV à voix haute pour repérer les fautes, puis montre-le à ton professeur référent avant de l'envoyer." };
 }
+
+/* ------------------- Visites : qui visite quoi, selon le lycée ------------------- */
+
+/**
+ * Qui peut visiter un stage (décision d'Anissa : « chaque lycée a son organisation ») : la classe d'examen d'abord, puis la
+ * première période de l'année, la dernière, les autres. Une seule période dans l'année compte comme la première.
+ */
+export function quiPeutVisiter(q: Reglages["quiVisite"], o: { examen: boolean; rang: number; nombre: number }): QuiVisite {
+  if (o.examen) return q.examen;
+  if (o.rang <= 0) return q.premiere;
+  if (o.rang >= o.nombre - 1) return q.derniere;
+  return q.autres;
+}
+
+/** Un professeur peut-il faire cette visite : enseignement professionnel, enseignement général, ou toute l'équipe. */
+export const professeurAutorise = (qui: QuiVisite, prof: { enseignementPro: boolean }) => qui === "tous" || (qui === "pro") === prof.enseignementPro;
+
+export const LIBELLES_QUI_VISITE: Record<QuiVisite, string> = {
+  pro: "les professeurs de l'enseignement professionnel",
+  general: "les professeurs de l'enseignement général",
+  tous: "toute l'équipe pédagogique",
+};

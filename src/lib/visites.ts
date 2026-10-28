@@ -6,12 +6,41 @@ import { classesGerees } from "./acces";
 import { ajouterJours, aujourdhui } from "./dates";
 import { heuresDesClasses, quotasDesPeriodes } from "./heures";
 import { quotasVisites } from "./repartition";
+import { rangsDesPeriodes } from "./periodes";
+import { anneeDExamen, professeurAutorise, quiPeutVisiter } from "./regles";
+import type { QuiVisite } from "@/db/schema";
 
-/** Professeurs pouvant faire les visites, selon l'organisation du lycée. */
+/** Professeurs pouvant faire au moins une visite, selon l'organisation du lycée (qui visite quoi). */
 export async function visiteursPossibles(ctx: Contexte) {
   const tous = await db.select().from(schema.users).where(and(eq(schema.users.etablissementId, ctx.etab.id), eq(schema.users.actif, true))).orderBy(asc(schema.users.nom));
-  return tous.filter((u) => u.roles.includes("professeur") && (ctx.etab.reglages.visiteurs === "equipe" || u.enseignementPro));
+  const regles = Object.values(ctx.etab.reglages.quiVisite);
+  return tous.filter((u) => u.roles.includes("professeur") && regles.some((q) => professeurAutorise(q, u)));
 }
+
+/**
+ * Qui peut visiter les stages de chaque période (décision d'Anissa : « chaque lycée a son organisation ») : selon le rang
+ * de la période dans l'année de la classe (première, dernière, autres) et les classes d'examen. Un rattrapage suit la
+ * période qu'il rattrape.
+ */
+export async function reglesDesPeriodes(ctx: Contexte, periodeIds: string[]): Promise<Map<string, QuiVisite>> {
+  const res = new Map<string, QuiVisite>();
+  if (!periodeIds.length) return res;
+  const cibles = await db.select({ p: schema.periodes, c: schema.classes }).from(schema.periodes)
+    .innerJoin(schema.classes, eq(schema.classes.id, schema.periodes.classeId))
+    .where(and(inArray(schema.periodes.id, periodeIds), eq(schema.classes.etablissementId, ctx.etab.id)));
+  const classes = [...new Set(cibles.map((x) => x.c.id))];
+  const toutes = classes.length ? await db.select().from(schema.periodes).where(inArray(schema.periodes.classeId, classes)) : [];
+  for (const { p, c } of cibles) {
+    const rangs = rangsDesPeriodes(toutes.filter((x) => x.classeId === c.id));
+    const r = rangs.get(p.eleveId ? p.rattrapeId ?? "" : p.id) ?? { rang: 1, nombre: 3 };
+    res.set(p.id, quiPeutVisiter(ctx.etab.reglages.quiVisite, { examen: anneeDExamen(c), ...r }));
+  }
+  return res;
+}
+
+/** Un professeur peut-il faire la visite d'un stage de cette période (règles du lycée) ? */
+export const peutFaireLaVisite = (regles: Map<string, QuiVisite>, periodeId: string, prof: { enseignementPro: boolean }) =>
+  professeurAutorise(regles.get(periodeId) ?? "tous", prof);
 
 export type LigneVisite = Awaited<ReturnType<typeof visitesAOrganiser>>[number];
 
@@ -61,9 +90,10 @@ export async function repartitionParHeures(ctx: Contexte) {
   const periodes = [...new Map(lignes.map((l) => [l.p.id, l])).values()];
   const heures = await heuresDesClasses(ctx, [...new Set(periodes.map((l) => l.c.id))]);
   const quotas = await quotasDesPeriodes(periodes.map((l) => l.p.id));
+  const regles = await reglesDesPeriodes(ctx, periodes.map((l) => l.p.id));
   return periodes.map(({ p, c }) => {
     const aVisiter = lignes.filter((l) => l.p.id === p.id);
-    const hClasse = heures.filter((h) => h.classeId === c.id && pool.some((u) => u.id === h.professeurId));
+    const hClasse = heures.filter((h) => h.classeId === c.id && pool.some((u) => u.id === h.professeurId && peutFaireLaVisite(regles, p.id, u)));
     const proposition = quotasVisites(aVisiter.length, hClasse.map((h) => ({ id: h.professeurId, heures: h.heures })));
     const valides = quotas.filter((q) => q.periodeId === p.id);
     const ids = [...new Set([...hClasse.map((h) => h.professeurId), ...valides.map((q) => q.professeurId)])];
@@ -75,6 +105,6 @@ export async function repartitionParHeures(ctx: Contexte) {
       choisies: aVisiter.filter((l) => l.v?.visiteurId === id).length,
     })).filter((x) => x.prof).sort((x, y) => y.heures - x.heures || x.prof.nom.localeCompare(y.prof.nom));
     const valideLe = valides.length ? new Date(Math.max(...valides.map((q) => q.valideLe.getTime()))) : null;
-    return { periode: p, classe: c, stages: aVisiter.length, sansVisiteur: aVisiter.filter((l) => !l.v?.visiteurId).length, profs, valideLe };
+    return { periode: p, classe: c, qui: regles.get(p.id) ?? "tous", stages: aVisiter.length, sansVisiteur: aVisiter.filter((l) => !l.v?.visiteurId).length, profs, valideLe };
   });
 }
