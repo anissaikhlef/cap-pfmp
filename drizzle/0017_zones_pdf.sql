@@ -1,0 +1,1 @@
+ALTER TABLE "modeles_documents" ADD COLUMN "zones" jsonb DEFAULT '[]'::jsonb NOT NULL;

@@ -7,7 +7,7 @@ import { a, peutAdministrer, peutGererEleve, peutSignerOrdreMission } from "@/li
 import { chargerVisite } from "@/lib/visites";
 import { dateLongue } from "@/lib/dates";
 import { imageSignature } from "@/lib/stockage";
-import { grilleEtQuestions, logoDuLycee, modeleDuLycee } from "@/lib/modeles-documents";
+import { grilleEtQuestions, logoDuLycee, modeleDuLycee, utiliseLePdf } from "@/lib/modeles-documents";
 import { INTRO_ORDRE_MISSION, paragraphes, TITRE_ORDRE_MISSION } from "@/lib/modeles";
 
 export const metadata = { title: "Ordre de mission" };
@@ -29,7 +29,9 @@ export default async function OrdreMission({ params }: { params: Promise<{ id: s
   const ids = [v.visiteurId, v.ordreMissionSigneParId, v.appel?.parId].filter((x): x is string => !!x);
   const users = await db.select().from(schema.users).where(inArray(schema.users.id, ids));
   const nom = (uid: string | null | undefined) => { const u = users.find((x) => x.id === uid); return u ? `${u.prenom} ${u.nom}` : ""; };
-  const p = (await modeleDuLycee(ctx.etab.id, "ordre_mission")).personnalisation;
+  // Signé, l'ordre de mission garde le modèle du jour de sa signature.
+  const modele = l.s.modeles?.ordre_mission ?? (await modeleDuLycee(ctx.etab.id, "ordre_mission"));
+  const p = modele.personnalisation;
   const logo = await logoDuLycee(ctx.etab);
   const { grille } = await grilleEtQuestions(ctx.etab.id);
   const cr = v.compteRendu;
@@ -48,6 +50,7 @@ export default async function OrdreMission({ params }: { params: Promise<{ id: s
         Imprimez cette page depuis le menu de votre navigateur.
         {peutAdministrer(ctx) && <> Ce modèle s&apos;adapte (logo, textes, questions de l&apos;appel, grille des attitudes) dans <Link href="/organisation/documents/ordre_mission">Modèles de documents</Link>.</>}
       </p>
+      {utiliseLePdf(modele) && <p className="noprint"><a className="btn primary" href={`/ordres-mission/${v.id}/pdf`} target="_blank" rel="noopener">Ouvrir le document du lycée (PDF)</a></p>}
       {logo && <img src={logo} alt={`Logo : ${ctx.etab.nom}`} className="logo-document" />}
       <h1>{p.titre || TITRE_ORDRE_MISSION}</h1>
       <p className="sub">Suivi de la période de formation en milieu professionnel · {ctx.etab.nom}</p>

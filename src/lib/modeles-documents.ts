@@ -6,7 +6,7 @@ import type { ContexteConvention } from "./convention";
 import { ageAu, aujourdhui } from "./dates";
 import { lireFichier } from "./stockage";
 import { choisirOption, GRILLE_ATTITUDES, JOURS_HORAIRES, QUESTIONS_APPEL, SOURCES_SPECIALES } from "./modeles";
-import { remplirPdf } from "./modeles-pdf";
+import { remplirPdf, type ValeursZones } from "./modeles-pdf";
 import { fmtHeures, heuresHebdo, joursPrevus, plagesDuJour, SIGNATAIRES } from "./regles";
 
 type Etab = { id: string; nom: string; reglages: Reglages; logoCle?: string | null };
@@ -16,7 +16,7 @@ export type Modele = typeof schema.modelesDocuments.$inferSelect;
 export async function modeleDuLycee(etabId: string, type: TypeModele): Promise<Modele> {
   const [m] = await db.select().from(schema.modelesDocuments)
     .where(and(eq(schema.modelesDocuments.etablissementId, etabId), eq(schema.modelesDocuments.type, type))).limit(1);
-  return m ?? { id: "", etablissementId: etabId, type, mode: "cap_pfmp", personnalisation: {}, pdfCle: null, pdfNom: null, champs: [], majLe: new Date(0), majParId: null };
+  return m ?? { id: "", etablissementId: etabId, type, mode: "cap_pfmp", personnalisation: {}, pdfCle: null, pdfNom: null, champs: [], zones: [], majLe: new Date(0), majParId: null };
 }
 
 /** Questions de l'appel de la première semaine et grille des attitudes : celles du lycée, sinon celles de Cap PFMP. */
@@ -38,15 +38,23 @@ export async function modeleDeLaConvention(etab: Etab, cv: ContexteConvention): 
   const fige = cv.s.modeles?.convention;
   if (fige) return fige;
   const m = await modeleDuLycee(etab.id, "convention");
-  return { mode: m.mode, personnalisation: m.personnalisation, pdfCle: m.pdfCle, pdfNom: m.pdfNom, champs: m.champs, logoCle: etab.logoCle ?? null };
+  return { mode: m.mode, personnalisation: m.personnalisation, pdfCle: m.pdfCle, pdfNom: m.pdfNom, champs: m.champs, zones: m.zones, logoCle: etab.logoCle ?? null };
 }
 
 /** Fige le modèle de la convention à la première signature (sans effet s'il l'est déjà). */
 export async function figerModeleConvention(etab: Etab, stageId: string) {
-  const m = await modeleDuLycee(etab.id, "convention");
-  const fige: ModeleFige = { mode: m.mode, personnalisation: m.personnalisation, pdfCle: m.pdfCle, pdfNom: m.pdfNom, champs: m.champs, logoCle: etab.logoCle ?? null };
-  await db.update(schema.stages).set({ modeles: sql`${schema.stages.modeles} || jsonb_build_object('convention', ${JSON.stringify(fige)}::jsonb)` })
-    .where(and(eq(schema.stages.id, stageId), sql`not (${schema.stages.modeles} ? 'convention')`));
+  await figerModele(etab, stageId, "convention");
+}
+
+/**
+ * Fige le modèle d'un document à sa signature (sans effet s'il l'est déjà) : le document signé se refait à l'identique,
+ * même si le lycée change son modèle ensuite (trace des documents signés).
+ */
+export async function figerModele(etab: Etab, stageId: string, type: "convention" | "ordre_mission") {
+  const m = await modeleDuLycee(etab.id, type);
+  const fige: ModeleFige = { mode: m.mode, personnalisation: m.personnalisation, pdfCle: m.pdfCle, pdfNom: m.pdfNom, champs: m.champs, zones: m.zones, logoCle: etab.logoCle ?? null };
+  await db.update(schema.stages).set({ modeles: sql`${schema.stages.modeles} || jsonb_build_object(${type}::text, ${JSON.stringify(fige)}::jsonb)` })
+    .where(and(eq(schema.stages.id, stageId), sql`not (${schema.stages.modeles} ? ${type})`));
 }
 
 /** Le logo du lycée, prêt à afficher (« data:image/… »), ou null. */
@@ -133,6 +141,14 @@ export async function pdfConvention(etab: Etab, cv: ContexteConvention, modele?:
   const complements = cv.s.complements?.convention ?? {};
   const valeurs = new Map<string, string | boolean>();
   const signatures: { champ: string; image?: Uint8Array; mention?: string }[] = [];
+  // Zones placées sur le PDF du lycée : la signature de chacun dans sa zone.
+  const vz: ValeursZones = { donnees, signatures: new Map() };
+  for (const { cle } of SIGNATAIRES) {
+    const s = cv.s.signatures[cle];
+    if (s?.mode !== "enligne") continue;
+    const image = s.image ? await lireFichier(s.image).catch(() => null) : null;
+    vz.signatures.set(`signature.${cle}`, image ? { image: new Uint8Array(image) } : { mention: `Signé en ligne dans Cap PFMP le ${jjmmaaaa(s.le)}` });
+  }
   for (const champ of m.champs) {
     const v = valeurDuChamp(champ, donnees, complements);
     if (v !== undefined) valeurs.set(champ.nom, v);
@@ -144,7 +160,7 @@ export async function pdfConvention(etab: Etab, cv: ContexteConvention, modele?:
       signatures.push(image ? { champ: champ.nom, image: new Uint8Array(image) } : { champ: champ.nom, mention: `Signé en ligne dans Cap PFMP le ${jjmmaaaa(s.le)}` });
     }
   }
-  return remplirPdf(new Uint8Array(await lireFichier(m.pdfCle)), { valeurs, signatures });
+  return remplirPdf(new Uint8Array(await lireFichier(m.pdfCle)), { valeurs, signatures }, m.zones ?? [], vz);
 }
 
 /** Réponse HTTP pour un PDF généré : affiché dans le navigateur, jamais mis en cache. */

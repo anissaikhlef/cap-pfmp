@@ -3,7 +3,7 @@ import {
   PDFCheckBox, PDFDocument, PDFDropdown, PDFOptionList, PDFRadioGroup, PDFSignature, PDFTextField,
   StandardFonts, rgb, type PDFField, type PDFFont, type PDFPage, type PDFWidgetAnnotation,
 } from "pdf-lib";
-import type { ChampPdf } from "@/db/schema";
+import type { ChampPdf, ZonePdf } from "@/db/schema";
 import { suggererSource } from "./modeles";
 
 /**
@@ -55,7 +55,7 @@ export async function lireChampsPdf(octets: Uint8Array): Promise<ChampPdf[] | st
     const options = f instanceof PDFDropdown || f instanceof PDFOptionList ? f.getOptions() : f instanceof PDFRadioGroup ? f.getOptions() : undefined;
     champs.push({ nom: f.getName(), type, pages, ...(options ? { options } : {}), source: suggererSource(f.getName(), type) });
   }
-  if (!champs.length) return "Ce PDF n'a pas de champs à remplir. Ajoutez des champs de formulaire avec votre logiciel PDF, ou gardez le modèle Cap PFMP.";
+  // Un PDF sans champs est accepté : le lycée y place lui-même les zones à remplir.
   return champs;
 }
 
@@ -74,8 +74,92 @@ export type Remplissage = {
   reperage?: boolean;
 };
 
-/** Remplit le PDF du lycée et le fige. */
-export async function remplirPdf(octets: Uint8Array, r: Remplissage): Promise<Uint8Array> {
+/** Ce qui s'écrit dans les zones placées par le lycée : textes et croix par donnée, signatures (image ou mention). */
+export type ValeursZones = {
+  donnees: Map<string, string | boolean>;
+  signatures: Map<string, { image?: Uint8Array; mention?: string }>;
+};
+
+/** Le nombre de pages d'un PDF et leur taille, pour placer les zones. Message d'erreur s'il ne s'ouvre pas. */
+export async function pagesDuPdf(octets: Uint8Array): Promise<{ l: number; h: number }[] | string> {
+  try {
+    const doc = await charger(octets);
+    return doc.getPages().map((p) => ({ l: Math.round(p.getWidth()), h: Math.round(p.getHeight()) }));
+  } catch (e) {
+    return e instanceof Error && e.message === "protege" ? "Ce PDF est protégé par un mot de passe : déposez une version sans protection." : "Ce fichier PDF ne s'ouvre pas.";
+  }
+}
+
+/** Écrit un texte dans un rectangle : sur plusieurs lignes, en réduisant la taille s'il le faut. */
+function texteDansZone(page: PDFPage, police: PDFFont, texte: string, z: ZonePdf) {
+  const brut = lisible(police, texte);
+  const lignes = (taille: number) => {
+    const res: string[] = [];
+    for (const para of brut.split("\n")) {
+      let ligne = "";
+      for (const mot of para.split(/\s+/).filter(Boolean)) {
+        const essai = ligne ? `${ligne} ${mot}` : mot;
+        if (police.widthOfTextAtSize(essai, taille) <= z.l - 2 || !ligne) ligne = essai;
+        else { res.push(ligne); ligne = mot; }
+      }
+      res.push(ligne);
+    }
+    return res;
+  };
+  let taille = Math.min(10, Math.max(5, z.h * 0.75));
+  let l = lignes(taille);
+  while (taille > 5 && l.length * taille * 1.15 > z.h) { taille -= 0.5; l = lignes(taille); }
+  l.forEach((ligne, i) => {
+    const y = z.y + z.h - (i + 1) * taille * 1.15 + taille * 0.25;
+    if (y >= z.y - taille * 0.3) page.drawText(ligne, { x: z.x + 1, y, size: taille, font: police, color: rgb(0.05, 0.1, 0.35) });
+  });
+}
+
+/**
+ * Écrit dans les zones placées par le lycée sur son PDF (même sans champs) : texte, croix (case vraie) ou signature.
+ * En « repérage », chaque zone est encadrée avec l'intitulé de sa donnée.
+ */
+export async function dessinerZones(doc: PDFDocument, zones: ZonePdf[], v: ValeursZones | null, libelles?: Map<string, string>) {
+  if (!zones.length) return;
+  const police = await doc.embedFont(StandardFonts.Helvetica);
+  const gras = await doc.embedFont(StandardFonts.HelveticaBold);
+  const pages = doc.getPages();
+  for (const z of zones) {
+    const page = pages[z.page - 1];
+    if (!page) continue;
+    if (!v) {
+      page.drawRectangle({ x: z.x, y: z.y, width: z.l, height: z.h, borderColor: rgb(0.75, 0.1, 0.1), borderWidth: 0.8, color: rgb(1, 0.9, 0.9), opacity: 0.4 });
+      texteDansZone(page, police, z.source === "fixe" ? z.fixe ?? "" : libelles?.get(z.source) ?? z.source, z);
+      continue;
+    }
+    if (z.source === "fixe") { texteDansZone(page, police, z.fixe ?? "", z); continue; }
+    const sig = v.signatures.get(z.source);
+    if (sig) {
+      const image = sig.image ? await doc.embedPng(sig.image).catch(() => null) : null;
+      if (image) {
+        const k = Math.min(z.l / image.width, z.h / image.height);
+        page.drawImage(image, { x: z.x, y: z.y, width: image.width * k, height: image.height * k });
+      } else if (sig.mention) texteDansZone(page, police, sig.mention, z);
+      continue;
+    }
+    const d = v.donnees.get(z.source);
+    if (d === true) {
+      const taille = Math.min(z.h, z.l) * 0.9;
+      const w = gras.widthOfTextAtSize("X", taille);
+      page.drawText("X", { x: z.x + (z.l - w) / 2, y: z.y + (z.h - taille * 0.72) / 2, size: taille, font: gras, color: rgb(0.05, 0.1, 0.35) });
+    } else if (typeof d === "string" && d) texteDansZone(page, police, d, z);
+  }
+}
+
+/** Le PDF du lycée rempli dans ses zones seulement (PDF sans champs), ou en repérage (`v` vide). */
+export async function remplirZones(octets: Uint8Array, zones: ZonePdf[], v: ValeursZones | null, libelles?: Map<string, string>): Promise<Uint8Array> {
+  const doc = await charger(octets);
+  await dessinerZones(doc, zones, v, libelles);
+  return doc.save();
+}
+
+/** Remplit le PDF du lycée et le fige ; puis écrit dans ses zones, s'il en a. */
+export async function remplirPdf(octets: Uint8Array, r: Remplissage, zones: ZonePdf[] = [], v: ValeursZones | null = null): Promise<Uint8Array> {
   const doc = await charger(octets);
   const form = doc.getForm();
   try { form.deleteXFA(); } catch { /* pas de formulaire XFA */ }
@@ -134,6 +218,7 @@ export async function remplirPdf(octets: Uint8Array, r: Remplissage): Promise<Ui
   }
   form.updateFieldAppearances(police);
   try { form.flatten(); } catch { /* le document reste remplissable, mais rempli */ }
+  if (zones.length && v) await dessinerZones(doc, zones, v);
   return doc.save();
 }
 
@@ -183,5 +268,40 @@ export async function pdfExempleConvention(): Promise<Uint8Array> {
     ecrire("Le :", x + 8, 240, 9);
     form.createTextField(`Date signature ${qui}`).addToPage(page, { x: x + 75, y: 234, width: 90, height: 16 });
   }
+  return doc.save();
+}
+
+/**
+ * Un exemple fictif de document « à plat », sans champs (comme un PDF scanné ou imprimé depuis un traitement de texte),
+ * pour essayer de placer les zones : des intitulés suivis de lignes pointillées, des cases et des cadres de signature.
+ */
+export async function pdfExempleSansChamps(titre: string, lignes: string[], cases: string[], signatures: string[]): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  doc.setTitle(`${titre} : exemple sans champs`);
+  const page = doc.addPage([595, 842]);
+  const police = await doc.embedFont(StandardFonts.Helvetica);
+  const gras = await doc.embedFont(StandardFonts.HelveticaBold);
+  const gris = rgb(0.45, 0.45, 0.45);
+  page.drawText(lisible(gras, titre.toUpperCase()), { x: 50, y: 790, size: 15, font: gras });
+  page.drawText(lisible(police, "Exemple fictif de document sans champs, pour essayer les zones de Cap PFMP."), { x: 50, y: 770, size: 9, font: police, color: gris });
+  let y = 735;
+  for (const l of lignes) {
+    page.drawText(lisible(police, `${l} :`), { x: 50, y, size: 10, font: police });
+    page.drawLine({ start: { x: 230, y: y - 2 }, end: { x: 545, y: y - 2 }, thickness: 0.5, color: gris, dashArray: [2, 2] });
+    y -= 26;
+  }
+  y -= 6;
+  for (const c of cases) {
+    page.drawRectangle({ x: 50, y: y - 2, width: 10, height: 10, borderColor: rgb(0, 0, 0), borderWidth: 0.8 });
+    page.drawText(lisible(police, c), { x: 68, y, size: 10, font: police });
+    y -= 22;
+  }
+  y -= 20;
+  signatures.forEach((s, i) => {
+    const x = 50 + (i % 2) * 260;
+    const yy = y - Math.floor(i / 2) * 120;
+    page.drawRectangle({ x, y: yy - 90, width: 240, height: 100, borderColor: gris, borderWidth: 0.8 });
+    page.drawText(lisible(gras, s), { x: x + 8, y: yy - 4, size: 10, font: gras });
+  });
   return doc.save();
 }

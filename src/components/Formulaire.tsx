@@ -9,7 +9,7 @@ export type Etat = { erreur?: string; ok?: string; secret?: string } | null;
  * Après une erreur, les champs restent remplis pour être corrigés ; ils ne sont vidés qu'après une réussite.
  */
 export function Formulaire({
-  action, children, className = "stack", bouton, boutonClasse = "btn primary", id,
+  action, children, className = "stack", bouton, boutonClasse = "btn primary", id, viderApres = true,
 }: {
   action: (etat: Etat, fd: FormData) => Promise<Etat>;
   children: ReactNode;
@@ -17,6 +17,8 @@ export function Formulaire({
   bouton?: string;
   boutonClasse?: string;
   id?: string;
+  /** Vider les champs après une réussite (non pour un formulaire dont les champs suivent l'état de la page). */
+  viderApres?: boolean;
 }) {
   const [etat, agir, enCours] = useActionState(action, null);
   const ref = useRef<HTMLFormElement>(null);
@@ -24,7 +26,7 @@ export function Formulaire({
   const sp = new URLSearchParams(useSearchParams());
   sp.delete("msg"); sp.delete("ton");
   const retour = chemin + (sp.size ? `?${sp}` : "");
-  useEffect(() => { if (etat?.ok && !etat.erreur) ref.current?.reset(); }, [etat]);
+  useEffect(() => { if (viderApres && etat?.ok && !etat.erreur) ref.current?.reset(); }, [etat, viderApres]);
   // Envoi sans la remise à zéro automatique de React, qui effacerait aussi les champs après une erreur.
   function envoyer(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();

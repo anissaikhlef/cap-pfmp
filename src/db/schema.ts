@@ -590,6 +590,12 @@ export type ChampPdf = {
   libelle?: string;
 };
 
+/**
+ * Une zone placée par le lycée sur son PDF (même sans champs) : la page, le rectangle en points PDF (origine en bas à gauche)
+ * et la donnée qu'y écrit Cap PFMP (texte, croix ou signature), ou un texte fixe.
+ */
+export type ZonePdf = { page: number; x: number; y: number; l: number; h: number; source: string; fixe?: string };
+
 /** Le modèle Cap PFMP adapté par le lycée : titre, texte d'introduction, rubriques ajoutées, pied de page. */
 export type PersonnalisationModele = {
   titre?: string;
@@ -617,6 +623,8 @@ export type ModeleFige = {
   pdfNom: string | null;
   champs: ChampPdf[];
   logoCle: string | null;
+  /** Zones placées sur le PDF du lycée. */
+  zones?: ZonePdf[];
 };
 export type ModelesFiges = Partial<Record<TypeModele, ModeleFige>>;
 
@@ -630,6 +638,8 @@ export const modelesDocuments = pgTable("modeles_documents", {
   pdfCle: text("pdf_cle"),
   pdfNom: text("pdf_nom"),
   champs: jsonb("champs").$type<ChampPdf[]>().notNull().default([]),
+  /** Zones placées d'un clic sur le PDF du lycée, quand il n'a pas de champs (ou pour compléter ses champs). */
+  zones: jsonb("zones").$type<ZonePdf[]>().notNull().default([]),
   majLe: timestamp("maj_le", { withTimezone: true }).notNull().defaultNow(),
   majParId: uuid("maj_par_id").references(() => users.id, { onDelete: "set null" }),
 }, (t) => [uniqueIndex("modeles_documents_etab_type_idx").on(t.etablissementId, t.type)]);

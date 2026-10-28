@@ -170,3 +170,13 @@ details[open] > summary { margin-bottom: 10px; }
 .recap-frais { width: auto; min-width: min(420px, 100%); border-collapse: collapse; }
 .recap-frais td, .recap-frais th { padding: 4px 12px 4px 0; text-align: left; }
 .recap-frais .num { text-align: right; }
+
+/* Éditeur des zones du PDF du lycée */
+.editeur-zones .page-pdf { border: 1px solid var(--line); background: #fff; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+.editeur-zones .page-pdf > .sub { position: absolute; bottom: -18px; left: 0; font-size: 12px; }
+.zone-pdf { border: 1.5px solid #c0392b; background: rgba(192, 57, 43, .12); padding: 0; margin: 0; cursor: pointer; border-radius: 2px; overflow: hidden; }
+.zone-pdf span { position: absolute; top: -1px; left: 1px; font-size: 10px; font-weight: 700; color: #c0392b; line-height: 1; }
+.zone-pdf.vide { border-style: dashed; }
+.zone-pdf.choisie { border-color: var(--accent); background: rgba(232, 160, 32, .25); }
+.zone-pdf.brouillon { border: 1.5px dashed var(--accent); background: rgba(232, 160, 32, .15); pointer-events: none; }
+.zone-ligne.choisie { background: rgba(232, 160, 32, .12); }

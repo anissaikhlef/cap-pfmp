@@ -12,16 +12,19 @@ import { Formulaire } from "@/components/Formulaire";
 import { ChampRetour } from "@/components/ChampRetour";
 import { Entete } from "@/components/ui";
 import type { ChampPdf } from "@/db/schema";
-import { choisirMode, deposerPdfModele, enregistrerChamps, enregistrerPersonnalisation } from "../actions";
+import { choisirMode, deposerPdfModele, enregistrerChamps, enregistrerPersonnalisation, enregistrerZones } from "../actions";
+import { EditeurZones } from "@/components/EditeurZones";
+import { sourcesZones } from "@/lib/zones";
+import { grillesZones } from "@/lib/valeurs-zones";
 
 export const metadata = { title: "Modèle de document" };
 
 /** Les documents dont le lycée adapte le modèle ; le PDF du lycée, rempli à l'identique, pour ceux qui ont des champs. */
 const DOCUMENTS = {
   convention: { titre: "Modèle de convention", sous: "Le document que signent l'élève, sa famille, l'entreprise et le lycée.", pdf: true, titreDefaut: TITRE_CONVENTION, introDefaut: "" },
-  ordre_mission: { titre: "Modèle d'ordre de mission", sous: "Ordre de mission signé avant la visite, puis compte rendu de visite.", pdf: false, titreDefaut: TITRE_ORDRE_MISSION, introDefaut: INTRO_ORDRE_MISSION },
-  attestation: { titre: "Modèle d'attestation de stage", sous: "Remplie et signée en ligne par le tuteur, avec l'élève et le professeur quand c'est possible.", pdf: false, titreDefaut: TITRE_ATTESTATION, introDefaut: INTRO_ATTESTATION },
-  livret: { titre: "Modèle de livret de compétences", sous: "Attitudes professionnelles et compétences du diplôme, évaluées en ligne par le tuteur à l'aide du carnet de bord de l'élève.", pdf: false, titreDefaut: TITRE_LIVRET, introDefaut: INTRO_LIVRET },
+  ordre_mission: { titre: "Modèle d'ordre de mission", sous: "Ordre de mission signé avant la visite, puis compte rendu de visite.", pdf: true, titreDefaut: TITRE_ORDRE_MISSION, introDefaut: INTRO_ORDRE_MISSION },
+  attestation: { titre: "Modèle d'attestation de stage", sous: "Remplie et signée en ligne par le tuteur, avec l'élève et le professeur quand c'est possible.", pdf: true, titreDefaut: TITRE_ATTESTATION, introDefaut: INTRO_ATTESTATION },
+  livret: { titre: "Modèle de livret de compétences", sous: "Attitudes professionnelles et compétences du diplôme, évaluées en ligne par le tuteur à l'aide du carnet de bord de l'élève.", pdf: true, titreDefaut: TITRE_LIVRET, introDefaut: INTRO_LIVRET },
 } as const;
 
 const NB_RUBRIQUES = 5;
@@ -69,6 +72,10 @@ export default async function ModeleDocument({ params }: { params: Promise<{ typ
   const filieres = type === "livret" ? [...new Set((await db.select({ f: schema.classes.filiere }).from(schema.classes)
     .where(and(eq(schema.classes.etablissementId, ctx.etab.id), eq(schema.classes.anneeScolaire, ctx.etab.anneeScolaire)))).map((x) => x.f).filter((f): f is string => !!f))].sort() : [];
   const rubriques = [...(p.rubriques ?? []), ...Array.from({ length: NB_RUBRIQUES }, () => ({ titre: "", texte: "" }))].slice(0, NB_RUBRIQUES);
+  const sources = sourcesZones(type, await grillesZones(ctx.etab.id));
+  // L'aperçu rempli : un stage de l'année (une visite avec ordre de mission pour l'ordre de mission).
+  const apercu = type === "ordre_mission" ? (om ? `/organisation/documents/${type}/apercu?visite=${om.id}` : null)
+    : ex ? `/organisation/documents/${type}/apercu?stage=${ex.id}&pdf=1` : null;
   const remplis = m.champs.filter((c) => c.source && c.source !== SOURCES_SPECIALES.famille && c.source !== SOURCES_SPECIALES.entreprise).length;
   const aCompleter = m.champs.filter((c) => c.source === SOURCES_SPECIALES.famille || c.source === SOURCES_SPECIALES.entreprise).length;
   return (
@@ -95,7 +102,9 @@ export default async function ModeleDocument({ params }: { params: Promise<{ typ
           </div>
           <div className="actions"><button className="btn primary">Enregistrer le choix</button></div>
         </form>
-        <p className="sub" style={{ margin: 0 }}>Une convention déjà signée garde le modèle avec lequel elle a été signée.</p>
+        <p className="sub" style={{ margin: 0 }}>{type === "convention" ? "Une convention déjà signée garde le modèle avec lequel elle a été signée."
+          : type === "ordre_mission" ? "Un ordre de mission déjà signé garde le modèle avec lequel il a été signé."
+          : "Un document déjà signé est rangé tel quel dans le dossier de l'élève : il ne change plus."}</p>
       </div>}
 
       <div className="panel pad section" id="cap-pfmp">
@@ -154,7 +163,7 @@ export default async function ModeleDocument({ params }: { params: Promise<{ typ
 
       {doc.pdf && <div className="panel pad section" id="pdf">
         <h2>PDF de votre lycée</h2>
-        <p className="sub" style={{ margin: 0 }}>Déposez votre convention au format PDF avec ses champs à remplir (un « PDF modifiable »). Cap PFMP écrit dans chaque champ la donnée que vous choisissez : votre document reste identique.</p>
+        <p className="sub" style={{ margin: 0 }}>Déposez votre document au format PDF, tel que votre lycée l&apos;utilise, avec ou sans champs à remplir. Placez ensuite d&apos;un clic les zones où Cap PFMP écrit (nom de l&apos;élève, dates, cases, signatures) : votre document reste identique.</p>
         <Formulaire action={deposerPdfModele} className="actions" bouton={m.pdfCle ? "Remplacer le PDF" : "Déposer le PDF"} boutonClasse="btn small primary">
           <input type="hidden" name="type" value={type} />
           <label className="f" htmlFor="mp-pdf" style={{ flex: 1, minWidth: 200 }}><span className="vh">Fichier PDF</span><input id="mp-pdf" name="pdf" type="file" accept="application/pdf" required /></label>
@@ -162,14 +171,21 @@ export default async function ModeleDocument({ params }: { params: Promise<{ typ
         {!m.pdfCle && <p className="sub" style={{ margin: 0 }}>Pas de PDF sous la main ? <a href={`/organisation/documents/${type}/exemple`} target="_blank" rel="noopener">Téléchargez un exemple fictif</a> pour essayer.</p>}
         {m.pdfCle && (
           <>
+            <div className="actions">
+              <a className="btn small" href={`/organisation/documents/${type}/apercu?reperage=1`} target="_blank" rel="noopener">Aperçu des zones et des champs</a>
+              {apercu && <a className="btn small" href={apercu} target="_blank" rel="noopener">Aperçu rempli avec un stage</a>}
+            </div>
+            <h3>Zones à remplir</h3>
+            <EditeurZones key={m.pdfCle} type={type} cle={m.pdfCle} url={`/organisation/documents/${type}/apercu?original=1`} zones={m.zones} sources={sources} action={enregistrerZones} />
+          </>
+        )}
+        {m.pdfCle && m.champs.length > 0 && (
+          <>
+            <h3>Champs du PDF</h3>
             <p className="sub" style={{ margin: 0 }}>
               <b>{m.pdfNom}</b> · {m.champs.length} champ(s) : {remplis} rempli(s) par Cap PFMP, {aCompleter} à compléter en signant, {m.champs.length - remplis - aCompleter} laissé(s) vide(s).
               Les noms des champs sont souvent peu parlants (« Texte_13 ») : l&apos;aperçu des noms montre où se trouve chacun.
             </p>
-            <div className="actions">
-              <a className="btn small" href={`/organisation/documents/${type}/apercu?reperage=1`} target="_blank" rel="noopener">Aperçu des noms de champs</a>
-              {ex && <a className="btn small" href={`/organisation/documents/${type}/apercu?stage=${ex.id}`} target="_blank" rel="noopener">Aperçu rempli avec un stage</a>}
-            </div>
             <Formulaire action={enregistrerChamps} bouton="Enregistrer les champs" id="champs">
               <input type="hidden" name="type" value={type} />
               <input type="hidden" name="cle" value={m.pdfCle} />

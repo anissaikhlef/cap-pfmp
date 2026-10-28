@@ -8,15 +8,19 @@ import { peutAdministrer } from "@/lib/acces";
 import { enregistrerFichier } from "@/lib/stockage";
 import { journaliser } from "@/lib/journal";
 import { revenirAvec } from "@/lib/retour";
-import { lireChampsPdf } from "@/lib/modeles-pdf";
+import { lireChampsPdf, pagesDuPdf } from "@/lib/modeles-pdf";
+import { lireFichier } from "@/lib/stockage";
+import { sourcesZones, zonesValables } from "@/lib/zones";
+import { grillesZones } from "@/lib/valeurs-zones";
 import { lireCompetences, lireGrille, lireNiveaux, lireQuestions, SOURCES_SPECIALES, sourceValable } from "@/lib/modeles";
 import { modeleDuLycee } from "@/lib/modeles-documents";
 import type { Etat } from "@/components/Formulaire";
 import type { ChampPdf, PersonnalisationModele, TypeModele } from "@/db/schema";
 
 const TYPES = ["convention", "ordre_mission", "attestation", "livret"] as const;
-/** Documents dont le lycée peut déposer son propre PDF (avec des champs) : la convention, pour l'instant. */
-const TYPES_PDF = ["convention"] as const;
+/** Documents dont le lycée peut déposer son propre PDF, avec ou sans champs : tous. */
+const TYPES_PDF = TYPES;
+const NOMS: Record<TypeModele, string> = { convention: "conventions", ordre_mission: "ordres de mission", attestation: "attestations", livret: "livrets" };
 const REFUS = "Seuls le DDFPT et la direction adaptent les modèles de documents.";
 const NB_RUBRIQUES = 5;
 
@@ -35,13 +39,35 @@ export async function choisirMode(fd: FormData) {
   if (!peutAdministrer(ctx)) revenirAvec(fd, REFUS, "err");
   const type = z.enum(TYPES).parse(fd.get("type"));
   const mode = z.enum(["cap_pfmp", "pdf"]).parse(fd.get("mode"));
-  if (mode === "pdf" && type !== "convention") revenirAvec(fd, "Pour l'instant, seule la convention peut suivre le PDF de votre lycée.", "err");
-  if (mode === "pdf" && !(await modeleDuLycee(ctx.etab.id, type)).pdfCle) revenirAvec(fd, "Déposez d'abord le PDF de votre lycée, plus bas sur cette page.", "err");
+  const m = await modeleDuLycee(ctx.etab.id, type);
+  if (mode === "pdf" && !m.pdfCle) revenirAvec(fd, "Déposez d'abord le PDF de votre lycée, plus bas sur cette page.", "err");
+  if (mode === "pdf" && !m.zones.length && !m.champs.some((c) => c.source)) revenirAvec(fd, "Placez d'abord sur votre PDF les zones que Cap PFMP remplit, plus bas sur cette page.", "err");
   await enregistrerModele(ctx, type, { mode });
   await journaliser(ctx, "modele_choisi", "etablissement", ctx.etab.id, { type, mode });
+  const deja = type === "convention" || type === "ordre_mission" ? "Celles déjà signées gardent leur modèle." : "Ceux déjà signés ne changent pas.";
+  const nouveaux = type === "convention" ? "Les nouvelles conventions" : `Les nouveaux documents (${NOMS[type]})`;
   revenirAvec(fd, mode === "pdf"
-    ? "Les nouvelles conventions sont remplies dans le PDF de votre lycée. Celles déjà signées gardent leur modèle."
-    : "Les nouvelles conventions suivent le modèle Cap PFMP. Celles déjà signées gardent leur modèle.");
+    ? `${nouveaux} sont remplis dans le PDF de votre lycée. ${deja}`.replace("conventions sont remplis", "conventions sont remplies")
+    : `${nouveaux} suivent le modèle Cap PFMP. ${deja}`);
+}
+
+/** Les zones placées d'un clic sur le PDF du lycée, et ce que Cap PFMP écrit dans chacune. */
+export async function enregistrerZones(_: Etat, fd: FormData): Promise<Etat> {
+  const ctx = await contexte();
+  if (!peutAdministrer(ctx)) return { erreur: REFUS };
+  const type = z.enum(TYPES).parse(fd.get("type"));
+  const m = await modeleDuLycee(ctx.etab.id, type);
+  if (!m.pdfCle) return { erreur: "Déposez d'abord le PDF de votre lycée." };
+  if (fd.get("cle") !== m.pdfCle) return { erreur: "Le PDF a été remplacé entre-temps : rechargez la page." };
+  const pages = await pagesDuPdf(new Uint8Array(await lireFichier(m.pdfCle)));
+  if (typeof pages === "string") return { erreur: pages };
+  let brut: unknown;
+  try { brut = JSON.parse(String(fd.get("zones") ?? "[]")); } catch { return { erreur: "Zones illisibles : rechargez la page." }; }
+  const zones = zonesValables(brut, sourcesZones(type, await grillesZones(ctx.etab.id)), pages);
+  if (typeof zones === "string") return { erreur: zones };
+  await enregistrerModele(ctx, type, { zones });
+  await journaliser(ctx, "modele_zones", "etablissement", ctx.etab.id, { type, zones: zones.length });
+  return { ok: `${zones.length} zone(s) enregistrée(s).` };
 }
 
 /** Le modèle Cap PFMP adapté : titre, introduction, engagements, rubriques ajoutées, pied de page. */
@@ -82,7 +108,10 @@ export async function enregistrerPersonnalisation(_: Etat, fd: FormData): Promis
     : "Modèle enregistré." };
 }
 
-/** Dépôt du PDF du lycée (un « PDF modifiable », avec ses champs) : chaque champ reçoit une donnée proposée. */
+/**
+ * Dépôt du PDF du lycée, avec ou sans champs : chaque champ reçoit une donnée proposée ; sans champs, le lycée place
+ * ensuite ses zones. Un PDF remplacé garde les zones qui tiennent encore dans ses pages.
+ */
 export async function deposerPdfModele(_: Etat, fd: FormData): Promise<Etat> {
   const ctx = await contexte();
   if (!peutAdministrer(ctx)) return { erreur: REFUS };
@@ -100,9 +129,15 @@ export async function deposerPdfModele(_: Etat, fd: FormData): Promise<Etat> {
     const a = avant.find((x) => x.nom === c.nom && x.type === c.type);
     return a ? { ...c, source: a.source, ...(a.fixe ? { fixe: a.fixe } : {}), ...(a.libelle ? { libelle: a.libelle } : {}) } : { ...c, ...(c.source === SOURCES_SPECIALES.famille || c.source === SOURCES_SPECIALES.entreprise ? { libelle: c.nom } : {}) };
   });
-  await enregistrerModele(ctx, type, { pdfCle: r.cle, pdfNom: r.nom, champs: fusion });
-  await journaliser(ctx, "modele_pdf_depose", "etablissement", ctx.etab.id, { type, champs: fusion.length });
-  return { ok: `PDF déposé : ${fusion.length} champ(s). Vérifiez ci-dessous ce que Cap PFMP écrit dans chacun.` };
+  const pages = await pagesDuPdf(new Uint8Array(await lireFichier(r.cle)));
+  if (typeof pages === "string") return { erreur: pages };
+  const prec = await modeleDuLycee(ctx.etab.id, type);
+  const zones = prec.zones.filter((z) => { const p = pages[z.page - 1]; return p && z.x + z.l <= p.l + 1 && z.y + z.h <= p.h + 1; });
+  await enregistrerModele(ctx, type, { pdfCle: r.cle, pdfNom: r.nom, champs: fusion, zones });
+  await journaliser(ctx, "modele_pdf_depose", "etablissement", ctx.etab.id, { type, champs: fusion.length, pages: pages.length });
+  return { ok: fusion.length
+    ? `PDF déposé : ${fusion.length} champ(s). Vérifiez ci-dessous ce que Cap PFMP écrit dans chacun, et ajoutez des zones si besoin.`
+    : `PDF déposé : ${pages.length} page(s), sans champs à remplir. Placez ci-dessous les zones que Cap PFMP remplit.` };
 }
 
 /** Ce que Cap PFMP écrit dans chaque champ du PDF du lycée. */

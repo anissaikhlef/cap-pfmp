@@ -8,7 +8,10 @@ import { aujourdhui, dateLongue } from "./dates";
 import { documentsManquants } from "./entreprises-accueil";
 import { cadreSignature, enTete, lireRemplissage, partiesDuStage, rangerLePdf } from "./fin-de-stage";
 import { INTRO_ATTESTATION, paragraphes, TITRE_ATTESTATION } from "./modeles";
-import { modeleDuLycee } from "./modeles-documents";
+import { modeleDuLycee, utiliseLePdf } from "./modeles-documents";
+import { remplirPdf } from "./modeles-pdf";
+import { lireFichier } from "./stockage";
+import { valeursAttestation } from "./valeurs-zones";
 import { DocumentPdf } from "./pdf-simple";
 import { joursEffectues, ouvertureFinDeStage, statutAttestation } from "./regles";
 
@@ -68,9 +71,14 @@ export async function enregistrerAttestation(etab: Etab, cv: ContexteConvention,
   return { statut };
 }
 
-/** L'attestation au modèle Cap PFMP adapté par le lycée (titre, texte d'introduction, rubriques, pied de page, logo). */
+/**
+ * L'attestation au modèle du lycée : son propre PDF, rempli dans les zones qu'il y a placées, ou le modèle Cap PFMP adapté
+ * (titre, texte d'introduction, rubriques, pied de page, logo).
+ */
 export async function pdfAttestation(etab: Etab, cv: ContexteConvention, att: Omit<AttestationStage, "documentId">): Promise<Uint8Array> {
-  const perso = (await modeleDuLycee(etab.id, "attestation")).personnalisation;
+  const m = await modeleDuLycee(etab.id, "attestation");
+  if (utiliseLePdf(m)) return remplirPdf(new Uint8Array(await lireFichier(m.pdfCle)), { valeurs: new Map() }, m.zones, await valeursAttestation(etab, cv, att));
+  const perso = m.personnalisation;
   const titre = perso.titre || TITRE_ATTESTATION;
   const pdf = await DocumentPdf.creer(`${titre} · ${cv.e.prenom} ${cv.e.nom}`);
   await enTete(pdf, etab, titre, paragraphes(perso.introduction || INTRO_ATTESTATION));

@@ -7,7 +7,10 @@ import { aujourdhui, dateLongue } from "./dates";
 import { documentsManquants } from "./entreprises-accueil";
 import { cadreSignature, enTete, lireRemplissage, partiesDuStage, rangerLePdf } from "./fin-de-stage";
 import { competencesDe, INTRO_LIVRET, NIVEAUX_COMPETENCES, niveauxRetenus, paragraphes, TITRE_LIVRET } from "./modeles";
-import { grilleEtQuestions, modeleDuLycee } from "./modeles-documents";
+import { grilleEtQuestions, modeleDuLycee, utiliseLePdf } from "./modeles-documents";
+import { remplirPdf } from "./modeles-pdf";
+import { lireFichier } from "./stockage";
+import { valeursLivret } from "./valeurs-zones";
 import { DocumentPdf } from "./pdf-simple";
 import { ouvertureFinDeStage } from "./regles";
 
@@ -75,7 +78,10 @@ export async function enregistrerLivret(etab: Etab, cv: ContexteConvention, fd: 
 
 /** Le livret au modèle Cap PFMP adapté par le lycée : attitudes, compétences du diplôme, bilan, carnet de bord, signature. */
 export async function pdfLivret(etab: Etab, cv: ContexteConvention, livret: Omit<LivretStage, "documentId">, carnet: ActiviteJour[]): Promise<Uint8Array> {
-  const perso = (await modeleDuLycee(etab.id, "livret")).personnalisation;
+  const m = await modeleDuLycee(etab.id, "livret");
+  // Le PDF du lycée, rempli dans les zones qu'il y a placées ; sinon, le modèle Cap PFMP adapté.
+  if (utiliseLePdf(m)) return remplirPdf(new Uint8Array(await lireFichier(m.pdfCle)), { valeurs: new Map() }, m.zones, await valeursLivret(etab, cv, livret, carnet));
+  const perso = m.personnalisation;
   const titre = perso.titre || TITRE_LIVRET;
   const pdf = await DocumentPdf.creer(`${titre} · ${cv.e.prenom} ${cv.e.nom}`);
   await enTete(pdf, etab, titre, paragraphes(perso.introduction || INTRO_LIVRET));

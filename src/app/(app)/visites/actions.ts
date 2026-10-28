@@ -17,7 +17,7 @@ import { aujourdhui, dateLongue } from "@/lib/dates";
 import type { Etat } from "@/components/Formulaire";
 import type { AppelTuteur, CachetEntreprise, CompteRendu } from "@/db/schema";
 import { NIVEAUX } from "@/lib/constantes-visites";
-import { grilleEtQuestions } from "@/lib/modeles-documents";
+import { figerModele, grilleEtQuestions } from "@/lib/modeles-documents";
 import { enregistrerAttestation } from "@/lib/attestation";
 import { enregistrerLivret } from "@/lib/livret";
 import { chargerConvention } from "@/lib/convention";
@@ -256,6 +256,8 @@ export async function signerOrdreMission(fd: FormData) {
   const l = await chargerVisite(ctx, visiteId);
   if (!l?.v || l.v.ordreMission !== "a_signer") return;
   await db.update(schema.visites).set({ ordreMission: "signe", ordreMissionSigneParId: ctx.user.id, ordreMissionSigneLe: new Date() }).where(eq(schema.visites.id, visiteId));
+  // L'ordre de mission signé garde le modèle du lycée de ce jour-là.
+  await figerModele(ctx.etab, l.s.id, "ordre_mission");
   await journaliser(ctx, "ordre_mission_signe", "visite", visiteId);
   rafraichir();
   revenirAvec(fd, "Ordre de mission signé.");

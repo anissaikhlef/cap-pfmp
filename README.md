@@ -26,6 +26,7 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | Lot 3.3 | Frais de visite : barème propre à chaque lycée (tranches de kilomètres annuels par véhicule, repas, nuitées), demande de remboursement du professeur après la visite, validation par la gestion des PFMP, export pour un tableur | Fait |
 | Lot 3.4 | Attestation de stage en ligne : remplie par le tuteur avec l'élève et le professeur quand c'est possible (sur le téléphone du professeur), avec l'élève, ou seul (dans son compte ou avec son lien personnel), signée, et rangée en PDF au modèle du lycée dans le dossier de l'élève ; validée d'office, ou à vérifier si les jours déclarés diffèrent de ceux de Cap PFMP | Fait |
 | Lot 3.5 | Livret de compétences en ligne : carnet de bord de l'élève (ses activités de chaque jour), évaluation par le tuteur des attitudes professionnelles (grille du lycée) et des compétences de chaque diplôme (saisies par le lycée), avec l'élève et le professeur quand c'est possible, bilan, signature, PDF au modèle du lycée rangé dans le dossier de l'élève | Fait |
+| PDF du lycée | Pour la convention, l'ordre de mission, l'attestation et le livret : le PDF du lycée, même sans champs, rempli dans les zones que le lycée y place d'un clic (données, cases, signatures, texte fixe) ; un document signé garde le modèle du jour de sa signature | Fait |
 | Rendez-vous | Prise de rendez-vous en ligne pour la visite de stage : le professeur propose ses créneaux et la forme de la visite (sur place, à distance, ou au choix de l'entreprise) ; l'entreprise choisit avec un lien personnel, sans compte, ou donne ses disponibilités ; confirmation par mail, avec le lien de visio pour une visite à distance | Fait |
 
 Les décisions de conception d'Anissa Ikhlef sont consignées, avec leur date, dans [JOURNAL_DE_CONCEPTION.md](JOURNAL_DE_CONCEPTION.md).
@@ -91,6 +92,7 @@ node e2e/frais.mjs
 node e2e/rendez-vous.mjs
 node e2e/attestation.mjs
 node e2e/livret.mjs
+node e2e/zones.mjs
 node e2e/mobile.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
 ```
 
@@ -119,6 +121,7 @@ Les parcours sont écrits pour le 26 octobre 2026 : lancez l'application avec `C
 - `src/lib/modeles-pdf.ts` et `src/lib/modeles-documents.ts` : lecture et remplissage du PDF du lycée ([pdf-lib](https://pdf-lib.js.org)), modèle de chaque lycée, modèle figé à la première signature
 - `src/lib/frais.ts` : kilomètres déjà parcourus dans l'année (le calcul du barème est dans `regles.ts`, testé)
 - `src/lib/attestation.ts` : attestation de stage en ligne (ouverture, jours comptés par Cap PFMP, enregistrement, PDF au modèle du lycée avec `pdf-simple.ts`)
+- `src/lib/zones.ts` (pur, testé) et `src/lib/valeurs-zones.ts` : zones placées sur le PDF du lycée et ce que Cap PFMP y écrit ; `src/components/EditeurZones.tsx` : l'éditeur (pages affichées avec pdf.js)
 - `src/lib/livret.ts` : livret de compétences en ligne et carnet de bord ; `src/lib/fin-de-stage.ts` : ce qui est commun à l'attestation et au livret (qui remplit, signature, PDF rangé)
 - `src/lib/rendez-vous.ts` : prise de rendez-vous pour la visite (forme retenue, confirmation au professeur et à l'entreprise, lien de l'entreprise)
 - `src/lib/partenariats.ts` : faits et note de partenariat de chaque entreprise (calcul dans `regles.ts`, testé)

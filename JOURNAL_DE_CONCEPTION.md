@@ -431,3 +431,18 @@ Anissa : « l'élève et parent peuvent consulter les livrets de compétences en
 - En **seconde, première et 1re année de CAP**, l'élève et sa famille consultent le livret.
 - En **terminale et en 2e année de CAP**, le livret est transmis au lycée sans être communiqué à l'élève ni à sa famille : ni résumé, ni fichier (l'ouverture directe du fichier est refusée). L'élève garde son carnet de bord, qu'il écrit lui-même. L'équipe et l'entreprise voient le livret.
 - **Fiche de la classe** : un réglage « Pour un CAP : année » (1re année, ou 2e année, année d'examen).
+
+## 28 octobre 2026 : le PDF de chaque lycée, même sans champs (réponse « 1 » d'Anissa)
+
+Anissa : « l'essentiel est de prendre en compte le fait que chaque lycée a ses modèles de documents, et au final on a la trace des documents signés » ; elle choisit de placer les zones d'un clic sur le PDF du lycée.
+
+- **Pour les quatre documents** (convention, ordre de mission, attestation, livret), le lycée dépose son propre PDF, avec ou sans champs (un document scanné ou imprimé depuis un traitement de texte convient).
+- **Zones** : dans « Modèles de documents », le DDFPT ou la direction voit les pages de son PDF, trace une zone à la souris (ou au doigt) à l'endroit où écrire, et choisit ce que Cap PFMP y met : une donnée (élève, classe, dates, entreprise, tuteur, jours effectués, activités…), une croix dans une case (transport, niveau d'une attitude ou d'une compétence, réponse oui/non de l'appel…), une signature, ou un texte fixe. Un aperçu montre chaque zone avec sa donnée, un autre le document rempli avec un vrai stage ; des exemples fictifs sans champs permettent d'essayer.
+- **Choix du modèle** : pour chaque document, le modèle Cap PFMP adapté ou le PDF du lycée.
+- **Trace des documents signés** : la convention et l'ordre de mission gardent le modèle du jour de leur signature, même si le lycée change son modèle ensuite ; l'attestation et le livret sont rangés en PDF, tels que signés, dans le dossier de l'élève.
+
+### Choix proposés par l'assistant, à confirmer par Anissa Ikhlef
+
+1. **Écriture dans les zones** : en bleu foncé, sur plusieurs lignes si besoin, en réduisant la taille du texte pour qu'il tienne dans la zone.
+2. **Signature dessinée** placée dans sa zone ; une signature simple y laisse la mention « Signé en ligne dans Cap PFMP le … ».
+3. **PDF remplacé** : les zones déjà placées sont gardées quand elles tiennent dans les pages du nouveau PDF.
