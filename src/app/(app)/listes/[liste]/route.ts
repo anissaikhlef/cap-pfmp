@@ -1,13 +1,13 @@
 import { contexte } from "@/lib/auth";
-import { versCsv } from "@/lib/csv";
 import { aujourdhui, dateLongue } from "@/lib/dates";
 import { journaliser } from "@/lib/journal";
 import { NOMS_LISTES, nomDeFichier, type Liste } from "@/lib/listes-def";
 import { anneesDesListes, classesDesListes, construireListe, peutExporter } from "@/lib/listes";
 import { tableauPdf } from "@/lib/tableau-pdf";
+import { classeurXlsx } from "@/lib/xlsx";
 
 /**
- * Une liste exportée (décision d'Anissa) : en tableau pour Excel (format=excel) ou en PDF prêt à imprimer (format=pdf),
+ * Une liste exportée (décision d'Anissa) : en fichier Excel .xlsx (format=excel) ou en PDF prêt à imprimer (format=pdf),
  * pour une classe ou pour toutes les classes que la personne peut voir, sur une année scolaire.
  */
 export async function GET(req: Request, { params }: { params: Promise<{ liste: string }> }) {
@@ -31,7 +31,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ liste: s
       headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${fichier}.pdf"`, "Cache-Control": "private, no-store" },
     });
   }
-  return new Response(versCsv([[t.titre], [t.sousTitre], [], t.colonnes, ...t.lignes]), {
-    headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${fichier}.csv"`, "Cache-Control": "private, no-store" },
+  return new Response(Buffer.from(classeurXlsx(t)), {
+    headers: {
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="${fichier}.xlsx"`, "Cache-Control": "private, no-store",
+    },
   });
 }

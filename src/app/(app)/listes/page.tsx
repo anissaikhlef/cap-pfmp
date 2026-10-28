@@ -20,8 +20,8 @@ export default async function Listes({ searchParams }: { searchParams: Promise<{
   return (
     <>
       <Entete titre="Listes" sous={qui.gestion
-        ? "Toutes les listes du lycée, pour une classe ou pour toutes, en tableau Excel (à trier, à compléter) ou en PDF prêt à imprimer."
-        : "Les listes de vos classes (celles dont vous êtes référent ou où vous avez des heures de cours), en tableau Excel ou en PDF prêt à imprimer."} />
+        ? "Toutes les listes du lycée, pour une classe ou pour toutes, en fichier Excel (.xlsx, à trier, à filtrer, à compléter) ou en PDF prêt à imprimer."
+        : "Les listes de vos classes (celles dont vous êtes référent ou où vous avez des heures de cours), en fichier Excel (.xlsx) ou en PDF prêt à imprimer."} />
       <form className="panel pad section actions" method="get">
         <label className="f" htmlFor="l-annee">Année scolaire
           <select id="l-annee" name="annee" defaultValue={annee}>{annees.map((x) => <option key={x} value={x}>{x}</option>)}</select>

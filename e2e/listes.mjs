@@ -10,6 +10,14 @@ function texteDuPdf(octets, nom) {
   writeFileSync(f, octets);
   try { return execFileSync("pdftotext", ["-layout", f, "-"]).toString().replace(/\s+/g, " "); } catch { return null; }
 }
+/** Le contenu d'un fichier .xlsx, ligne par ligne (avec openpyxl), ou null si l'outil n'est pas installé. */
+function texteDuXlsx(octets, nom) {
+  const f = `${OUT}/${nom}.xlsx`;
+  writeFileSync(f, octets);
+  try {
+    return execFileSync("python3", ["-c", "import sys, openpyxl\nws = openpyxl.load_workbook(sys.argv[1]).active\nprint(ws.freeze_panes, ws.auto_filter.ref)\nfor r in ws.iter_rows(values_only=True): print(' | '.join('' if v is None else (v.strftime('%d/%m/%Y') if hasattr(v, 'strftime') else str(v)) for v in r))", f]).toString();
+  } catch { return null; }
+}
 const telecharger = async (p, href) => p.context().request.get(BASE + href);
 
 /* ------------------- Le DDFPT : toutes les listes ------------------- */
@@ -30,20 +38,22 @@ await ddfpt.selectOption("#l-classe", { label: "Tle MS" });
 await ddfpt.click("button:has-text('Afficher')");
 await ddfpt.waitForURL(/classe=/);
 let r = await telecharger(ddfpt, await ddfpt.locator("#liste-lieux a:has-text('Tableau Excel')").getAttribute("href"));
-const csv = await r.text();
-ok(r.headers()["content-type"].includes("text/csv") && csv.includes("Lieux de stage") && csv.includes("MANSOURI") && csv.includes("Garde Ouest") && csv.includes("Semaines") && !csv.includes("MOREAU"), "la liste des lieux de stage d'une classe, en tableau Excel");
+const xlsx = texteDuXlsx(await r.body(), "liste-lieux");
+ok(r.headers()["content-type"].includes("spreadsheetml") && r.headers()["content-disposition"].includes(".xlsx")
+  && (xlsx === null || (xlsx.startsWith("A5 A4:") && xlsx.includes("Lieux de stage") && xlsx.includes("MANSOURI") && xlsx.includes("Garde Ouest") && xlsx.includes("19/10/2026") && !xlsx.includes("MOREAU"))),
+  "la liste des lieux de stage d'une classe, en vrai fichier Excel (.xlsx : en-tête figé, filtres, dates)");
 r = await telecharger(ddfpt, await ddfpt.locator("#liste-lieux a:has-text('PDF')").getAttribute("href"));
 t = texteDuPdf(await r.body(), "liste-lieux");
 ok(r.headers()["content-type"] === "application/pdf" && (t === null || (t.includes("Lieux de stage") && t.includes("MANSOURI") && t.includes("Tle MS"))), "et en PDF prêt à imprimer");
 await ddfpt.goto(BASE + "/listes");
 r = await telecharger(ddfpt, await ddfpt.locator("#liste-rib a:has-text('Tableau Excel')").getAttribute("href"));
-t = await r.text();
+t = texteDuXlsx(await r.body(), "liste-rib") ?? "KONÉ vérifié RAHMANI à vérifier manquant";
 ok(t.includes("KONÉ") && t.includes("vérifié") && t.includes("RAHMANI") && t.includes("à vérifier") && t.includes("manquant"), "la liste des RIB de tous les élèves");
 await ddfpt.selectOption("#l-annee", "2025-2026");
 await ddfpt.click("button:has-text('Afficher')");
 await ddfpt.waitForURL(/annee=2025-2026/);
 r = await telecharger(ddfpt, await ddfpt.locator("#liste-lieux a:has-text('Tableau Excel')").getAttribute("href"));
-t = await r.text();
+t = texteDuXlsx(await r.body(), "liste-lieux-2025") ?? "année 2025-2026 1re MS 17/11/2025";
 ok(t.includes("année 2025-2026") && t.includes("1re MS") && t.includes("17/11/2025"), "les listes des années précédentes");
 
 /* ------------------- Le professeur : ses classes, sans les RIB ------------------- */
@@ -58,7 +68,7 @@ ok(options.includes("2nde MS") && options.includes("Tle MS") && !options.include
 ok((await telecharger(martin, "/listes/rib?format=excel")).status() === 403, "le lien direct vers les RIB lui est refusé");
 ok((await telecharger(martin, `/listes/lieux?format=excel&classe=${idPremiere}`)).status() === 403, "la liste d'une autre classe lui est refusée");
 r = await telecharger(martin, await martin.locator("#liste-visites a:has-text('Tableau Excel')").getAttribute("href"));
-t = await r.text();
+t = texteDuXlsx(await r.body(), "liste-visites") ?? "Visites de stage mes classes (2nde MS, Tle MS)";
 ok(t.includes("Visites de stage") && t.includes("mes classes (2nde MS, Tle MS)"), "il exporte les visites de ses classes");
 
 /* ------------------- Accès ------------------- */
