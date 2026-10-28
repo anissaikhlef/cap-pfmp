@@ -5,6 +5,7 @@ import { completerReglages } from "@/db/schema";
 import { contexte } from "@/lib/auth";
 import { AGENTS, LIBELLES_FORMULES, LISTE_AGENTS, euros, formuleDe, prixMensuel } from "@/lib/agents";
 import { iaBranchee } from "@/lib/ia";
+import { laBonneBoiteBranchee } from "@/lib/la-bonne-boite";
 import { reglagesPlateforme, usageDuMois } from "@/lib/plateforme";
 import { Formulaire } from "@/components/Formulaire";
 import { Entete } from "@/components/ui";
@@ -27,6 +28,17 @@ export default async function Admin() {
       <Entete titre="Administration de Cap PFMP" sous="Les montants de l'abonnement selon les agents choisis, les plafonds d'usage, et les lycées.">
         <div className="actions"><Link className="btn" href="/admin/veille">Veille réglementaire</Link></div>
       </Entete>
+      {!laBonneBoiteBranchee() && (
+        <div className="panel pad section agent-ia">
+          <h2>À faire : La bonne boîte</h2>
+          <ol className="sub" style={{ margin: 0, paddingLeft: 18 }}>
+            <li>Créez votre compte sur francetravail.io (espace des développeurs de France Travail) et demandez l&apos;accès à l&apos;API « La bonne boîte ».</li>
+            <li>Vous recevez deux codes (identifiant et clé secrète). Ajoutez-les dans les réglages de Vercel (« Settings », « Environment Variables ») sous les noms FRANCE_TRAVAIL_ID et FRANCE_TRAVAIL_SECRET, puis redéployez. Ne les écrivez à personne.</li>
+            <li>Dans chaque classe, indiquez le code métier ROME de la formation (ex. K2503 pour la sécurité privée).</li>
+          </ol>
+          <p className="sub" style={{ margin: "6px 0 0" }}>Ce rappel disparaît dès que La bonne boîte est branchée. En attendant, Cap Partenaires cherche dans l&apos;annuaire du lycée et l&apos;annuaire public des entreprises.</p>
+        </div>
+      )}
       {!iaBranchee() && <p className="note">Aucune clé d&apos;IA n&apos;est configurée : les agents répondent avec des textes d&apos;exemple. Ajoutez ANTHROPIC_API_KEY dans les variables de l&apos;hébergement pour les brancher.</p>}
       <Formulaire action={enregistrerTarifs} bouton="Enregistrer les tarifs" viderApres={false}>
         <div className="panel pad section">

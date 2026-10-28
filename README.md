@@ -112,9 +112,10 @@ Les parcours sont écrits pour le 26 octobre 2026 : lancez l'application avec `C
 | `COOKIE_SECURE` | `true` dès que le site est servi en HTTPS |
 | `SITE_URL` | Adresse publique du site (ex. `https://cap-pfmp.example.fr`), écrite dans les liens personnels envoyés par mail et SMS. Sur Vercel, l'adresse de production est trouvée automatiquement |
 | `DOUBLE_AUTH_OBLIGATOIRE` | `true` par défaut : la direction et les gestionnaires doivent activer un code sur téléphone. `false` seulement pour une démonstration |
-| `TACHES_JETON` | Jeton secret de la tâche quotidienne `/api/taches/quotidiennes` (relances automatiques, aux jours réglés dans « Organisation », et mails du jour de Cap Admin), à appeler chaque matin |
+| `TACHES_JETON` | Jeton secret de la tâche quotidienne `/api/taches/quotidiennes` (relances automatiques, aux jours réglés dans « Organisation », mails du jour de Cap Admin, et lecture des sources officielles par Cap Veille une fois par semaine), à appeler chaque matin |
 | `ANTHROPIC_API_KEY` | Clé de l'IA des agents (fournisseur engagé à ne pas entraîner ses modèles sur les données). Sans clé, les agents répondent avec des textes d'exemple ; le lycée d'entraînement n'utilise jamais l'IA |
 | `CAP_PFMP_MODELE_IA` | Modèle d'IA des agents (par défaut `claude-opus-5-5`) |
+| `FRANCE_TRAVAIL_ID`, `FRANCE_TRAVAIL_SECRET` | Accès à « La bonne boîte » de France Travail, obtenu sur francetravail.io (Cap Partenaires) ; `FRANCE_TRAVAIL_LBB_URL` et `FRANCE_TRAVAIL_SCOPE` si la documentation reçue indique une autre adresse ou un autre nom d'accès |
 | `CAP_PFMP_ANNUAIRE_PUBLIC` | `non` pour que Cap Partenaires ne consulte pas l'annuaire public des entreprises (recherche-entreprises.api.gouv.fr) |
 
 ## Organisation du code

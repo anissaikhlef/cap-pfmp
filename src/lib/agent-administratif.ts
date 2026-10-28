@@ -42,19 +42,24 @@ const remettreEleve = (t: string, e: Pick<Eleve, "prenom">) => remettre(t, [{ va
 
 /**
  * À qui écrire pour un élève : ses responsables qui ont un compte, et lui-même s'il est majeur. Si aucun responsable n'a
- * de compte, le mail s'adresse à l'élève lui-même (s'il a un compte), en le tutoyant.
+ * de compte, le mail s'adresse à l'élève lui-même (s'il a un compte), en le tutoyant ; son professeur référent et le DDFPT
+ * (comptes « Gestion des PFMP ») en sont prévenus à l'envoi (décision d'Anissa).
  */
-async function famille(e: Eleve): Promise<{ dest: Destinataire[]; aLEleve: boolean }> {
+async function famille(e: Eleve): Promise<{ dest: Destinataire[]; aLEleve: boolean; prevenir: Destinataire[] }> {
   const resp = (await responsablesDe(e.id)).map((u) => ({ email: u.email, nom: `${u.prenom} ${u.nom}` }));
   const [u] = e.userId ? await db.select().from(schema.users).where(and(eq(schema.users.id, e.userId), eq(schema.users.actif, true))).limit(1) : [];
   const eleve = u ? [{ email: u.email, nom: `${u.prenom} ${u.nom}` }] : [];
-  if ((ageAu(e.dateNaissance, aujourdhui()) ?? 0) >= 18) return { dest: [...eleve, ...resp], aLEleve: false };
-  return resp.length ? { dest: resp, aLEleve: false } : { dest: eleve, aLEleve: true };
+  if ((ageAu(e.dateNaissance, aujourdhui()) ?? 0) >= 18) return { dest: [...eleve, ...resp], aLEleve: false, prevenir: [] };
+  if (resp.length || !eleve.length) return { dest: resp, aLEleve: false, prevenir: [] };
+  const referent = await referentDe(e);
+  const equipe = await db.select().from(schema.users).where(and(eq(schema.users.etablissementId, e.etablissementId), eq(schema.users.actif, true)));
+  const prevenir = equipe.filter((x) => x.id === referent || x.roles.includes("gestionnaire")).map((x) => ({ email: x.email, nom: `${x.prenom} ${x.nom}` }));
+  return { dest: eleve, aLEleve: true, prevenir };
 }
 
 async function enregistrer(etab: Etab, m: {
   eleveId?: string | null; entrepriseId?: string | null; cle: string; motif: string; priorite: number;
-  destinataires: Destinataire[]; sujet: string; corps: string; simule: boolean; demandeParId?: string | null;
+  destinataires: Destinataire[]; prevenir?: Destinataire[]; sujet: string; corps: string; simule: boolean; demandeParId?: string | null;
 }) {
   const r = await db.insert(schema.mailsAValider).values({ etablissementId: etab.id, agent: "administratif", ...m })
     .onConflictDoNothing().returning({ id: schema.mailsAValider.id });
@@ -92,7 +97,7 @@ export async function mailsDuJour(etabBrut: Etab, opts: { classes?: string[] } =
       for (const { e } of eleves) {
         const cle = `sans-stage:${e.id}:${p.id}`;
         if (deja.has(cle) || prepares >= MAX_PAR_PASSAGE) continue;
-        const { dest, aLEleve } = await famille(e);
+        const { dest, aLEleve, prevenir } = await famille(e);
         if (!dest.length) continue;
         const dans = ecartJours(jour, p.debut);
         const r = await demanderIA(etab, {
@@ -111,7 +116,7 @@ export async function mailsDuJour(etabBrut: Etab, opts: { classes?: string[] } =
         });
         if (!r.ok) return { prepares, erreur: r.erreur };
         prepares += await enregistrer(etab, {
-          eleveId: e.id, cle, priorite: dans <= 7 ? 1 : 2, destinataires: dest, simule: r.simule,
+          eleveId: e.id, cle, priorite: dans <= 7 ? 1 : 2, destinataires: dest, prevenir, simule: r.simule,
           motif: `${e.prenom} ${e.nom} (${c.libelle}) n'a pas de stage ; la période commence dans ${dans} jours.${aLEleve ? " Aucun responsable n'a de compte : le mail s'adresse à l'élève." : ""}`,
           sujet: remettreEleve(r.valeur.sujet, e), corps: remettreEleve(r.valeur.corps, e),
         });
@@ -134,21 +139,26 @@ export async function mailsDuJour(etabBrut: Etab, opts: { classes?: string[] } =
     for (const { s, e, c, ent, n } of lignes) {
       const cle = `absences:${s.id}`;
       if (deja.has(cle) || prepares >= MAX_PAR_PASSAGE) continue;
-      const { dest } = await famille(e);
+      const { dest, aLEleve, prevenir } = await famille(e);
       if (!dest.length) continue;
       const r = await demanderIA(etab, {
         agent: "administratif", objet: "Mail : absences répétées", consignes: CONSIGNES,
-        demande: `Rédige un mail à la famille de [ÉLÈVE], en ${c.libelle}, en stage chez ${ent.nom}. ${n} absences pendant ce stage ne sont pas encore justifiées. Demande de les justifier dans l'espace « Mon enfant » (${base}/mon-enfant), explique qu'une absence non justifiée peut compromettre la validation du stage, et propose un échange avec le professeur référent si [ÉLÈVE] rencontre une difficulté dans l'entreprise. Signe : ${signer}.`,
+        demande: aLEleve
+          ? `Rédige un mail à [ÉLÈVE] (en le tutoyant, en commençant par « Bonjour [ÉLÈVE], »), élève de ${c.libelle}, en stage chez ${ent.nom}. ${n} absences pendant ce stage ne sont pas encore justifiées. Demande-lui d'apporter un justificatif au lycée ou de le déposer dans « Mon stage » (${base}/mon-stage), explique qu'une absence non justifiée peut compromettre la validation du stage, et propose de parler au professeur référent s'il rencontre une difficulté. Signe : ${signer}.`
+          : `Rédige un mail à la famille de [ÉLÈVE], en ${c.libelle}, en stage chez ${ent.nom}. ${n} absences pendant ce stage ne sont pas encore justifiées. Demande de les justifier dans l'espace « Mon enfant » (${base}/mon-enfant), explique qu'une absence non justifiée peut compromettre la validation du stage, et propose un échange avec le professeur référent si [ÉLÈVE] rencontre une difficulté dans l'entreprise. Signe : ${signer}.`,
         schema: SCHEMA_MAIL, verifier: verifierMail,
-        exemple: () => ({
+        exemple: () => aLEleve ? ({
+          sujet: `Tes absences pendant ton stage`,
+          corps: `Bonjour [ÉLÈVE],\n\nPendant ton stage chez ${ent.nom}, ${n} absences ne sont pas encore justifiées.\n\nApporte un justificatif au lycée ou dépose-le dans « Mon stage » : ${base}/mon-stage. Une absence non justifiée peut compromettre la validation de ton stage.\n\nSi tu rencontres une difficulté dans l'entreprise, parles-en à ton professeur référent.\n\n${signer}`,
+        }) : ({
           sujet: `Absences de [ÉLÈVE] pendant son stage`,
           corps: `Madame, Monsieur,\n\nPendant son stage chez ${ent.nom}, [ÉLÈVE] a ${n} absences qui ne sont pas encore justifiées.\n\nMerci de les justifier dès que possible dans l'espace « Mon enfant » : ${base}/mon-enfant. Une absence non justifiée peut compromettre la validation du stage.\n\nSi [ÉLÈVE] rencontre une difficulté dans l'entreprise, le professeur référent de la classe est disponible pour en parler avec vous.\n\nBien cordialement,\n\n${signer}`,
         }),
       });
       if (!r.ok) return { prepares, erreur: r.erreur };
       prepares += await enregistrer(etab, {
-        eleveId: e.id, cle, priorite: 1, destinataires: dest, simule: r.simule,
-        motif: `${e.prenom} ${e.nom} (${c.libelle}) : ${n} absences non justifiées pendant son stage chez ${ent.nom}.`,
+        eleveId: e.id, cle, priorite: 1, destinataires: dest, prevenir, simule: r.simule,
+        motif: `${e.prenom} ${e.nom} (${c.libelle}) : ${n} absences non justifiées pendant son stage chez ${ent.nom}.${aLEleve ? " Aucun responsable n'a de compte : le mail s'adresse à l'élève." : ""}`,
         sujet: remettreEleve(r.valeur.sujet, e), corps: remettreEleve(r.valeur.corps, e),
       });
       deja.add(cle);
@@ -160,10 +170,12 @@ export async function mailsDuJour(etabBrut: Etab, opts: { classes?: string[] } =
 /** Un mail demandé par une personne de l'équipe, pour la famille d'un élève ou son tuteur de stage. */
 export async function preparerMail(ctx: Contexte, e: Eleve, pour: "famille" | "tuteur", consigne: string): Promise<{ ok: true } | { ok: false; erreur: string }> {
   let dest: Destinataire[] = [];
+  let prevenir: Destinataire[] = [];
   let qui = "la famille de [ÉLÈVE]";
   if (pour === "famille") {
     const f = await famille(e);
     dest = f.dest;
+    prevenir = f.prevenir;
     if (f.aLEleve) qui = "[ÉLÈVE] lui-même (en le tutoyant), car aucun responsable n'a de compte";
   }
   else {
@@ -189,7 +201,7 @@ export async function preparerMail(ctx: Contexte, e: Eleve, pour: "famille" | "t
   });
   if (!r.ok) return r;
   await enregistrer(ctx.etab, {
-    eleveId: e.id, cle: `demande:${crypto.randomUUID()}`, priorite: 2, destinataires: dest, simule: r.simule, demandeParId: ctx.user.id,
+    eleveId: e.id, cle: `demande:${crypto.randomUUID()}`, priorite: 2, destinataires: dest, prevenir, simule: r.simule, demandeParId: ctx.user.id,
     motif: `Demandé par ${ctx.user.prenom} ${ctx.user.nom} : « ${consigne.slice(0, 200)} »`,
     sujet: remettreEleve(r.valeur.sujet, e), corps: remettreEleve(r.valeur.corps, e),
   });
@@ -225,6 +237,14 @@ export async function envoyerMailValide(ctx: Contexte, m: MailAValider, texte: {
   const mention = `\n\n—\nMessage préparé avec Cap Admin, l'agent administratif de Cap PFMP, et relu par ${ctx.user.prenom} ${ctx.user.nom}.`;
   for (const d of m.destinataires) {
     await envoyer(ctx, { canal: "mail", destinataire: d.email, sujet: texte.sujet, corps: texte.corps + mention, eleveId: m.eleveId, entrepriseId: m.entrepriseId });
+  }
+  // Aucun responsable n'a de compte : le professeur référent et le DDFPT sont prévenus (sauf la personne qui envoie).
+  const eleve = m.destinataires.map((d) => d.nom).join(", ");
+  for (const p of m.prevenir.filter((x) => x.email !== ctx.user.email && !m.destinataires.some((d) => d.email === x.email))) {
+    await envoyer(ctx, {
+      canal: "mail", destinataire: p.email, sujet: `Pour information : ${texte.sujet}`, eleveId: m.eleveId,
+      corps: `Bonjour,\n\nAucun responsable de ${eleve} n'a de compte dans Cap PFMP : ce mail lui a été envoyé directement, après relecture par ${ctx.user.prenom} ${ctx.user.nom}. Pensez à créer les comptes de ses responsables (« Élèves », « Comptes et fiches de connexion »).\n\n— Le mail envoyé —\n${texte.sujet}\n\n${texte.corps}\n\n${ctx.etab.nom}`,
+    });
   }
   await db.update(schema.mailsAValider).set({ statut: "envoye", sujet: texte.sujet, corps: texte.corps, traiteParId: ctx.user.id, traiteLe: new Date() })
     .where(and(eq(schema.mailsAValider.id, m.id), eq(schema.mailsAValider.etablissementId, ctx.etab.id)));

@@ -93,3 +93,27 @@ describe("Cap Partenaires : relecture d'exemple d'un CV", () => {
     expect(r.aAmeliorer.join(" ")).toMatch(/très court/);
   });
 });
+
+describe("Cap Veille : lecture des sources officielles chaque semaine", () => {
+  it("lit les liens d'un flux RSS et d'une page, sur les seules sources officielles", async () => {
+    const { liensDePage } = await import("@/lib/agents");
+    const rss = `<rss><channel><item><title><![CDATA[Périodes de formation en milieu professionnel : note de service]]></title><link>https://www.education.gouv.fr/bo/26/Hebdo40/x.htm</link></item></channel></rss>`;
+    expect(liensDePage(rss, "https://www.education.gouv.fr/bo")).toEqual([{ url: "https://www.education.gouv.fr/bo/26/Hebdo40/x.htm", titre: "Périodes de formation en milieu professionnel : note de service" }]);
+    const html = `<a href="/bo/26/Hebdo41/y.htm">Allocation aux lycéens de la voie professionnelle</a><a href="https://exemple.com/z">Stage ailleurs, hors source officielle</a><a href="#haut">Haut</a>`;
+    expect(liensDePage(html, "https://www.education.gouv.fr/bo").map((l) => l.url)).toEqual(["https://www.education.gouv.fr/bo/26/Hebdo41/y.htm"]);
+  });
+  it("garde les textes qui parlent des stages", async () => {
+    const { concerneLesPfmp } = await import("@/lib/agents");
+    expect(concerneLesPfmp("Organisation des PFMP en classe de terminale")).toBe(true);
+    expect(concerneLesPfmp("Allocation aux lycéens de la voie professionnelle en PFMP")).toBe(true);
+    expect(concerneLesPfmp("Baccalauréat professionnel : épreuves")).toBe(true);
+    expect(concerneLesPfmp("Calendrier des vacances scolaires")).toBe(false);
+  });
+  it("garde le texte de la page, sans menus ni scripts", async () => {
+    const { texteDePage } = await import("@/lib/agents");
+    const t = texteDePage(`<html><nav>Menu</nav><main><h1>Note de service</h1><script>x()</script><p>Les PFMP durent&nbsp;22 semaines.</p></main></html>`);
+    expect(t).toContain("Note de service");
+    expect(t).toContain("Les PFMP durent 22 semaines.");
+    expect(t).not.toMatch(/Menu|x\(\)/);
+  });
+});

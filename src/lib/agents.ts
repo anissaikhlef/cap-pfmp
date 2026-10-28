@@ -65,3 +65,40 @@ export function sourceOfficielle(url: string): boolean {
     return false;
   }
 }
+
+/**
+ * Cap Veille, chaque semaine (décision d'Anissa : « les deux », lecture des sources et texte collé) : les liens d'une page
+ * officielle ou d'un flux RSS, avec leur titre, sur les seules sources officielles.
+ */
+export function liensDePage(contenu: string, adresse: string): { url: string; titre: string }[] {
+  const net = (t: string) => t.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")
+    .replace(/&#0?39;|&rsquo;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&eacute;/g, "é").replace(/&egrave;/g, "è").replace(/&agrave;/g, "à").replace(/\s+/g, " ").trim();
+  const absolu = (h: string) => { try { return new URL(net(h), adresse).toString().replace(/#.*$/, ""); } catch { return null; } };
+  const vus = new Map<string, string>();
+  for (const m of contenu.matchAll(/<item[\s>][\s\S]*?<\/item>/gi)) {
+    const titre = net(m[0].match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "");
+    const lien = absolu(m[0].match(/<link[^>]*>([\s\S]*?)<\/link>/i)?.[1] ?? "");
+    if (lien && titre && !vus.has(lien)) vus.set(lien, titre);
+  }
+  for (const m of contenu.matchAll(/<a\s[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const lien = absolu(m[1]);
+    const titre = net(m[2]);
+    if (lien && titre.length >= 10 && !vus.has(lien)) vus.set(lien, titre);
+  }
+  return [...vus].map(([url, titre]) => ({ url, titre })).filter((l) => sourceOfficielle(l.url));
+}
+
+/** Un titre qui parle des stages en lycée professionnel (PFMP, voie professionnelle, allocation…). */
+export function concerneLesPfmp(titre: string): boolean {
+  const t = titre.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  return /\bpfmp\b|periodes? de formation en milieu professionnel|\bstages?\b|voie professionnelle|lycees? professionnels?|baccalaureat professionnel|\bbac pro\b|certificat d.aptitude professionnelle|allocation.*(lyceen|stage)|gratification|milieu professionnel/.test(t);
+}
+
+/** Le texte lisible d'une page officielle (sans menus, scripts ni balises), pour Cap Veille. */
+export function texteDePage(html: string, max = 30000): string {
+  const corps = html.match(/<main[\s\S]*?<\/main>/i)?.[0] ?? html.match(/<article[\s\S]*?<\/article>/i)?.[0] ?? html;
+  return corps.replace(/<(script|style|nav|header|footer|noscript)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<(br|\/p|\/li|\/h\d|\/div)[^>]*>/gi, "\n").replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#0?39;|&rsquo;|&apos;/g, "'").replace(/&quot;/g, '"')
+    .replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n").trim().slice(0, max);
+}

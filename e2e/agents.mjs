@@ -28,6 +28,7 @@ await ddfpt.click("button:has-text('Préparer les mails du jour')");
 ok(await visible(ddfpt.getByText("Cap Admin a préparé 1 mail(s)")) && await visible(ddfpt.getByText("À relire (1)")), "Cap Admin repère l'élève sans stage à l'approche de sa période");
 t = await ddfpt.textContent("main");
 ok(t.includes("Inès HADDAD") && t.includes("Bonjour Inès,") && t.includes("Aucun responsable n'a de compte") && t.includes("texte d'exemple"), "le mail est rédigé, le prénom remis, le motif expliqué");
+ok(t.includes("seront aussi prévenus : Paul MARTIN, Julien ROUSSEL") || t.includes("seront aussi prévenus : Julien ROUSSEL, Paul MARTIN"), "sans compte des responsables : le mail part à l'élève, son référent et le DDFPT seront prévenus");
 await ddfpt.click("button:has-text('Préparer les mails du jour')");
 ok(await visible(ddfpt.getByText("Cap Admin n'a trouvé aucun nouveau mail")), "il ne propose jamais deux fois le même mail");
 await ddfpt.goto(BASE + "/");
@@ -48,6 +49,7 @@ ok(await visible(martin.getByText("Mail envoyé à Inès HADDAD, avec vos modifi
 await ddfpt.goto(BASE + "/messages");
 t = await ddfpt.textContent("main");
 ok(t.includes("salle B12") && t.includes("Message préparé avec Cap Admin") && t.includes("relu par Paul MARTIN"), "le mail part avec la mention de l'agent et de la personne qui l'a relu");
+ok(t.includes("Pour information : Ton stage commence") && t.includes("Pensez à créer les comptes de ses responsables"), "le DDFPT est prévenu que le mail est parti à l'élève");
 
 // Un mail demandé depuis la fiche de l'élève, puis écarté.
 await ddfpt.goto(BASE + "/eleves");
@@ -89,6 +91,7 @@ const admin = await session("admin");
 ok(admin.url().endsWith("/admin") && await visible(admin.getByText(/Lycées \(\d+\)/)), "l'administration de Cap PFMP arrive sur sa page");
 t = await admin.textContent("main");
 ok(t.includes("Lycée professionnel de démonstration") && t.includes("Les trois agents · 99 € par mois"), "elle voit chaque lycée, sa formule et son montant");
+ok(t.includes("À faire : La bonne boîte") && t.includes("francetravail.io"), "un rappel l'invite à s'inscrire à La bonne boîte");
 await admin.fill("#t-complet", "109");
 await admin.fill("#plafondEntreprises", "1");
 await admin.click("button:has-text('Enregistrer les tarifs')");
@@ -98,6 +101,15 @@ await ines.click("button:has-text('Proposer de nouveaux lieux de stage')");
 ok(await visible(ines.getByText("a atteint le nombre de demandes prévu pour ce mois (1)")), "au-delà du plafond, l'agent s'arrête jusqu'au mois suivant");
 
 await admin.goto(BASE + "/admin/veille");
+await admin.fill("#v-pages", "https://www.exemple.com/actualites");
+await admin.click("button:has-text('Enregistrer les sources')");
+ok(await visible(admin.getByText("Sources non officielles refusées")), "Cap Veille ne lit chaque semaine que des sources officielles");
+await admin.fill("#v-pages", "https://www.education.gouv.fr/bo");
+await admin.click("button:has-text('Enregistrer les sources')");
+ok(await visible(admin.getByText("1 source(s) enregistrée(s)")), "l'administration choisit les pages lues chaque semaine");
+await admin.click("button:has-text('Lire les sources maintenant')");
+// Sans accès à Internet (parcours de test), Cap Veille le dit ; en ligne, il prépare les alertes à relire.
+ok(await visible(admin.getByText(/Cap Veille (n'a pu lire aucune|a lu|a préparé)/)), "elle peut lancer la lecture tout de suite");
 await admin.fill("#v-titre", "Texte d'essai sur les PFMP");
 await admin.fill("#v-source", "https://www.exemple.com/texte");
 await admin.fill("#v-texte", "Texte d'essai, fictif, pour vérifier le fonctionnement de la veille réglementaire de Cap PFMP. Il ne correspond à aucun texte officiel.");

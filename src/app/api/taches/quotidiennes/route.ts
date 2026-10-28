@@ -3,6 +3,7 @@ import { isNull } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { relancesDuJour } from "@/lib/relances";
 import { mailsDuJour } from "@/lib/agent-administratif";
+import { veilleDeLaSemaine } from "@/lib/agent-veille";
 
 /**
  * Tâche quotidienne (à appeler chaque matin par un planificateur) :
@@ -24,5 +25,7 @@ export async function GET(req: Request) {
     // Agent 1, Cap Admin : les mails du jour, qui attendent la validation d'une personne.
     mails += (await mailsDuJour(e)).prepares;
   }
-  return Response.json({ relances: total, mailsAValider: mails });
+  // Agent 2, Cap Veille : une fois par semaine, la lecture des sources officielles (alertes à relire par l'administration).
+  const veille = await veilleDeLaSemaine();
+  return Response.json({ relances: total, mailsAValider: mails, veille });
 }

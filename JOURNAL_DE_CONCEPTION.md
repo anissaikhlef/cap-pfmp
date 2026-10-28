@@ -482,3 +482,17 @@ Mise en œuvre des décisions d'Anissa : « l'agent 1 est obligatoire, le 2 et l
 4. **Plafonds par défaut** : 400 demandes par mois pour Cap Admin, 300 pour Cap Partenaires.
 5. **Annuaire public des entreprises** : recherche-entreprises.api.gouv.fr (gratuit, sans compte) ; « La bonne boîte » de France Travail demande une inscription, à faire par Anissa si elle le souhaite.
 6. **Surveillance automatique des sources officielles** : pour l'instant, l'administration colle le texte ; une lecture automatique du Bulletin officiel pourra suivre.
+
+## 28 octobre 2026 : réponses d'Anissa sur les agents IA, puis « commence »
+
+1. **Élève sans stage** : Cap Admin écrit à la famille « 2 mois avant » le début de la période (60 jours par défaut, réglable par le lycée jusqu'à 120).
+2. **Aucun responsable n'a de compte** : Cap Admin « lui écrit et prévient le prof tuteur et le DDFPT ». Le mail part à l'élève ; à l'envoi, son professeur référent et les comptes « Gestion des PFMP » reçoivent un mail « Pour information », qui leur rappelle de créer les comptes des responsables.
+3. **Montants des formules** : « je ne sais pas encore ». Les montants d'exemple restent en démonstration ; Anissa les fixera dans « Administration ».
+4. **Plafonds** (400 demandes par mois pour Cap Admin, 300 pour Cap Partenaires) : « oui, et on modifiera si nécessaire ».
+5. **La bonne boîte** (France Travail) : « oui », avec un rappel pour l'inscription. Le rappel est en haut de la page « Administration » tant que l'accès n'est pas branché. Chaque classe a un « code métier ROME » (ex. K2503 pour la sécurité privée), qui sert à la recherche.
+6. **Veille réglementaire** : « possible les deux ». Chaque semaine, Cap Veille lit les pages officielles choisies dans « Administration » (par défaut, le Bulletin officiel) et prépare une alerte à relire pour chaque nouveau texte qui parle des stages ; l'administration est prévenue par mail. Elle peut toujours aussi coller un texte elle-même. Rien n'est publié sans relecture.
+
+### À vérifier au branchement
+
+- **La bonne boîte** : l'adresse de l'API et le nom des paramètres sont dans la documentation remise à l'inscription sur francetravail.io. Ils se règlent sans toucher au code (FRANCE_TRAVAIL_LBB_URL, FRANCE_TRAVAIL_SCOPE) ; en cas d'erreur, Cap Partenaires continue avec l'annuaire du lycée et l'annuaire public.
+- **Page lue par Cap Veille** : la page du Bulletin officiel (ou son flux RSS) se confirme en ligne au premier passage, avec le bouton « Lire les sources maintenant ».

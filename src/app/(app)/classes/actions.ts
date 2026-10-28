@@ -15,6 +15,7 @@ const ClasseSchema = z.object({
   libelle: z.string().trim().min(1, "Donnez un nom à la classe").max(60),
   niveau: z.enum(["CAP", "2NDE", "1RE", "TLE"]),
   filiere: z.string().trim().max(80).optional(),
+  codeRome: z.union([z.string().trim().toUpperCase().regex(/^[A-Z]\d{4}$/, "Code ROME : une lettre et quatre chiffres (ex. K2503)"), z.literal("")]).optional(),
   anneeExamen: z.enum(["oui", "non"]).default("non"),
   regleStructure: z.enum(["prive", "dominante", "libre", "auto"]).default("auto"),
   referentId: z.union([z.string().uuid(), z.literal("")]).optional(),
@@ -34,7 +35,7 @@ export async function creerClasse(_: Etat, fd: FormData): Promise<Etat> {
   if (!p.success) return { erreur: p.error.issues[0]?.message ?? "Valeurs invalides." };
   const v = p.data;
   const [c] = await db.insert(schema.classes).values({
-    etablissementId: ctx.etab.id, libelle: v.libelle, niveau: v.niveau, filiere: v.filiere || null, anneeExamen: v.niveau === "CAP" && v.anneeExamen === "oui",
+    etablissementId: ctx.etab.id, libelle: v.libelle, niveau: v.niveau, filiere: v.filiere || null, codeRome: v.codeRome || null, anneeExamen: v.niveau === "CAP" && v.anneeExamen === "oui",
     anneeScolaire: ctx.etab.anneeScolaire,
     regleStructure: v.regleStructure === "auto" ? REGLE_PAR_NIVEAU[v.niveau] : v.regleStructure,
     referentId: await referentValide(ctx.etab.id, v.referentId || undefined),
@@ -53,7 +54,7 @@ export async function modifierClasse(_: Etat, fd: FormData): Promise<Etat> {
   // Un professeur référent ne peut pas se retirer lui-même la gestion de sa classe : seule l'administration change le référent.
   const changeReferent = peutAdministrer(ctx);
   await db.update(schema.classes).set({
-    libelle: v.libelle, niveau: v.niveau, filiere: v.filiere || null, anneeExamen: v.niveau === "CAP" && v.anneeExamen === "oui",
+    libelle: v.libelle, niveau: v.niveau, filiere: v.filiere || null, codeRome: v.codeRome || null, anneeExamen: v.niveau === "CAP" && v.anneeExamen === "oui",
     regleStructure: v.regleStructure === "auto" ? REGLE_PAR_NIVEAU[v.niveau] : v.regleStructure,
     ...(changeReferent ? { referentId: await referentValide(ctx.etab.id, v.referentId || undefined) } : {}),
   }).where(and(eq(schema.classes.id, id), eq(schema.classes.etablissementId, ctx.etab.id)));

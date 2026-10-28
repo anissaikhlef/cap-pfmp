@@ -90,8 +90,8 @@ async function main() {
   const [etab] = await db.insert(schema.etablissements).values({
     nom: NOM_LYCEE, ville: "Ville-démo", anneeScolaire: "2026-2027", reglages: {
       ...REGLAGES_PAR_DEFAUT, repartition: "heures", signatureModele: "les2", dernierSignataire: "professeur", frais: FRAIS_EXEMPLE,
-      // Les trois agents IA, pour la démonstration ; Cap Admin écrit aux familles des élèves sans stage 30 jours avant la période.
-      agents: { ...REGLAGES_PAR_DEFAUT.agents, veille: true, entreprises: true, sansStageJours: 30 },
+      // Les trois agents IA, pour la démonstration.
+      agents: { ...REGLAGES_PAR_DEFAUT.agents, veille: true, entreprises: true },
     },
   }).returning();
   const E = etab.id;
@@ -135,7 +135,7 @@ async function main() {
 
   async function classe(libelle: string, niveau: "CAP" | "2NDE" | "1RE" | "TLE", referentId: string, debut: string, fin: string) {
     const [c] = await db.insert(schema.classes).values({
-      etablissementId: E, libelle, niveau, anneeScolaire: "2026-2027", referentId,
+      etablissementId: E, libelle, niveau, anneeScolaire: "2026-2027", referentId, codeRome: "K2503",
       filiere: niveau === "CAP" ? "CAP Agent de sécurité" : "Bac Pro Métiers de la sécurité",
       regleStructure: niveau === "CAP" || niveau === "2NDE" ? "prive" : "dominante",
     }).returning();

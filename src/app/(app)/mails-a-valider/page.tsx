@@ -46,6 +46,7 @@ export default async function MailsAValider() {
                     {e ? <Link href={`/eleves/${e.id}`}>{e.prenom} {e.nom}</Link> : null}{c ? ` · ${c.libelle}` : ""} · à {m.destinataires.map((d) => `${d.nom} (${d.email})`).join(", ")}
                   </div>
                   <div className="meta">Pourquoi : {m.motif}</div>
+                  {m.prevenir.length > 0 && <div className="meta">À l&apos;envoi, seront aussi prévenus : {m.prevenir.map((d) => d.nom).join(", ")}</div>}
                   <pre className="corps-mail">{m.corps}</pre>
                   <p className="sub" style={{ margin: 0 }}>Préparé par {agent.nom} le {dateCourte(m.createdAt.toISOString().slice(0, 10))}{m.simule ? " · texte d'exemple (agent en démonstration)" : ""}.</p>
                 </div>

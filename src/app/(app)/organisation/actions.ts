@@ -98,7 +98,7 @@ export async function supprimerDominante(fd: FormData) {
 export async function enregistrerAgents(_: Etat, fd: FormData): Promise<Etat> {
   const ctx = await contexte({ roles: ["direction", "gestionnaire"] });
   const p = z.object({
-    sansStageJours: z.coerce.number().int().min(0, "Élèves sans stage : entre 0 et 60 jours").max(60, "Élèves sans stage : entre 0 et 60 jours"),
+    sansStageJours: z.coerce.number().int().min(0, "Élèves sans stage : entre 0 et 120 jours").max(120, "Élèves sans stage : entre 0 et 120 jours"),
     absencesMail: z.coerce.number().int().min(0, "Absences : entre 0 et 10").max(10, "Absences : entre 0 et 10"),
   }).safeParse(Object.fromEntries(fd));
   if (!p.success) return { erreur: p.error.issues[0]?.message ?? "Valeurs invalides." };

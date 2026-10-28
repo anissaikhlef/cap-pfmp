@@ -645,7 +645,8 @@ export type CandidatLieu = {
   accueilliAvant: boolean;
   /** Note de partenariat élevée, sans souci : compte dans le classement, sans jamais être montré à l'élève. */
   fiable: boolean;
-  source: "annuaire" | "public";
+  /** annuaire : celui du lycée · public : annuaire public des entreprises · bonne_boite : La bonne boîte de France Travail. */
+  source: "annuaire" | "public" | "bonne_boite";
 };
 
 /**
@@ -665,12 +666,15 @@ export function classerLieux(candidats: CandidatLieu[], o: { mots: string[]; vil
       const memeVille = !!c.ville && !!o.ville && simplifier(c.ville) === simplifier(o.ville);
       const raisons: string[] = [];
       let score = c.source === "public" ? -1 : 0;
+      // La bonne boîte repère les entreprises qui recrutent souvent dans le métier : un peu devant l'annuaire public.
+      if (c.source === "bonne_boite") score += 1;
       if (proche) { score += 3; raisons.push("Domaine proche de ta formation"); }
       if (c.restantes) { score += Math.min(c.restantes, 3); raisons.push(`${c.restantes} place${c.restantes > 1 ? "s" : ""} libre${c.restantes > 1 ? "s" : ""} pour ta période`); }
       if (c.accueilliAvant) { score += 2; raisons.push("A déjà accueilli des élèves du lycée"); }
       if (c.fiable) score += 2;
       if (memeVille) { score += 1; raisons.push("Dans la ville du lycée"); }
       if (c.source === "public") raisons.push("Trouvée dans l'annuaire public des entreprises : à appeler pour demander s'il y a de la place");
+      if (c.source === "bonne_boite") raisons.push("Repérée par La bonne boîte (France Travail) : elle recrute souvent dans ton métier, appelle-la pour demander un stage");
       return { ...c, score, raisons };
     })
     .sort((a, b) => b.score - a.score || a.nom.localeCompare(b.nom))

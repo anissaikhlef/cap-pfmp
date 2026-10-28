@@ -7,13 +7,17 @@ import { dateCourte } from "@/lib/dates";
 import { ChampRetour } from "@/components/ChampRetour";
 import { Formulaire } from "@/components/Formulaire";
 import { Entete, Pill } from "@/components/ui";
-import { corrigerAlerte, nouvelleAlerte, publier, supprimerAlerte } from "../actions";
+import { corrigerAlerte, enregistrerSourcesVeille, lireSourcesMaintenant, nouvelleAlerte, publier, supprimerAlerte } from "../actions";
+import { PAGES_VEILLE_PAR_DEFAUT } from "@/lib/agent-veille";
+import { eq } from "drizzle-orm";
 
 export const metadata = { title: "Veille réglementaire · administration" };
 
 export default async function AdminVeille() {
   await contexte({ roles: ["admin"] });
   const alertes = await db.select().from(schema.alertesVeille).orderBy(desc(schema.alertesVeille.createdAt)).limit(50);
+  const [plat] = await db.select().from(schema.plateforme).where(eq(schema.plateforme.id, "cap-pfmp")).limit(1);
+  const pages = plat?.veillePages.length ? plat.veillePages : PAGES_VEILLE_PAR_DEFAUT;
   const nom = AGENTS.veille.nom;
   const brouillons = alertes.filter((a) => !a.publieeLe);
   const publiees = alertes.filter((a) => a.publieeLe);
@@ -22,6 +26,14 @@ export default async function AdminVeille() {
       <Entete titre="Veille réglementaire" sous={`Collez un texte officiel sur les PFMP : ${nom} le résume et propose les changements. Relisez, puis publiez : l'alerte arrive chez chaque lycée qui a choisi ${nom}.`}>
         <div className="actions"><Link className="btn" href="/admin">Retour à l&apos;administration</Link></div>
       </Entete>
+      <div className="panel pad section">
+        <h2>Lecture des sources chaque semaine</h2>
+        <p className="sub">Une fois par semaine, {nom} lit ces pages officielles et prépare une alerte pour chaque nouveau texte qui parle des stages. Vous recevez un mail ; rien n&apos;est publié sans vous.{plat?.veilleLe ? ` Dernier passage : ${dateCourte(plat.veilleLe.toISOString().slice(0, 10))}.` : " Pas encore de passage."}</p>
+        <Formulaire action={enregistrerSourcesVeille} bouton="Enregistrer les sources" boutonClasse="btn" viderApres={false}>
+          <label className="f" htmlFor="v-pages">Pages lues (une adresse par ligne)<textarea id="v-pages" name="pages" rows={3} defaultValue={pages.join("\n")} /></label>
+        </Formulaire>
+        <form action={lireSourcesMaintenant} className="actions" style={{ marginTop: 8 }}><ChampRetour /><button className="btn small">Lire les sources maintenant</button></form>
+      </div>
       <div className="panel pad section">
         <h2>Nouveau texte officiel</h2>
         <Formulaire action={nouvelleAlerte} bouton={`Préparer l'alerte avec ${nom}`}>

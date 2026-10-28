@@ -3,10 +3,12 @@ import { and, desc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { completerReglages } from "@/db/schema";
+import { PLAFONDS_PAR_DEFAUT as PLAFONDS_VIDES, TARIFS_PAR_DEFAUT as TARIFS_VIDES } from "./plateforme";
 import type { Contexte } from "./auth";
 import { demanderIA } from "./ia";
 import { envoyer } from "./messages";
 import { adresseDuSite } from "./liens";
+import { concerneLesPfmp, liensDePage, texteDePage } from "./agents";
 
 /**
  * Agent 2, au choix du lycée : Cap Veille, la veille réglementaire (décision d'Anissa : « une alerte avec un résumé et le
@@ -21,7 +23,7 @@ const SCHEMA_ALERTE = {
 const Alerte = z.object({ resume: z.string().trim().min(20).max(3000), propositions: z.array(z.string().trim().min(5).max(500)).max(8) });
 
 /** Cap Veille lit un texte officiel et prépare l'alerte (non publiée : l'administration la relit d'abord). */
-export async function preparerAlerte(ctx: Contexte, a: { titre: string; source: string; texte: string }) {
+export async function preparerAlerte(parId: string | null, a: { titre: string; source: string; texte: string }) {
   const r = await demanderIA(null, {
     agent: "veille", objet: "Alerte de veille réglementaire", effort: "medium",
     consignes: "Tu fais la veille réglementaire des périodes de formation en milieu professionnel (PFMP) pour les lycées professionnels. À partir du seul texte officiel fourni, écris un résumé de 5 à 8 lignes pour la direction et le DDFPT d'un lycée : ce qui change, pour qui, à partir de quand. Puis liste les changements concrets à prévoir dans l'organisation du lycée ou dans Cap PFMP (convention, durée des stages, allocation, signatures, relances…). Si le texte ne concerne pas les PFMP, dis-le dans le résumé et ne propose rien. N'invente aucune date ni aucun chiffre.",
@@ -34,7 +36,7 @@ export async function preparerAlerte(ctx: Contexte, a: { titre: string; source: 
   });
   if (!r.ok) return r;
   const [al] = await db.insert(schema.alertesVeille).values({
-    titre: a.titre, source: a.source, resume: r.valeur.resume, propositions: r.valeur.propositions, simule: r.simule, creeParId: ctx.user.id,
+    titre: a.titre, source: a.source, resume: r.valeur.resume, propositions: r.valeur.propositions, simule: r.simule, creeParId: parId,
   }).returning();
   return { ok: true as const, alerte: al };
 }
@@ -73,4 +75,66 @@ export async function alertesDuLycee(ctx: Contexte) {
 /** Le nombre d'alertes publiées que le lycée n'a pas encore lues. */
 export async function alertesNonLues(ctx: Contexte) {
   return (await alertesDuLycee(ctx)).filter((x) => !x.s?.lueLe).length;
+}
+
+/** Les pages lues chaque semaine quand l'administration n'en a pas choisi : le Bulletin officiel de l'éducation nationale. */
+export const PAGES_VEILLE_PAR_DEFAUT = ["https://www.education.gouv.fr/bo"];
+const UNE_SEMAINE_MS = 7 * 24 * 3600 * 1000;
+/** Au plus ce nombre de nouveaux textes lus à chaque passage (chacun est une demande à l'IA). */
+const MAX_TEXTES = 5;
+
+async function lire(url: string): Promise<string | null> {
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(8000), headers: { "user-agent": "Cap PFMP (veille reglementaire)", accept: "text/html,application/rss+xml,application/xml" } });
+    return r.ok ? await r.text() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Le passage de Cap Veille sur les sources officielles : une fois par semaine (tâche quotidienne), ou tout de suite depuis
+ * l'administration. Les textes nouveaux qui parlent des stages deviennent des alertes à relire, jamais publiées seules ;
+ * l'administration de Cap PFMP est prévenue par mail.
+ */
+export async function veilleDeLaSemaine(opts: { maintenant?: boolean } = {}) {
+  const [p] = await db.select().from(schema.plateforme).where(eq(schema.plateforme.id, "cap-pfmp")).limit(1);
+  if (!opts.maintenant && p?.veilleLe && Date.now() - p.veilleLe.getTime() < UNE_SEMAINE_MS) return null;
+  const pages = p?.veillePages.length ? p.veillePages : PAGES_VEILLE_PAR_DEFAUT;
+  const vus = new Set(p?.veilleVus ?? []);
+  const dejaAlertes = new Set((await db.select({ s: schema.alertesVeille.source }).from(schema.alertesVeille)).map((x) => x.s));
+  let lues = 0, trouves = 0, preparees = 0;
+  let erreur: string | null = null;
+  for (const page of pages) {
+    const contenu = await lire(page);
+    if (contenu === null) continue;
+    lues++;
+    const nouveaux = liensDePage(contenu, page).filter((l) => concerneLesPfmp(l.titre) && !vus.has(l.url) && !dejaAlertes.has(l.url));
+    trouves += nouveaux.length;
+    for (const l of nouveaux.slice(0, Math.max(0, MAX_TEXTES - preparees))) {
+      const html = await lire(l.url);
+      const texte = html ? texteDePage(html) : "";
+      if (texte.length < 200) continue;
+      const r = await preparerAlerte(null, { titre: l.titre.slice(0, 200), source: l.url, texte });
+      if (!r.ok) { erreur = r.erreur; break; }
+      vus.add(l.url);
+      preparees++;
+    }
+    if (erreur) break;
+  }
+  const veilleVus = [...vus].slice(-1000);
+  await db.insert(schema.plateforme).values({ id: "cap-pfmp", tarifs: TARIFS_VIDES, plafonds: PLAFONDS_VIDES, veilleVus, veilleLe: new Date() })
+    .onConflictDoUpdate({ target: schema.plateforme.id, set: { veilleVus, veilleLe: new Date() } });
+  if (preparees) {
+    const admins = await db.select().from(schema.users).where(and(eq(schema.users.actif, true), sql`${schema.users.roles} @> array['admin']::text[]`));
+    const base = await adresseDuSite();
+    for (const u of admins) {
+      if (!u.etablissementId) continue;
+      await envoyer({ etab: { id: u.etablissementId } }, {
+        canal: "mail", destinataire: u.email, sujet: `Cap Veille : ${preparees} texte(s) officiel(s) à relire`,
+        corps: `Bonjour ${u.prenom},\n\nCap Veille a lu les sources officielles et préparé ${preparees} alerte(s) sur les stages. Relisez-les avant de les publier :\n${base}/admin/veille\n\nCap PFMP`,
+      });
+    }
+  }
+  return { pages: pages.length, lues, trouves, preparees, erreur };
 }

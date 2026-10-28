@@ -106,7 +106,7 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   frais: { kilometrique: [], repas: 0, nuitees: [], consignes: "" },
   regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2, reglesMineurs: true },
   relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1, attestationAvant: 2 },
-  agents: { veille: false, entreprises: false, sansStageJours: 15, absencesMail: 2 },
+  agents: { veille: false, entreprises: false, sansStageJours: 60, absencesMail: 2 },
 };
 
 /** Réglages enregistrés complétés par les valeurs par défaut : un lycée créé avant l'ajout d'un réglage le reçoit ainsi. */
@@ -290,6 +290,8 @@ export const classes = pgTable("classes", {
   anneeScolaire: text("annee_scolaire").notNull(),
   /** prive : structure du secteur privé exigée · dominante : domaine = dominante de l'élève · libre */
   regleStructure: text("regle_structure").$type<"prive" | "dominante" | "libre">().notNull(),
+  /** Code métier ROME de la formation (ex. K2503, sécurité privée) : Cap Partenaires s'en sert pour La bonne boîte. */
+  codeRome: text("code_rome"),
   referentId: uuid("referent_id").references(() => users.id, { onDelete: "set null" }),
 }, (t) => [index("classes_etab_idx").on(t.etablissementId)]);
 
@@ -746,6 +748,10 @@ export const plateforme = pgTable("plateforme", {
   id: text("id").primaryKey(),
   tarifs: jsonb("tarifs").$type<Tarifs>().notNull(),
   plafonds: jsonb("plafonds").$type<Plafonds>().notNull(),
+  /** Cap Veille : les pages officielles lues chaque semaine (Bulletin officiel…), les liens déjà vus, le dernier passage. */
+  veillePages: jsonb("veille_pages").$type<string[]>().notNull().default([]),
+  veilleVus: jsonb("veille_vus").$type<string[]>().notNull().default([]),
+  veilleLe: timestamp("veille_le", { withTimezone: true }),
   majLe: timestamp("maj_le", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -780,6 +786,11 @@ export const mailsAValider = pgTable("mails_a_valider", {
   /** 1 : urgent · 2 : à faire · 3 : quand vous pouvez. */
   priorite: integer("priorite").notNull().default(2),
   destinataires: jsonb("destinataires").$type<{ email: string; nom: string }[]>().notNull(),
+  /**
+   * Prévenus à l'envoi (décision d'Anissa) : quand aucun responsable de l'élève n'a de compte, le mail part à l'élève,
+   * et son professeur référent et le DDFPT en sont informés.
+   */
+  prevenir: jsonb("prevenir").$type<{ email: string; nom: string }[]>().notNull().default([]),
   sujet: text("sujet").notNull(),
   corps: text("corps").notNull(),
   simule: boolean("simule").notNull().default(false),
@@ -815,7 +826,7 @@ export const suitesVeille = pgTable("suites_veille", {
 }, (t) => [primaryKey({ columns: [t.alerteId, t.etablissementId] })]);
 
 /** Propositions de Cap Partenaires pour un élève : lieux de stage, ou relecture de son CV (la dernière de chaque sorte compte). */
-export type PropositionEntreprise = { nom: string; ville: string | null; domaine: string | null; raison: string; entrepriseId: string | null; source: "annuaire" | "public" };
+export type PropositionEntreprise = { nom: string; ville: string | null; domaine: string | null; raison: string; entrepriseId: string | null; source: "annuaire" | "public" | "bonne_boite" };
 export type RelectureCv = { pointsForts: string[]; aAmeliorer: string[]; conseil: string };
 export const suggestionsIa = pgTable("suggestions_ia", {
   id: uuid("id").primaryKey().defaultRandom(),

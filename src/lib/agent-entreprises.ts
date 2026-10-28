@@ -5,6 +5,7 @@ import { db, schema } from "@/db";
 import type { PropositionEntreprise, RelectureCv } from "@/db/schema";
 import type { Contexte } from "./auth";
 import { demanderIA } from "./ia";
+import { laBonneBoite } from "./la-bonne-boite";
 import { masquer, sansCoordonnees } from "./anonymisation";
 import { partenariats } from "./partenariats";
 import { classerLieux, motsCles, relectureCvExemple, type CandidatLieu } from "./regles";
@@ -54,9 +55,9 @@ export async function proposerLieux(ctx: Contexte, e: Eleve): Promise<{ ok: true
     const n = notes.get(x.id);
     return { id: x.id, nom: x.nom, domaine: x.domaine, ville: x.ville, restantes: x.restantes, accueilliAvant: (n?.faits.annees ?? 0) > 0, fiable: !!n?.fiable, source: "annuaire" };
   });
-  const publics = annuaire.length >= 5 ? [] : await annuairePublic(mots[0] ?? "", ctx.etab.ville);
+  const [publics, bonneBoite] = annuaire.length >= 5 ? [[], []] : await Promise.all([annuairePublic(mots[0] ?? "", ctx.etab.ville), laBonneBoite(d.classe.codeRome, ctx.etab.ville)]);
   const dejaContactees = (await demarchesDe(e.id)).map((x) => ({ id: x.entrepriseId, nom: x.entrepriseNom }));
-  const classes = classerLieux([...annuaire, ...publics], { mots, ville: ctx.etab.ville, dejaContactees });
+  const classes = classerLieux([...annuaire, ...bonneBoite, ...publics], { mots, ville: ctx.etab.ville, dejaContactees });
   if (!classes.length) return { ok: false, erreur: "Cap Partenaires n'a trouvé aucune entreprise avec de la place : parlez-en avec le professeur référent." };
 
   const liste = classes.map((c, i) => `${i + 1}. ${c.nom}${c.domaine ? ` (${c.domaine})` : ""}${c.ville ? `, ${c.ville}` : ""} : ${c.raisons.join(" ; ")}`).join("\n");

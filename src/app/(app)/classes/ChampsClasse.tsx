@@ -1,5 +1,5 @@
 type Prof = { id: string; prenom: string; nom: string };
-type Valeurs = { libelle?: string; niveau?: string; filiere?: string | null; anneeExamen?: boolean; regleStructure?: string; referentId?: string | null };
+type Valeurs = { libelle?: string; niveau?: string; filiere?: string | null; codeRome?: string | null; anneeExamen?: boolean; regleStructure?: string; referentId?: string | null };
 
 export function ChampsClasse({ v = {}, profs, referentModifiable = true }: { v?: Valeurs; profs: Prof[]; referentModifiable?: boolean }) {
   return (
@@ -16,6 +16,7 @@ export function ChampsClasse({ v = {}, profs, referentModifiable = true }: { v?:
         </select>
       </label>
       <label className="f" htmlFor="c-filiere">Diplôme préparé<input id="c-filiere" name="filiere" defaultValue={v.filiere ?? ""} placeholder="Ex. Bac Pro Métiers de la sécurité" /></label>
+      <label className="f" htmlFor="c-rome">Code métier ROME (facultatif, pour La bonne boîte)<input id="c-rome" name="codeRome" defaultValue={v.codeRome ?? ""} placeholder="Ex. K2503 (sécurité privée)" maxLength={5} pattern="[A-Za-z]\d{4}" /></label>
       <label className="f" htmlFor="c-regle">Lieu de stage autorisé
         <select id="c-regle" name="regleStructure" defaultValue={v.regleStructure ?? "auto"}>
           {!v.regleStructure && <option value="auto">Selon le niveau (privé en CAP et 2nde, dominante en 1re et Tle)</option>}

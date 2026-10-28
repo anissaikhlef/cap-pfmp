@@ -47,7 +47,7 @@ export default async function Agents() {
           <h2>Ce que Cap Admin prépare</h2>
           <p className="sub">Chaque matin, Cap Admin rédige les mails utiles ; ils attendent dans « Mails à valider » qu&apos;une personne les relise. Les rappels automatiques (« Organisation ») partent, eux, sans validation.</p>
           <div className="grid2">
-            <label className="f" htmlFor="sansStageJours">Mail à la famille d&apos;un élève toujours sans stage, à partir de (jours avant la période, 0 pour jamais)<input id="sansStageJours" name="sansStageJours" type="number" min={0} max={60} defaultValue={r.agents.sansStageJours} /></label>
+            <label className="f" htmlFor="sansStageJours">Mail à la famille d&apos;un élève toujours sans stage, à partir de (jours avant la période, 60 pour 2 mois, 0 pour jamais ; si aucun responsable n&apos;a de compte, le mail part à l&apos;élève et son référent et le DDFPT sont prévenus)<input id="sansStageJours" name="sansStageJours" type="number" min={0} max={120} defaultValue={r.agents.sansStageJours} /></label>
             <label className="f" htmlFor="absencesMail">Mail à la famille à partir de (absences non justifiées pendant un stage, 0 pour jamais)<input id="absencesMail" name="absencesMail" type="number" min={0} max={10} defaultValue={r.agents.absencesMail} /></label>
           </div>
         </div>
