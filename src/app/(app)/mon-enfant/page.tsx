@@ -34,7 +34,7 @@ export default async function MonEnfant() {
           <BlocPresenceEleve ctx={ctx} eleve={e} />
           <BlocAllocation ctx={ctx} eleve={e} />
           <h3>Documents</h3>
-          <DossierEleve eleveId={e.id} />
+          <DossierEleve ctx={ctx} eleveId={e.id} />
           {!d.stage && d.periode && <p className="note">{e.prenom} n&apos;a pas encore de lieu de stage. Vous pouvez l&apos;aider en sollicitant votre entourage professionnel.</p>}
         </div>
       ))}

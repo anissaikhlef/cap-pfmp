@@ -98,7 +98,12 @@ pdf = texteDuPdf(await fichier.body(), "livret-emma");
 ok(fichier.headers()["content-type"] === "application/pdf" && (pdf === null || (pdf.includes("LAURENT Emma") && pdf.includes("Respecter le cadre légal")
   && pdf.includes("En cours d'acquisition") && pdf.includes("Poste d'accueil du salon") && pdf.includes("gagner en assurance"))), "le PDF reprend les évaluations, le bilan et le carnet de bord");
 await emma.goto(BASE + "/mon-stage");
-ok((await emma.textContent("main")).includes("Rempli en ligne le"), "l'élève voit que son livret est rempli");
+// Terminale, année du bac : ni l'élève ni sa famille ne consultent le livret (décision d'Anissa).
+const lienLivretEmma = await leroy.locator("#livret a:has-text('Ouvrir le livret')").getAttribute("href");
+t = await emma.textContent("main");
+ok(!t.includes("Rempli en ligne le") && t.includes("Année d'examen : le livret est transmis au lycée") && await emma.locator(`a[href='${lienLivretEmma}']`).count() === 0,
+  "en terminale, l'élève ne voit pas son livret");
+ok((await emma.request.get(BASE + lienLivretEmma)).status() === 404, "même en ouvrant directement le fichier");
 
 /* ------------------- Avec son lien, sans compte : le livret de Léa ------------------- */
 await ddfpt.goto(BASE + "/");
@@ -119,6 +124,21 @@ await formLivret.locator("input[name=lu]").check();
 await formLivret.locator("button:has-text('Signer le livret')").click();
 ok(await visible(entreprise.getByText("Livret de compétences signé en ligne : merci.")), "le tuteur signe le livret avec son lien");
 ok(await entreprise.locator("button:has-text(\"Signer l'attestation\")").count() === 1, "le lien sert encore pour l'attestation");
+
+// En première, la famille consulte le livret : celui du premier stage de Mehdi, rempli avec le lien de l'entreprise.
+await ddfpt.goto(BASE + "/messages");
+const lienMehdi = (await mail(ddfpt, "Merci d'avoir accueilli Mehdi RAHMANI")).match(/\/deposer\/[\w-]+/)?.[0];
+await entreprise.goto(BASE + lienMehdi);
+const formMehdi = entreprise.locator("form", { has: entreprise.locator("button:has-text('Signer le livret')") });
+await evaluer(formMehdi);
+await formMehdi.locator("input[name=lu]").check();
+await formMehdi.locator("button:has-text('Signer le livret')").click();
+ok(await visible(entreprise.getByText("Livret de compétences signé en ligne : merci.")), "le livret de Mehdi (première) est signé");
+const parent = await session("l.rahmani");
+await parent.goto(BASE + "/mon-enfant");
+const ligneLivret = parent.locator(".row", { hasText: "Livret de compétences" }).first();
+const lienLivretMehdi = await ligneLivret.locator("a:has-text('Ouvrir')").getAttribute("href");
+ok((await parent.request.get(BASE + lienLivretMehdi)).status() === 200, "en première, la famille consulte le livret");
 
 /* ------------------- Dans son compte : le livret de Clara ------------------- */
 const tuteur = await session("k.ferhat");

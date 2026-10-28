@@ -45,7 +45,7 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
         <BlocRattrapages eleveId={e.id} periodes={dl.periodes} peutGerer={await estReferentDe(ctx, e)} />
         <BlocCandidature ctx={ctx} eleve={e} />
         <NotesEleve ctx={ctx} eleve={e} />
-        <div className="panel pad section" id="dossier"><h2>Dossier de l&apos;élève</h2><DossierEleve eleveId={e.id} /></div>
+        <div className="panel pad section" id="dossier"><h2>Dossier de l&apos;élève</h2><DossierEleve ctx={ctx} eleveId={e.id} /></div>
       </>
     );
   }
@@ -199,7 +199,7 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
       <div className="panel pad section" id="dossier">
         <h2>Dossier de l&apos;élève</h2>
         <p className="sub" style={{ margin: 0 }}>Tous les documents validés et en attente, année par année, de la première à la dernière année de formation.</p>
-        <DossierEleve eleveId={e.id} />
+        <DossierEleve ctx={ctx} eleveId={e.id} />
       </div>
 
       <div className="panel pad section">

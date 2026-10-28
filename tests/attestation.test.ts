@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { jourDuCarnetValable, ouvertureFinDeStage, statutAttestation } from "@/lib/regles";
+import { anneeDExamen, jourDuCarnetValable, ouvertureFinDeStage, statutAttestation } from "@/lib/regles";
 import { competencesDe, lireCompetences, lireNiveaux, niveauxRetenus } from "@/lib/modeles";
 
 describe("attestation de stage en ligne", () => {
@@ -50,5 +50,17 @@ describe("carnet de bord de l'élève", () => {
     expect(jourDuCarnetValable("2026-10-27", "2026-10-19", "2026-11-13", "2026-10-26")).toBe(false);
     expect(jourDuCarnetValable("2026-10-16", "2026-10-19", "2026-11-13", "2026-10-26")).toBe(false);
     expect(jourDuCarnetValable("26/10/2026", "2026-10-19", "2026-11-13", "2026-10-26")).toBe(false);
+  });
+});
+
+describe("année d'examen : livret non communiqué à l'élève ni à sa famille", () => {
+  it("la terminale et la 2e année de CAP", () => {
+    expect(anneeDExamen({ niveau: "TLE", anneeExamen: false })).toBe(true);
+    expect(anneeDExamen({ niveau: "CAP", anneeExamen: true })).toBe(true);
+  });
+  it("pas la seconde, la première ni la 1re année de CAP", () => {
+    expect(anneeDExamen({ niveau: "2NDE", anneeExamen: false })).toBe(false);
+    expect(anneeDExamen({ niveau: "1RE", anneeExamen: true })).toBe(false);
+    expect(anneeDExamen({ niveau: "CAP", anneeExamen: false })).toBe(false);
   });
 });

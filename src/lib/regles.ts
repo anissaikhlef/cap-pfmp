@@ -617,3 +617,11 @@ export function statutAttestation(declare: { effectues: number; absences: number
 export function jourDuCarnetValable(date: string, debut: string, fin: string, jour: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(date) && date >= debut && date <= fin && date <= jour;
 }
+
+/**
+ * Année d'examen : la terminale, et la 2e année de CAP. Cette année-là, l'élève et sa famille ne consultent pas le livret
+ * de compétences (décision d'Anissa) ; en seconde, en première et en 1re année de CAP, ils le consultent.
+ */
+export function anneeDExamen(c: { niveau: "CAP" | "2NDE" | "1RE" | "TLE"; anneeExamen: boolean }): boolean {
+  return c.niveau === "TLE" || (c.niveau === "CAP" && c.anneeExamen);
+}

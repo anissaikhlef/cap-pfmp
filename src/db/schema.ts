@@ -254,6 +254,8 @@ export const classes = pgTable("classes", {
   libelle: text("libelle").notNull(),
   niveau: text("niveau").$type<"CAP" | "2NDE" | "1RE" | "TLE">().notNull(),
   filiere: text("filiere"),
+  /** CAP en deux ans : la 2e année est l'année d'examen (la terminale l'est toujours). */
+  anneeExamen: boolean("annee_examen").notNull().default(false),
   anneeScolaire: text("annee_scolaire").notNull(),
   /** prive : structure du secteur privé exigée · dominante : domaine = dominante de l'élève · libre */
   regleStructure: text("regle_structure").$type<"prive" | "dominante" | "libre">().notNull(),

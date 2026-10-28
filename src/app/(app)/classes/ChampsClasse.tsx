@@ -1,5 +1,5 @@
 type Prof = { id: string; prenom: string; nom: string };
-type Valeurs = { libelle?: string; niveau?: string; filiere?: string | null; regleStructure?: string; referentId?: string | null };
+type Valeurs = { libelle?: string; niveau?: string; filiere?: string | null; anneeExamen?: boolean; regleStructure?: string; referentId?: string | null };
 
 export function ChampsClasse({ v = {}, profs, referentModifiable = true }: { v?: Valeurs; profs: Prof[]; referentModifiable?: boolean }) {
   return (
@@ -8,6 +8,11 @@ export function ChampsClasse({ v = {}, profs, referentModifiable = true }: { v?:
       <label className="f" htmlFor="c-niveau">Niveau
         <select id="c-niveau" name="niveau" defaultValue={v.niveau ?? "2NDE"}>
           <option value="CAP">CAP</option><option value="2NDE">Seconde</option><option value="1RE">Première</option><option value="TLE">Terminale</option>
+        </select>
+      </label>
+      <label className="f" htmlFor="c-annee">Pour un CAP : année
+        <select id="c-annee" name="anneeExamen" defaultValue={v.anneeExamen ? "oui" : "non"}>
+          <option value="non">1re année</option><option value="oui">2e année (année d&apos;examen)</option>
         </select>
       </label>
       <label className="f" htmlFor="c-filiere">Diplôme préparé<input id="c-filiere" name="filiere" defaultValue={v.filiere ?? ""} placeholder="Ex. Bac Pro Métiers de la sécurité" /></label>

@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { Contexte } from "./auth";
 import { AccesRefuse } from "./auth";
+import { anneeDExamen } from "./regles";
 
 /**
  * Règles d'accès (cahier des charges, section 2).
@@ -144,6 +145,19 @@ export async function idsElevesGeres(ctx: Contexte): Promise<string[]> {
  * jamais les justificatifs d'absence. La vie scolaire ne voit que les justificatifs d'absence.
  * Le RIB et la pièce d'identité (allocation de stage) ne sont vus que par la gestion des PFMP, l'élève et ses responsables légaux.
  */
+/**
+ * Le livret de compétences de l'année d'examen (terminale, 2e année de CAP) n'est pas montré à l'élève ni à sa famille
+ * (décision d'Anissa) ; l'équipe et l'entreprise le voient. Vrai si ce livret est caché à la personne connectée.
+ */
+export async function livretCacheALaFamille(ctx: Contexte, stageId: string | null): Promise<boolean> {
+  if (!stageId || a(ctx, "direction", "gestionnaire", "professeur", "vie_scolaire", "entreprise")) return false;
+  const [c] = await db.select({ niveau: schema.classes.niveau, anneeExamen: schema.classes.anneeExamen }).from(schema.stages)
+    .innerJoin(schema.periodes, eq(schema.periodes.id, schema.stages.periodeId))
+    .innerJoin(schema.classes, eq(schema.classes.id, schema.periodes.classeId))
+    .where(eq(schema.stages.id, stageId)).limit(1);
+  return !!c && anneeDExamen(c);
+}
+
 export async function peutVoirDocument(ctx: Contexte, d: typeof schema.documents.$inferSelect): Promise<boolean> {
   if (d.etablissementId !== ctx.etab.id) return false;
   const [e] = await db.select().from(schema.eleves).where(eq(schema.eleves.id, d.eleveId)).limit(1);
@@ -165,6 +179,7 @@ export async function peutVoirDocument(ctx: Contexte, d: typeof schema.documents
       .where(and(eq(schema.responsables.eleveId, e.id), eq(schema.responsables.userId, ctx.user.id))).limit(1);
     return !!r;
   }
+  if (d.type === "livret" && (await livretCacheALaFamille(ctx, d.stageId))) return false;
   return peutVoirEleve(ctx, e);
 }
 

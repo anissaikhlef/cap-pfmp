@@ -2,7 +2,7 @@ import Link from "next/link";
 import { and, desc, eq, notInArray } from "drizzle-orm";
 import { db, schema } from "@/db";
 import type { Contexte } from "@/lib/auth";
-import { estReferentDe, peutGererEleve, a } from "@/lib/acces";
+import { estReferentDe, livretCacheALaFamille, peutGererEleve, a } from "@/lib/acces";
 import { blocage, chargerConvention, qualitesSignature } from "@/lib/convention";
 import { modelesAutorises } from "@/lib/signature";
 import { SIGNATAIRES, VERBE_SIGNATURE } from "@/lib/regles";
@@ -147,6 +147,8 @@ export async function BlocFinDeStage({ ctx, stageId }: { ctx: Contexte; stageId:
   const liv = await etatLivret(ctx.etab, cv);
   // L'élève a son propre carnet de bord sur sa page ; les autres le lisent ici.
   const eleve = a(ctx, "eleve");
+  // Année d'examen : le livret n'est pas montré à l'élève ni à sa famille.
+  const livretCache = await livretCacheALaFamille(ctx, stageId);
   return (
     <div className="panel pad section" id="fin-de-stage">
       <h2>Fin de stage</h2>
@@ -157,7 +159,8 @@ export async function BlocFinDeStage({ ctx, stageId }: { ctx: Contexte; stageId:
           return (
             <div key={t} className="card">
               <div className="actions" style={{ justifyContent: "space-between" }}><b>{LIBELLES_DOC[t]}</b><EtatDoc d={d} /></div>
-              {d && <a href={`/fichiers/${d.id}`} target="_blank" rel="noopener" className="sub">{d.nomFichier}</a>}
+              {d && !(t === "livret" && livretCache) && <a href={`/fichiers/${d.id}`} target="_blank" rel="noopener" className="sub">{d.nomFichier}</a>}
+              {t === "livret" && livretCache && <p className="sub" style={{ margin: 0 }}>Année d&apos;examen : le livret est transmis au lycée, sans être communiqué à l&apos;élève ni à sa famille.</p>}
               {t === "attestation" && att.remplie && <ResumeAttestation att={att.remplie} />}
               {t === "attestation" && tuteur && att.aRemplir && att.ouverte && (
                 <details open>
@@ -165,7 +168,7 @@ export async function BlocFinDeStage({ ctx, stageId }: { ctx: Contexte; stageId:
                   <FormulaireAttestation action={remplirAttestationCompte} cv={cv} etat={att} cache={{ stageId }} modeles={modelesAutorises(ctx.etab.reglages)} rempliePar="tuteur_eleve" />
                 </details>
               )}
-              {t === "livret" && liv.remplie && <ResumeLivret livret={liv.remplie} />}
+              {t === "livret" && liv.remplie && !livretCache && <ResumeLivret livret={liv.remplie} />}
               {t === "livret" && !eleve && liv.carnet.length > 0 && (
                 <details>
                   <summary className="btn small">Carnet de bord de l&apos;élève ({liv.carnet.length} jour{liv.carnet.length > 1 ? "s" : ""})</summary>
@@ -191,12 +194,15 @@ export async function BlocFinDeStage({ ctx, stageId }: { ctx: Contexte; stageId:
 }
 
 /** Dossier de l'élève : tous ses documents, rangés par année scolaire, de la première à la dernière année. */
-export async function DossierEleve({ eleveId }: { eleveId: string }) {
-  const docs = await db.select({ d: schema.documents, ent: schema.entreprises.nom }).from(schema.documents)
+export async function DossierEleve({ ctx, eleveId }: { ctx: Contexte; eleveId: string }) {
+  const tous = await db.select({ d: schema.documents, ent: schema.entreprises.nom }).from(schema.documents)
     .leftJoin(schema.stages, eq(schema.stages.id, schema.documents.stageId))
     .leftJoin(schema.entreprises, eq(schema.entreprises.id, schema.stages.entrepriseId))
     .where(and(eq(schema.documents.eleveId, eleveId), notInArray(schema.documents.type, HORS_DOSSIER)))
     .orderBy(desc(schema.documents.anneeScolaire), desc(schema.documents.deposeLe));
+  // Le livret de l'année d'examen n'est pas montré à l'élève ni à sa famille.
+  const docs: typeof tous = [];
+  for (const x of tous) if (!(x.d.type === "livret" && (await livretCacheALaFamille(ctx, x.d.stageId)))) docs.push(x);
   const annees = [...new Set(docs.map((x) => x.d.anneeScolaire))];
   if (!annees.length) return <><p className="sub">Aucun document pour l&apos;instant.</p><VisitesDuDossier eleveId={eleveId} /></>;
   return (

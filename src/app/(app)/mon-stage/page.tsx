@@ -59,7 +59,7 @@ export default async function MonStage() {
       )}
       {(d.stage || !d.periode) && <BlocCandidature ctx={ctx} eleve={e} />}
       <BlocAllocation ctx={ctx} eleve={e} />
-      <div className="section"><h2>Mes documents</h2><DossierEleve eleveId={e.id} /></div>
+      <div className="section"><h2>Mes documents</h2><DossierEleve ctx={ctx} eleveId={e.id} /></div>
     </>
   );
 }
