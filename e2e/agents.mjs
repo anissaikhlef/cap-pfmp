@@ -25,7 +25,7 @@ await visible(ddfpt.getByText("Agents enregistrés"));
 /* ------------------- Agent 1, Cap Admin : les mails à valider ------------------- */
 await ddfpt.goto(BASE + "/mails-a-valider");
 await ddfpt.click("button:has-text('Préparer les mails du jour')");
-ok(await visible(ddfpt.getByText("Cap Admin a préparé 1 mail(s)")) && await visible(ddfpt.getByText("À relire (1)")), "Cap Admin repère l'élève sans stage à l'approche de sa période");
+ok(await visible(ddfpt.getByText("Cap Admin a préparé 2 mail(s)")) && await visible(ddfpt.getByText("À relire (2)")), "Cap Admin repère l'élève sans stage à l'approche de sa période (et l'élève en difficulté)");
 t = await ddfpt.textContent("main");
 ok(t.includes("Inès HADDAD") && t.includes("Bonjour Inès,") && t.includes("Aucun responsable n'a de compte") && t.includes("texte d'exemple"), "le mail est rédigé, le prénom remis, le motif expliqué");
 ok(t.includes("seront aussi prévenus : Paul MARTIN, Julien ROUSSEL") || t.includes("seront aussi prévenus : Julien ROUSSEL, Paul MARTIN"), "sans compte des responsables : le mail part à l'élève, son référent et le DDFPT seront prévenus");
