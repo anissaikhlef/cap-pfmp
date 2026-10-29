@@ -3,7 +3,7 @@
  * un classeur d'une feuille, titre et sous-titre en haut, en-tête en gras figé et filtrable, dates reconnues par Excel
  * (jj/mm/aaaa), largeurs de colonnes adaptées. Le fichier est une archive ZIP (sans compression) de quelques fichiers XML.
  */
-export type FeuilleXlsx = { titre: string; sousTitre: string; colonnes: string[]; lignes: (string | number)[][] };
+export type FeuilleXlsx = { titre: string; sousTitre: string; colonnes: string[]; lignes: (string | number)[][]; /** Nom de l'onglet (le titre sinon). */ onglet?: string };
 
 const enc = new TextEncoder();
 const xml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
@@ -105,16 +105,26 @@ function zip(fichiers: [string, string][]): Uint8Array {
   return res;
 }
 
-/** Le fichier .xlsx d'une liste. */
-export function classeurXlsx(f: FeuilleXlsx): Uint8Array {
+/** Le fichier .xlsx d'une liste, ou de plusieurs listes (un onglet chacune). */
+export function classeurXlsx(f: FeuilleXlsx | FeuilleXlsx[]): Uint8Array {
+  const feuilles = Array.isArray(f) ? f : [f];
+  const noms: string[] = [];
+  for (const x of feuilles) {
+    const base = nomDOnglet(x.onglet ?? x.titre);
+    let nom = base;
+    for (let k = 2; noms.includes(nom); k++) nom = `${base.slice(0, 27)} (${k})`;
+    noms.push(nom);
+  }
   const entete = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n`;
+  const filtres = feuilles.map((x, i) => (x.colonnes.length
+    ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${xml(noms[i]).replace(/'/g, "''")}'!$A$4:$${lettre(x.colonnes.length - 1)}$${4 + x.lignes.length}</definedName>` : "")).join("");
   return zip([
-    ["[Content_Types].xml", `${entete}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`],
+    ["[Content_Types].xml", `${entete}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${feuilles.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`],
     ["_rels/.rels", `${entete}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>`],
-    ["docProps/core.xml", `${entete}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>${xml(f.titre)}</dc:title><dc:creator>Cap PFMP</dc:creator></cp:coreProperties>`],
-    ["xl/workbook.xml", `${entete}<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${xml(nomDOnglet(f.titre))}" sheetId="1" r:id="rId1"/></sheets>${f.colonnes.length ? `<definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">'${xml(nomDOnglet(f.titre)).replace(/'/g, "''")}'!$A$4:$${lettre(f.colonnes.length - 1)}$${4 + f.lignes.length}</definedName></definedNames>` : ""}</workbook>`],
-    ["xl/_rels/workbook.xml.rels", `${entete}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+    ["docProps/core.xml", `${entete}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>${xml(feuilles[0].titre)}</dc:title><dc:creator>Cap PFMP</dc:creator></cp:coreProperties>`],
+    ["xl/workbook.xml", `${entete}<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${noms.map((n, i) => `<sheet name="${xml(n)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets>${filtres ? `<definedNames>${filtres}</definedNames>` : ""}</workbook>`],
+    ["xl/_rels/workbook.xml.rels", `${entete}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${feuilles.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}<Relationship Id="rId${feuilles.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
     ["xl/styles.xml", STYLES],
-    ["xl/worksheets/sheet1.xml", feuille(f)],
+    ...feuilles.map((x, i): [string, string] => [`xl/worksheets/sheet${i + 1}.xml`, feuille(x)]),
   ]);
 }

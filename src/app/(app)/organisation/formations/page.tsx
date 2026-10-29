@@ -5,7 +5,8 @@ import { contexte } from "@/lib/auth";
 import { ChampRetour } from "@/components/ChampRetour";
 import { Formulaire } from "@/components/Formulaire";
 import { Entete } from "@/components/ui";
-import { ajouterDominante, ajouterFormation, ajouterPole, supprimerDominante, supprimerFormation, supprimerPole } from "../actions";
+import { dureeDuCycle, semainesParDefaut, texteDuree } from "@/lib/regles";
+import { ajouterDominante, ajouterFormation, ajouterPole, reglerCycle, supprimerDominante, supprimerFormation, supprimerPole } from "../actions";
 
 export const metadata = { title: "Pôles et formations" };
 
@@ -34,6 +35,26 @@ export default async function Formations() {
       ))}
     </>
   );
+  // Attestation récapitulative des PFMP : durée du cycle et semaines attendues (vides : valeurs proposées par Cap PFMP).
+  const Cycle = ({ f }: { f: typeof formations[number] }) => {
+    const defaut = semainesParDefaut(f.libelle);
+    const sem = f.semainesAttendues ?? defaut;
+    return (
+      <Formulaire action={reglerCycle} className="actions" bouton="Enregistrer le cycle" boutonClasse="btn small" viderApres={false}>
+        <input type="hidden" name="id" value={f.id} />
+        <label className="f" htmlFor={`cy-${f.id}`}>Durée du cycle
+          <select id={`cy-${f.id}`} name="dureeCycle" defaultValue={String(dureeDuCycle(null, f.dureeCycle, f.libelle, ""))}>
+            {[1, 2, 3].map((n) => <option key={n} value={n}>{texteDuree(n)}</option>)}
+          </select>
+        </label>
+        {(["3", "2", "1"] as const).map((k) => (
+          <label key={k} className="f" htmlFor={`se-${f.id}-${k}`}>Semaines attendues en {texteDuree(Number(k))}
+            <input id={`se-${f.id}-${k}`} name={`semaines${k}`} type="number" min={0} max={60} defaultValue={sem[k] ?? ""} placeholder={defaut[k] ? String(defaut[k]) : "—"} style={{ width: 80 }} />
+          </label>
+        ))}
+      </Formulaire>
+    );
+  };
   return (
     <>
       <Entete titre="Pôles et formations" sous="Les pôles de votre lycée, leurs formations en voie scolaire et les spécialités de chaque formation. Dans une même classe, les élèves d'une spécialité peuvent partir en PFMP à d'autres dates : vous les fixez dans la page de la classe. Les formations en apprentissage n'entrent pas dans Cap PFMP.">
@@ -66,6 +87,7 @@ export default async function Formations() {
                         <input type="hidden" name="formationId" value={f.id} />
                         <label className="f" htmlFor={`sp-${f.id}`} style={{ flex: 1 }}>Nouvelle spécialité<input id={`sp-${f.id}`} name="libelle" placeholder="Ex. Sûreté" maxLength={80} /></label>
                       </Formulaire>
+                      <Cycle f={f} />
                     </div>
                     {cl.length === 0 && <form action={supprimerFormation}><ChampRetour /><input type="hidden" name="id" value={f.id} /><button className="btn small danger">Retirer</button></form>}
                   </div>

@@ -162,6 +162,13 @@
       "when": 1793221623347,
       "tag": "0022_poles_specialites",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1793232902062,
+      "tag": "0023_attestation_recapitulative",
+      "breakpoints": true
     }
   ]
 }

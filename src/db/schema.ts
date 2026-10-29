@@ -92,6 +92,8 @@ export type Reglages = {
     /** Cap Admin propose un mail à la famille à partir de ce nombre d'absences non justifiées pendant un stage (0 : jamais). */
     absencesMail: number;
   };
+  /** L'académie du lycée (ex. « VERSAILLES »), reportée sur l'attestation récapitulative des PFMP. */
+  academie: string;
 };
 
 /** Les agents IA de Cap PFMP. */
@@ -117,6 +119,7 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2, reglesMineurs: true },
   relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1, attestationAvant: 2 },
   agents: { veille: false, entreprises: false, sansStageJours: 60, absencesMail: 2 },
+  academie: "",
 };
 
 /** Réglages enregistrés complétés par les valeurs par défaut : un lycée créé avant l'ajout d'un réglage le reçoit ainsi. */
@@ -302,6 +305,10 @@ export const formations = pgTable("formations", {
   libelle: text("libelle").notNull(),
   /** Code métier ROME, pour La bonne boîte (Cap Partenaires). */
   codeRome: text("code_rome"),
+  /** Durée habituelle du cycle, en années (bac pro : 3, CAP : 2) ; vide : selon le niveau des classes. */
+  dureeCycle: integer("duree_cycle"),
+  /** Semaines de PFMP attendues sur le cycle, selon sa durée (ex. bac pro : 20 en 3 ans, 15 en 2 ans ; CAP : 12). */
+  semainesAttendues: jsonb("semaines_attendues").$type<SemainesAttendues>(),
 }, (t) => [index("formations_etab_idx").on(t.etablissementId)]);
 
 /**
@@ -364,6 +371,13 @@ export const eleves = pgTable("eleves", {
   dominanteId: uuid("dominante_id").references(() => dominantes.id, { onDelete: "set null" }),
   referentId: uuid("referent_id").references(() => users.id, { onDelete: "set null" }),
   userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  /** Attestation récapitulative des PFMP (année d'examen) : numéro de candidat, durée du cycle si elle diffère de la formation, dérogation. */
+  numeroCandidat: text("numero_candidat"),
+  dureeCycle: integer("duree_cycle"),
+  derogation: boolean("derogation").notNull().default(false),
+  /** Visa du chef d'établissement sur l'attestation récapitulative (seule la direction vise). */
+  visaRecapLe: timestamp("visa_recap_le", { withTimezone: true }),
+  visaRecapParId: uuid("visa_recap_par_id").references((): AnyPgColumn => users.id, { onDelete: "set null" }),
   archive: boolean("archive").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("eleves_etab_idx").on(t.etablissementId), index("eleves_classe_idx").on(t.classeId)]);
@@ -721,6 +735,36 @@ export const modelesDocuments = pgTable("modeles_documents", {
   majLe: timestamp("maj_le", { withTimezone: true }).notNull().defaultNow(),
   majParId: uuid("maj_par_id").references(() => users.id, { onDelete: "set null" }),
 }, (t) => [uniqueIndex("modeles_documents_etab_type_idx").on(t.etablissementId, t.type)]);
+
+/** Semaines de PFMP attendues sur le cycle, selon sa durée en années (« 2 », « 3 »). */
+export type SemainesAttendues = Partial<Record<"1" | "2" | "3", number>>;
+
+/** Le tableau des PFMP d'un onglet élève : première ligne, nombre de lignes prévues, colonnes. */
+export type LignesRecap = { premiere: number; nombre: number; debut: string; fin: string; entreprise: string; jours: string };
+export type CaseRecap = "titre" | "academie" | "session" | "etablissement" | "nom" | "prenom" | "numero" | "duree" | "derogation" | "visa";
+/** Où écrire, dans le fichier de l'académie : repéré d'après les intitulés, corrigeable par le lycée. */
+export type StructureRecap = {
+  /** Les onglets des élèves, dans l'ordre (« ELEVE 1 », « ELEVE 2 »…). */
+  feuillesEleves: string[];
+  /** Les cases d'un onglet élève (toutes les feuilles élèves ont la même disposition). */
+  cases: Partial<Record<CaseRecap, string>>;
+  lignes: LignesRecap | null;
+  synthese: { feuille: string; premiere: number; numero: string; nom: string; prenom: string } | null;
+  garde: { feuille: string; etablissement?: string; premiere: number; numero: string; nom: string; prenom: string; semaines: string; duree?: string; derogation?: string; observations?: string } | null;
+};
+
+/**
+ * Le fichier Excel de l'académie pour l'attestation récapitulative des PFMP, déposé par le lycée (décision d'Anissa :
+ * « chaque lycée doit avoir l'option pour déposer le sien »), avec les cases repérées.
+ */
+export const modelesRecapitulatifs = pgTable("modeles_recapitulatifs", {
+  etablissementId: uuid("etablissement_id").primaryKey().references(() => etablissements.id, { onDelete: "cascade" }),
+  cle: text("cle").notNull(),
+  nom: text("nom").notNull(),
+  structure: jsonb("structure").$type<StructureRecap>().notNull(),
+  deposeLe: timestamp("depose_le", { withTimezone: true }).notNull().defaultNow(),
+  deposeParId: uuid("depose_par_id").references(() => users.id, { onDelete: "set null" }),
+});
 
 /* ------------------------------------------------------------------ */
 /* Campagne de rentrée et messages sortants                             */

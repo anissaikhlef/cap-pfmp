@@ -40,8 +40,30 @@ export async function enregistrerFichier(etabId: string, f: File): Promise<Fichi
   return { cle, mime: t.mime, taille: b.length, nom };
 }
 
+/**
+ * Un classeur Excel (.xlsx) : une archive ZIP qui contient un classeur (xl/workbook.xml). Les anciens fichiers .xls et
+ * les classeurs à macros (.xlsm) sont refusés.
+ */
+export function estUnClasseur(b: Buffer): boolean {
+  if (b.subarray(0, 4).toString("latin1") !== "PK\x03\x04") return false;
+  const texte = b.toString("latin1");
+  return texte.includes("xl/workbook.xml") && !texte.includes("vbaProject.bin");
+}
+
+/** Dépose un classeur Excel (.xlsx), par exemple le modèle de l'académie pour l'attestation récapitulative des PFMP. */
+export async function enregistrerClasseur(etabId: string, f: File): Promise<FichierEnregistre | string> {
+  if (!f || f.size === 0) return "Choisissez un fichier.";
+  if (f.size > TAILLE_MAX) return "Fichier trop lourd : 10 Mo maximum.";
+  const b = Buffer.from(await f.arrayBuffer());
+  if (!estUnClasseur(b)) return "Format non accepté. Déposez le fichier Excel (.xlsx) de l'académie, sans macros.";
+  if (!/^[0-9a-f-]{36}$/.test(etabId)) return "Établissement invalide.";
+  const cle = `${etabId}/${randomUUID()}.xlsx`;
+  await ecrireOctets(db, cle, b);
+  return { cle, mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", taille: b.length, nom: nomPropre(f.name.replace(/\.[^.]+$/, "")) + ".xlsx" };
+}
+
 export async function lireFichier(cle: string): Promise<Buffer> {
-  if (!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(pdf|jpg|png|heic)$/.test(cle)) throw new Error("Clé invalide");
+  if (!/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(pdf|jpg|png|heic|xlsx)$/.test(cle)) throw new Error("Clé invalide");
   return lireOctets(db, cle);
 }
 

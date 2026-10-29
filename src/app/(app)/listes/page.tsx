@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { contexte } from "@/lib/auth";
 import { LISTES, NOMS_LISTES } from "@/lib/listes-def";
 import { anneesDesListes, classesDesListes, peutExporter, quiExporte } from "@/lib/listes";
+import { classesDuRecapitulatif } from "@/lib/recapitulatif";
 import { Entete } from "@/components/ui";
 
 export const metadata = { title: "Listes" };
@@ -16,6 +18,7 @@ export default async function Listes({ searchParams }: { searchParams: Promise<{
   const annee = annees.includes(sp.annee ?? "") ? sp.annee! : ctx.etab.anneeScolaire;
   const classes = await classesDesListes(ctx, annee);
   const classe = classes.some((c) => c.id === sp.classe) ? sp.classe! : "tout";
+  const examen = await classesDuRecapitulatif(ctx);
   const lien = (liste: string, format: "excel" | "pdf") => `/listes/${liste}?${new URLSearchParams({ annee, classe, format })}`;
   return (
     <>
@@ -34,6 +37,15 @@ export default async function Listes({ searchParams }: { searchParams: Promise<{
         </label>
         <button className="btn">Afficher</button>
       </form>
+      {examen.length > 0 && (
+        <div className="panel pad section actions" id="recapitulatif" style={{ justifyContent: "space-between" }}>
+          <div>
+            <h2 style={{ margin: 0 }}>Attestation récapitulative des PFMP</h2>
+            <p className="sub" style={{ margin: 0 }}>Classes d&apos;examen ({examen.map((c) => c.libelle).join(", ")}) : le fichier de l&apos;académie rempli, en Excel, et la même attestation en PDF.</p>
+          </div>
+          <Link className="btn primary" href="/recapitulatif">Préparer l&apos;attestation</Link>
+        </div>
+      )}
       {classes.length === 0 ? <p className="panel empty">Aucune classe pour cette année.</p> : (
         <div className="panel rows">
           {NOMS_LISTES.filter((l) => peutExporter(ctx, l)).map((l) => (

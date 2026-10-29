@@ -2,7 +2,7 @@
  * Moteur de règles PFMP (cahier des charges, section 5).
  * Fonctions pures, sans accès à la base : faciles à tester et réutilisées partout.
  */
-import type { BaremeFrais, Horaires, Plage, QuiVisite, Reglages, Signataire, Signatures, TrancheBareme } from "@/db/schema";
+import type { BaremeFrais, Horaires, Plage, QuiVisite, Reglages, SemainesAttendues, Signataire, Signatures, TrancheBareme } from "@/db/schema";
 import { ajouterJours, dateLongue, ecartJours, jourSemaine } from "./dates";
 
 export type ResultatRegle = { code: string; ok: boolean; libelle: string };
@@ -732,3 +732,54 @@ export const LIBELLES_QUI_VISITE: Record<QuiVisite, string> = {
   general: "les professeurs de l'enseignement général",
   tous: "toute l'équipe pédagogique",
 };
+
+/* ------------------- Attestation récapitulative des PFMP (année d'examen) ------------------- */
+
+/** Un CAP (certificat d'aptitude professionnelle), d'après le libellé de la formation. */
+export const estUnCap = (libelle: string) => /^cap\b|certificat d aptitude/.test(simplifier(libelle));
+
+/**
+ * Semaines de PFMP attendues sur le cycle, quand le lycée ne les a pas indiquées pour la formation (décision d'Anissa) :
+ * bac pro en 3 ans 20 semaines, en 2 ans 15 ; CAP 12.
+ */
+export function semainesParDefaut(libelle: string): SemainesAttendues {
+  if (estUnCap(libelle)) return { "2": 12 };
+  if (/^bac\b|baccalaureat/.test(simplifier(libelle))) return { "2": 15, "3": 20 };
+  return {};
+}
+
+/** Durée du cycle de l'élève, en années : la sienne si elle diffère, sinon celle de la formation, sinon 2 ans en CAP et 3 ans ailleurs. */
+export function dureeDuCycle(eleve: number | null | undefined, formation: number | null | undefined, libelle: string, niveau: string): number {
+  return eleve ?? formation ?? (niveau === "CAP" || estUnCap(libelle) ? 2 : 3);
+}
+
+/** Comme dans la liste du fichier de l'académie : « 1 an », « 2 ans », « 3 ans ». */
+export const texteDuree = (n: number) => (n <= 1 ? "1 an" : `${n} ans`);
+
+/** Semaines attendues pour cette durée de cycle : celles de la formation, sinon les valeurs par défaut ; null si rien n'est prévu. */
+export function semainesAttendues(formation: SemainesAttendues | null | undefined, libelle: string, duree: number): number | null {
+  return (formation ?? semainesParDefaut(libelle))[String(duree) as "1" | "2" | "3"] ?? null;
+}
+
+/** La session d'examen : l'année où se termine l'année scolaire (2026-2027 → 2027). */
+export const sessionDExamen = (anneeScolaire: string) => anneeScolaire.split("-")[1] ?? anneeScolaire;
+
+/** Le diplôme en toutes lettres, pour le titre de l'attestation : « Bac pro … » → « Baccalauréat professionnel … ». */
+export const titreDuDiplome = (libelle: string) => libelle.trim().replace(/^bac\.?\s*pro\.?\b/i, "Baccalauréat professionnel");
+
+/** Semaines effectuées : 1 semaine = 5 jours (règle du fichier de l'académie), au dixième près. */
+export const semainesDeJours = (jours: number) => Math.round((jours / 5) * 10) / 10;
+
+export type LignePfmp = { debut: string; fin: string; entreprise: string; jours: number };
+/**
+ * Le fichier de l'académie prévoit un nombre de lignes de PFMP par élève : au-delà, les dernières PFMP sont regroupées sur
+ * la dernière ligne (du début de la première à la fin de la dernière, jours additionnés), pour que le total reste juste.
+ */
+export function regrouperPfmp(pfmp: LignePfmp[], lignes: number): LignePfmp[] {
+  if (lignes < 1 || pfmp.length <= lignes) return pfmp;
+  const reste = pfmp.slice(lignes - 1);
+  return [...pfmp.slice(0, lignes - 1), {
+    debut: reste[0].debut, fin: reste[reste.length - 1].fin,
+    entreprise: reste.map((p) => p.entreprise.split("\n")[0]).join(" ; "), jours: reste.reduce((t, p) => t + p.jours, 0),
+  }];
+}

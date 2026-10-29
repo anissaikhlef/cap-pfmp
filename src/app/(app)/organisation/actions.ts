@@ -6,7 +6,7 @@ import { db, schema } from "@/db";
 import { contexte } from "@/lib/auth";
 import { journaliser } from "@/lib/journal";
 import type { Etat } from "@/components/Formulaire";
-import type { Reglages } from "@/db/schema";
+import type { Reglages, SemainesAttendues } from "@/db/schema";
 import { lireJours } from "@/lib/regles";
 import { revenirAvec } from "@/lib/retour";
 
@@ -60,7 +60,7 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
   const quiVisite = { premiere: v.quiPremiere, derniere: v.quiDerniere, autres: v.quiAutres, examen: v.quiExamen };
   const reglages: Reglages = {
     // Ce qui se règle ailleurs (barème des frais) est gardé tel quel.
-    frais: ctx.etab.reglages.frais, agents: ctx.etab.reglages.agents,
+    frais: ctx.etab.reglages.frais, agents: ctx.etab.reglages.agents, academie: ctx.etab.reglages.academie,
     gestion: v.gestion, quiVisite, visiteurs: Object.values(quiVisite).every((x) => x === "pro") ? "pro" : "equipe", repartition: v.repartition, signature: v.signature,
     signatureModele: v.signatureModele, dernierSignataire: v.dernierSignataire,
     ordreMission: v.ordreMission === "oui", signatairesOrdreMission: signatairesOrdreMission.length ? [...signatairesOrdreMission] : ["direction"],
@@ -111,6 +111,36 @@ export async function ajouterFormation(_: Etat, fd: FormData): Promise<Etat> {
   await journaliser(ctx, "formation_ajoutee", "formation", null, { libelle: l, pole: pole.libelle });
   rafraichirFormations();
   return { ok: `Formation « ${l} » ajoutée au pôle ${pole.libelle}.` };
+}
+
+/**
+ * Durée du cycle et semaines de PFMP attendues d'une formation, pour l'attestation récapitulative (décision d'Anissa :
+ * bac pro en 3 ans 20 semaines, en 2 ans 15 ; CAP 12). Vides : les valeurs proposées par Cap PFMP.
+ */
+export async function reglerCycle(_: Etat, fd: FormData): Promise<Etat> {
+  const ctx = await contexte({ roles: ["direction", "gestionnaire"] });
+  const id = z.string().uuid().safeParse(fd.get("id")).data;
+  const [f] = id ? await db.select().from(schema.formations).where(and(eq(schema.formations.id, id), eq(schema.formations.etablissementId, ctx.etab.id))).limit(1) : [];
+  if (!f) return { erreur: "Formation introuvable." };
+  const nombre = (k: string, max: number) => {
+    const v = String(fd.get(k) ?? "").trim();
+    if (!v) return null;
+    const n = Number(v);
+    return Number.isInteger(n) && n >= 0 && n <= max ? n : undefined;
+  };
+  const duree = nombre("dureeCycle", 3);
+  if (duree === undefined || duree === 0) return { erreur: "Durée du cycle : 1, 2 ou 3 ans." };
+  const semaines: SemainesAttendues = {};
+  for (const k of ["1", "2", "3"] as const) {
+    const n = nombre(`semaines${k}`, 60);
+    if (n === undefined) return { erreur: "Semaines attendues : un nombre entier de semaines (60 au plus)." };
+    if (n !== null) semaines[k] = n;
+  }
+  await db.update(schema.formations).set({ dureeCycle: duree, semainesAttendues: Object.keys(semaines).length ? semaines : null }).where(eq(schema.formations.id, f.id));
+  await journaliser(ctx, "formation_cycle_regle", "formation", f.id, { dureeCycle: duree, semaines });
+  rafraichirFormations();
+  revalidatePath("/recapitulatif");
+  return { ok: `Cycle de la formation « ${f.libelle} » enregistré.` };
 }
 
 /** Spécialité d'une formation (autrefois « dominante ») : ses élèves peuvent partir en PFMP à d'autres dates. */

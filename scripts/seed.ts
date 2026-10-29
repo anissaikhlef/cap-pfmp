@@ -13,6 +13,7 @@ import * as schema from "../src/db/schema";
 import { ecrireOctets } from "../src/lib/stockage-brut";
 import { REGLAGES_PAR_DEFAUT, type Horaires, type Signatures, type Role } from "../src/db/schema";
 import { VERSION_DONNEES_DEMO } from "./version-demo";
+import { installerModeleAcademie } from "./modele-academie";
 import { QUESTIONS_APPEL } from "../src/lib/modeles";
 
 const NOM_LYCEE = "Lycée professionnel de démonstration";
@@ -92,6 +93,7 @@ async function main() {
       ...REGLAGES_PAR_DEFAUT, repartition: "heures", signatureModele: "les2", dernierSignataire: "professeur", frais: FRAIS_EXEMPLE,
       // Les trois agents IA, pour la démonstration.
       agents: { ...REGLAGES_PAR_DEFAUT.agents, veille: true, entreprises: true },
+      academie: "VERSAILLES",
     },
   }).returning();
   const E = etab.id;
@@ -401,6 +403,13 @@ async function main() {
       etablissementId: E, entrepriseId: vigil.id, auteurId: direction.id, categorie: "securite",
       description: "Élève de 1re laissé seul en poste de nuit, sans tuteur sur place (PFMP de mars 2026).", createdAt: new Date("2026-03-20T10:00:00+01:00"),
     });
+  }
+
+  // Attestation récapitulative des PFMP : le fichier de l'académie déposé, et les numéros de candidat (fictifs) des terminales,
+  // sauf celui de Léa FONTAINE, encore à indiquer.
+  await installerModeleAcademie(db, E);
+  for (const [nom, numero] of [["LAURENT", "0269990001"], ["CISSÉ", "0269990002"], ["MANSOURI", "0269990003"]]) {
+    await db.update(schema.eleves).set({ numeroCandidat: numero }).where(and(eq(schema.eleves.etablissementId, E), eq(schema.eleves.nom, nom)));
   }
 
   // Repère pour scripts/preparer.ts : ces données de démonstration sont à jour.
