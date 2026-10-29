@@ -200,3 +200,8 @@ details[open] > summary { margin-bottom: 10px; }
 .lien-discret { background: none; border: 0; padding: 0 0 0 6px; font: inherit; color: var(--muted); cursor: pointer; }
 .lien-discret:hover { color: var(--ink); }
 .coordonnees a { color: inherit; font-weight: 600; }
+
+/* Langue de la famille : la traduction au-dessus du texte français (« Mon enfant »). */
+[data-traduction]::before { content: attr(data-traduction); display: block; color: var(--ink); font-size: 1.05em; font-weight: 600; margin-bottom: 2px; }
+[data-traduction] { color: var(--muted); }
+[data-traduction][data-traduction-rtl]::before { direction: rtl; text-align: right; unicode-bidi: plaintext; }
