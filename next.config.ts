@@ -25,6 +25,8 @@ const securityHeaders = [
 
 const config: NextConfig = {
   poweredByHeader: false,
+  // Lecture du texte des PDF sur le serveur (documents du lycée, CV) : pdfjs est chargé tel quel depuis node_modules.
+  outputFileTracingIncludes: { "/**": ["./node_modules/pdfjs-dist/legacy/build/pdf.mjs", "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"] },
   // Image Docker autonome uniquement quand on la construit (voir Dockerfile)
   ...(process.env.BUILD_STANDALONE === "1" ? { output: "standalone" as const } : {}),
   // Pas d'optimisation d'images distante : aucune image externe n'est servie.

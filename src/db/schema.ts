@@ -87,6 +87,8 @@ export type Reglages = {
     visiteNonPriseAvant: number;
     compteRenduApres: number;
     ordreMissionAvant: number;
+    /** Échéances officielles du calendrier (Cap Veille) : rappels ces nombres de jours avant la date. */
+    echeances: number[];
   };
   /**
    * Agents IA (décision d'Anissa : « l'agent 1 est obligatoire, le 2 et le 3, c'est le lycée qui sélectionne ce qu'il veut ») :
@@ -108,6 +110,8 @@ export type Reglages = {
   tenues: { distributeurs: string[] };
   /** Langues des familles ajoutées par le lycée, en plus de la liste de Cap PFMP (src/lib/langues.ts). */
   langues: string[];
+  /** Cap Veille : les pages de son académie que le lycée fait lire chaque semaine (alertes directes, sans relecture par l'administration). */
+  veillePages: string[];
 };
 
 /** Les agents IA de Cap PFMP. */
@@ -131,11 +135,12 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   calendrierPublic: false,
   frais: { kilometrique: [], repas: 0, nuitees: [], consignes: "" },
   regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2, reglesMineurs: true },
-  relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1, attestationAvant: 2, tailles: [7, 2], sansStageIntervalle: 2, visiteNonPriseAvant: 7, compteRenduApres: 2, ordreMissionAvant: 3 },
+  relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1, attestationAvant: 2, tailles: [7, 2], sansStageIntervalle: 2, visiteNonPriseAvant: 7, compteRenduApres: 2, ordreMissionAvant: 3, echeances: [15, 3] },
   agents: { veille: false, entreprises: false, sansStageJours: 60, absencesMail: 2, sms: false },
   academie: "",
   tenues: { distributeurs: [] },
   langues: [],
+  veillePages: [],
 };
 
 /** Réglages enregistrés complétés par les valeurs par défaut : un lycée créé avant l'ajout d'un réglage le reçoit ainsi. */
@@ -941,6 +946,8 @@ export const plateforme = pgTable("plateforme", {
   /** Cap Veille : les pages officielles lues chaque semaine (Bulletin officiel…), les liens déjà vus, le dernier passage. */
   veillePages: jsonb("veille_pages").$type<string[]>().notNull().default([]),
   veilleVus: jsonb("veille_vus").$type<string[]>().notNull().default([]),
+  /** Les pages de chaque académie (ex. « VERSAILLES »), lues chaque semaine ; leurs alertes vont aux lycées de cette académie. */
+  veilleAcademies: jsonb("veille_academies").$type<Record<string, string[]>>().notNull().default({}),
   veilleLe: timestamp("veille_le", { withTimezone: true }),
   majLe: timestamp("maj_le", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -1000,11 +1007,37 @@ export const alertesVeille = pgTable("alertes_veille", {
   resume: text("resume").notNull(),
   /** Ce qu'il faudrait changer dans Cap PFMP ou dans l'organisation du lycée : chaque lycée décide. */
   propositions: jsonb("propositions").$type<string[]>().notNull(),
+  /** Les échéances trouvées dans le texte, proposées au calendrier de chaque lycée (le DDFPT les corrige). */
+  echeances: jsonb("echeances").$type<EcheanceProposee[]>().notNull().default([]),
+  /** Les changements applicables en un clic (le DDFPT propose, la direction valide). */
+  changements: jsonb("changements").$type<ChangementVeille[]>().notNull().default([]),
+  /** Alerte d'une académie (vide : pour tous les lycées). */
+  academie: text("academie"),
+  /** Alerte d'une page choisie par un lycée : pour lui seul, publiée sans relecture par l'administration. */
+  etablissementId: uuid("etablissement_id").references(() => etablissements.id, { onDelete: "cascade" }),
   simule: boolean("simule").notNull().default(false),
   publieeLe: timestamp("publiee_le", { withTimezone: true }),
   creeParId: uuid("cree_par_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export type EcheanceProposee = { titre: string; date: string; concerne: "toutes" | "examen" };
+export type ChangementVeille = { libelle: string; cible: string; valeur: string };
+
+/** Le calendrier des échéances officielles d'un lycée : proposées par Cap Veille, ajoutées ou corrigées par le DDFPT. */
+export const echeances = pgTable("echeances", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  titre: text("titre").notNull(),
+  date: date("date").notNull(),
+  /** Qui est concerné : toutes les classes, ou les classes d'examen (leurs référents sont prévenus). */
+  concerne: text("concerne").$type<"toutes" | "examen">().notNull().default("toutes"),
+  /** proposee : par Cap Veille, à vérifier · retenue : dans le calendrier, avec des rappels. */
+  statut: text("statut").$type<"proposee" | "retenue">().notNull().default("retenue"),
+  alerteId: uuid("alerte_id").references(() => alertesVeille.id, { onDelete: "set null" }),
+  majParId: uuid("maj_par_id").references(() => users.id, { onDelete: "set null" }),
+  majLe: timestamp("maj_le", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [index("echeances_etab_idx").on(t.etablissementId)]);
 
 /** Ce que chaque lycée a fait d'une alerte : lue, et la décision prise pour chaque proposition. */
 export const suitesVeille = pgTable("suites_veille", {
@@ -1012,6 +1045,10 @@ export const suitesVeille = pgTable("suites_veille", {
   etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
   lueLe: timestamp("lue_le", { withTimezone: true }),
   decisions: jsonb("decisions").$type<Record<string, "fait" | "pas_pour_nous">>().notNull().default({}),
+  /** La comparaison du texte avec les documents du lycée. */
+  comparaison: jsonb("comparaison").$type<{ le: string; ecarts: { document: string; ecart: string }[]; simule: boolean }>(),
+  /** Les changements en un clic, par numéro : proposés par le DDFPT, validés (et appliqués) ou refusés par la direction. */
+  applications: jsonb("applications").$type<Record<string, { proposeParId: string; proposeLe: string; valideParId?: string; valideLe?: string; refuseLe?: string }>>().notNull().default({}),
   parId: uuid("par_id").references(() => users.id, { onDelete: "set null" }),
 }, (t) => [primaryKey({ columns: [t.alerteId, t.etablissementId] })]);
 

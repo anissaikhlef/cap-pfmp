@@ -190,6 +190,13 @@
       "when": 1793308069491,
       "tag": "0026_langues_familles",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1793309064965,
+      "tag": "0027_veille_academies_echeances",
+      "breakpoints": true
     }
   ]
 }

@@ -33,6 +33,7 @@ export default async function AdminVeille() {
         <p className="note" style={{ margin: 0 }}>Le site du ministère refuse la lecture automatique du Bulletin officiel. Pour ses notes de service, abonnez-vous à la lettre gratuite du ministère qui envoie chaque jeudi le sommaire du Bulletin officiel (page « Kiosque actu » d&apos;education.gouv.fr) : quand un texte parle des stages, collez-le ci-dessous dans « Nouveau texte officiel ».</p>
         <Formulaire action={enregistrerSourcesVeille} bouton="Enregistrer les sources" boutonClasse="btn" viderApres={false}>
           <label className="f" htmlFor="v-pages">Autres pages officielles à lire (facultatif, une adresse par ligne)<textarea id="v-pages" name="pages" rows={3} defaultValue={pages.join("\n")} /></label>
+          <label className="f" htmlFor="v-academies">Pages de chaque académie (une par ligne : « VERSAILLES | https://www.ac-versailles.fr/… ») : leurs alertes vont aux lycées de cette académie<textarea id="v-academies" name="academies" rows={3} defaultValue={Object.entries(plat?.veilleAcademies ?? {}).flatMap(([a, urls]) => urls.map((u) => `${a} | ${u}`)).join("\n")} /></label>
         </Formulaire>
         <form action={lireSourcesMaintenant} className="actions" style={{ marginTop: 8 }}><ChampRetour /><button className="btn small">Lire les sources maintenant</button></form>
       </div>
@@ -41,6 +42,7 @@ export default async function AdminVeille() {
         <Formulaire action={nouvelleAlerte} bouton={`Préparer l'alerte avec ${nom}`}>
           <label className="f" htmlFor="v-titre">Titre<input id="v-titre" name="titre" maxLength={200} placeholder="Ex. Note de service sur les PFMP" /></label>
           <label className="f" htmlFor="v-source">Lien vers le texte officiel<input id="v-source" name="source" type="url" placeholder="https://www.education.gouv.fr/bo/…" /></label>
+          <label className="f" htmlFor="v-academie">Pour une seule académie (facultatif, ex. VERSAILLES ; vide : tous les lycées)<input id="v-academie" name="academie" maxLength={60} /></label>
           <label className="f" htmlFor="v-texte">Texte (la partie qui concerne les PFMP)<textarea id="v-texte" name="texte" rows={10} /></label>
           <p className="sub" style={{ margin: 0 }}>Sources acceptées : {SOURCES_OFFICIELLES.join(", ")}.</p>
         </Formulaire>
@@ -56,6 +58,9 @@ export default async function AdminVeille() {
               <p className="sub" style={{ margin: 0 }}><a href={a.source} target="_blank" rel="noopener noreferrer">{a.source}</a></p>
               <label className="f" htmlFor={`r-${a.id}`}>Résumé<textarea id={`r-${a.id}`} name="resume" defaultValue={a.resume} rows={6} /></label>
               <label className="f" htmlFor={`p-${a.id}`}>Propositions (une par ligne)<textarea id={`p-${a.id}`} name="propositions" defaultValue={a.propositions.join("\n")} rows={4} /></label>
+              <label className="f" htmlFor={`e-${a.id}`}>Échéances proposées aux lycées (une par ligne : « AAAA-MM-JJ | titre | examen » ou « … | toutes »)<textarea id={`e-${a.id}`} name="echeances" defaultValue={a.echeances.map((x) => `${x.date} | ${x.titre} | ${x.concerne}`).join("\n")} rows={3} /></label>
+              {a.changements.length > 0 && <div className="stack"><b>Changements applicables en un clic (gardez ceux qui sont justes)</b>{a.changements.map((c, i) => <label key={i} className="check"><input type="checkbox" name={`garder_${i}`} value="oui" defaultChecked /> {c.libelle} ({c.cible} = {c.valeur})</label>)}</div>}
+              {a.academie && <p className="sub" style={{ margin: 0 }}>Pour l&apos;académie de {a.academie} seulement.</p>}
               <p className="sub" style={{ margin: 0 }}>Préparé avec {nom}{a.simule ? " · texte d'exemple (agent en démonstration)" : ""}.</p>
               <div className="actions"><button className="btn small">Enregistrer les corrections</button></div>
             </form>

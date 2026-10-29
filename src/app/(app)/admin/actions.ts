@@ -8,6 +8,8 @@ import { sourceOfficielle } from "@/lib/agents";
 import { preparerAlerte, publierAlerte, veilleDeLaSemaine } from "@/lib/agent-veille";
 import { journaliser } from "@/lib/journal";
 import { revenirAvec } from "@/lib/retour";
+import { echeanceValide, lirePagesAcademies } from "@/lib/veille-def";
+import { aujourdhui } from "@/lib/dates";
 import type { Etat } from "@/components/Formulaire";
 
 /** L'administration de Cap PFMP (compte « admin ») : tarifs, plafonds, veille réglementaire. */
@@ -33,6 +35,9 @@ export async function enregistrerTarifs(_: Etat, fd: FormData): Promise<Etat> {
   return { ok: "Tarifs et plafonds enregistrés. Les lycées voient les nouveaux montants dans « Organisation », « Agents IA »." };
 }
 
+/** Le site d'une académie (ac-versailles.fr, ac-paris.fr…). */
+const SITE_ACADEMIE = /^https:\/\/([\w-]+\.)*ac-[\w-]+\.fr(\/|$)/;
+
 export async function nouvelleAlerte(_: Etat, fd: FormData): Promise<Etat> {
   const ctx = await admin();
   const p = z.object({
@@ -41,8 +46,10 @@ export async function nouvelleAlerte(_: Etat, fd: FormData): Promise<Etat> {
     texte: z.string().trim().min(80, "Collez le texte officiel (au moins quelques lignes).").max(40000, "Texte trop long : collez la partie qui concerne les PFMP."),
   }).safeParse(Object.fromEntries(fd));
   if (!p.success) return { erreur: p.error.issues[0]?.message ?? "Valeurs invalides." };
-  if (!sourceOfficielle(p.data.source)) return { erreur: "Cap Veille ne travaille qu'avec les sources officielles : Bulletin officiel (education.gouv.fr), Légifrance, Éduscol, Service public, ministère du Travail." };
-  const r = await preparerAlerte(ctx.user.id, p.data);
+  if (!sourceOfficielle(p.data.source) && !SITE_ACADEMIE.test(p.data.source)) return { erreur: "Cap Veille ne travaille qu'avec les sources officielles : Bulletin officiel (education.gouv.fr), Légifrance, Éduscol, Service public, ministère du Travail, sites des académies." };
+  // Une alerte d'académie ne va qu'aux lycées de cette académie.
+  const academie = String(fd.get("academie") ?? "").trim().toUpperCase().slice(0, 60) || undefined;
+  const r = await preparerAlerte(ctx.user.id, p.data, { academie });
   if (!r.ok) return { erreur: r.erreur };
   await journaliser(ctx, "veille_preparee", "alerte_veille", r.alerte.id);
   revalidatePath("/admin/veille");
@@ -57,7 +64,13 @@ export async function corrigerAlerte(fd: FormData) {
   }).safeParse(Object.fromEntries(fd));
   if (!p.success) revenirAvec(fd, p.error.issues[0]?.message ?? "Valeurs invalides.", "err");
   const propositions = p.data.propositions.split("\n").map((x) => x.replace(/^[-•*]\s*/, "").trim()).filter((x) => x.length >= 5).slice(0, 8);
-  await db.update(schema.alertesVeille).set({ titre: p.data.titre, resume: p.data.resume, propositions })
+  // Les échéances, une par ligne : « AAAA-MM-JJ | titre | examen » ; les changements gardés (cases cochées).
+  const echeances = String(fd.get("echeances") ?? "").split("\n").map((l) => l.split("|").map((x) => x.trim()))
+    .map(([date, titre, c]) => ({ date, titre: titre ?? "", concerne: c === "examen" ? "examen" as const : "toutes" as const }))
+    .filter((x) => echeanceValide(x, aujourdhui())).slice(0, 10);
+  const [avant] = await db.select().from(schema.alertesVeille).where(eq(schema.alertesVeille.id, p.data.id)).limit(1);
+  const changements = (avant?.changements ?? []).filter((_, i) => fd.get(`garder_${i}`) === "oui");
+  await db.update(schema.alertesVeille).set({ titre: p.data.titre, resume: p.data.resume, propositions, echeances, changements })
     .where(and(eq(schema.alertesVeille.id, p.data.id), isNull(schema.alertesVeille.publieeLe)));
   await journaliser(ctx, "veille_corrigee", "alerte_veille", p.data.id);
   revalidatePath("/admin/veille");
@@ -88,8 +101,12 @@ export async function enregistrerSourcesVeille(_: Etat, fd: FormData): Promise<E
   const pages = String(fd.get("pages") ?? "").split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 20);
   const refusees = pages.filter((x) => !sourceOfficielle(x));
   if (refusees.length) return { erreur: `Sources non officielles refusées : ${refusees.join(", ")}` };
-  await db.insert(schema.plateforme).values({ id: "cap-pfmp", tarifs: { seul: 0, veille: 0, entreprises: 0, complet: 0 }, plafonds: { administratif: 400, veille: 0, entreprises: 300 }, veillePages: pages })
-    .onConflictDoUpdate({ target: schema.plateforme.id, set: { veillePages: pages } });
+  // Les pages de chaque académie : « VERSAILLES | https://… », une par ligne.
+  const veilleAcademies = lirePagesAcademies(String(fd.get("academies") ?? ""));
+  const horsAcademie = Object.values(veilleAcademies).flat().filter((x) => !SITE_ACADEMIE.test(x) && !sourceOfficielle(x));
+  if (horsAcademie.length) return { erreur: `Ce ne sont pas des sites d'académie : ${horsAcademie.join(", ")}` };
+  await db.insert(schema.plateforme).values({ id: "cap-pfmp", tarifs: { seul: 0, veille: 0, entreprises: 0, complet: 0 }, plafonds: { administratif: 400, veille: 0, entreprises: 300 }, veillePages: pages, veilleAcademies })
+    .onConflictDoUpdate({ target: schema.plateforme.id, set: { veillePages: pages, veilleAcademies } });
   await journaliser(ctx, "veille_sources", "plateforme", "cap-pfmp", { pages });
   revalidatePath("/admin/veille");
   return { ok: pages.length ? `${pages.length} source(s) enregistrée(s) : Cap Veille les lit chaque semaine.` : "Aucune page à lire : Cap Veille s'appuie sur Légifrance et sur les textes que vous collez." };

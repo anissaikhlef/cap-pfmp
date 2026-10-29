@@ -35,6 +35,7 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | Tenues et matériel | Liste préremplie (tenues, protections, matériel), articles cochés par formation ; saisie des tailles par classe avec date limite et relances (élève, famille, ou l'équipe pour un élève sans compte) ; fichier de commande (total par taille, détail par élève) ; remise signée au doigt le jour même par l'élève, sur l'appareil d'une personne désignée par le DDFPT ; remise partielle ; fiche PDF dans les documents de l'élève ; liste des remises | Fait |
 | Cap Admin, après l'audit | Jours de stage manquants dans toutes les classes (rappels à l'élève, aux parents, au référent et au DDFPT ; arrêt par le DDFPT ou le référent avec la raison) ; élève en difficulté (référent et DDFPT d'abord) ; retards de l'équipe avec les rappels aux professeurs préparés ; point de la semaine (page et mail du lundi) ; option SMS | Fait |
 | Langue des familles | Langue indiquée par l'équipe ou choisie par les parents ; messages aux parents et espace « Mon enfant » traduits, avec le français dessous ; liste des langues courantes, et le lycée en ajoute ; aucun nom ni coordonnée envoyé pour la traduction | Fait |
+| Cap Veille, après l'audit | Pages de chaque académie (administration) et du lycée (alertes directes) ; calendrier des échéances proposées par Cap Veille, retenues ou corrigées par le DDFPT, avec rappels ; comparaison avec tous les documents du lycée ; application en un clic (le DDFPT propose, la direction valide) | Fait |
 | Rendez-vous | Prise de rendez-vous en ligne pour la visite de stage : le professeur propose ses créneaux et la forme de la visite (sur place, à distance, ou au choix de l'entreprise) ; l'entreprise choisit avec un lien personnel, sans compte, ou donne ses disponibilités ; confirmation par mail, avec le lien de visio pour une visite à distance | Fait |
 
 Les décisions de conception d'Anissa Ikhlef sont consignées, avec leur date, dans [JOURNAL_DE_CONCEPTION.md](JOURNAL_DE_CONCEPTION.md).
@@ -110,6 +111,7 @@ node e2e/recapitulatif.mjs
 node e2e/tenues.mjs
 node e2e/cap-admin.mjs
 node e2e/langues.mjs
+node e2e/veille.mjs
 node e2e/mobile.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
 ```
 
@@ -155,7 +157,7 @@ Les parcours sont écrits pour le 26 octobre 2026 : lancez l'application avec `C
 - `src/lib/legifrance.ts` : Légifrance pour Cap Veille ; `src/lib/specialites.ts` : nom de la spécialité dans le libellé des périodes
 - `src/lib/listes-def.ts` (pur, testé) et `src/lib/listes.ts` : les listes exportables et qui peut les exporter ; `src/lib/tableau-pdf.ts` : une liste en PDF ; `src/lib/xlsx.ts` (pur, testé) : une liste en fichier Excel .xlsx, sans bibliothèque
 - `src/lib/xlsx-modele.ts` (testé) : lit le fichier Excel de l'académie, repère ses cases et le remplit sans toucher à sa mise en page ni à ses formules ; `src/lib/recapitulatif.ts` : l'attestation récapitulative des PFMP (qui la prépare, ce qui compte, fichiers de l'académie et Cap PFMP)
-- `src/lib/tenues-def.ts` (pur, testé) : liste préremplie des articles, tailles, totaux de la commande, ce qui reste à remettre ; `src/lib/manques.ts` : jours de stage manquants et destinataires des rappels ; `src/lib/langues.ts` et `src/lib/traduction.ts` : langues des familles et traductions (noms et coordonnées remplacés par des repères) ; `src/lib/point.ts` : retards de l'équipe et point de la semaine du DDFPT ; `src/lib/tenues.ts` : saisie des tailles, fichiers de commande et de remises, remise signée et sa fiche PDF
+- `src/lib/tenues-def.ts` (pur, testé) : liste préremplie des articles, tailles, totaux de la commande, ce qui reste à remettre ; `src/lib/manques.ts` : jours de stage manquants et destinataires des rappels ; `src/lib/langues.ts` et `src/lib/traduction.ts` : langues des familles et traductions (noms et coordonnées remplacés par des repères) ; `src/lib/veille-def.ts` (pur, testé) et `src/lib/veille-lycee.ts` : changements applicables, échéances, comparaison avec les documents du lycée ; `src/lib/texte-pdf.ts` : texte d'un PDF lu sur le serveur ; `src/lib/point.ts` : retards de l'équipe et point de la semaine du DDFPT ; `src/lib/tenues.ts` : saisie des tailles, fichiers de commande et de remises, remise signée et sa fiche PDF
 - `src/lib/auth.ts` : connexion, sessions, mots de passe
 - `src/app/(app)/` : les écrans, chacun avec ses actions serveur
 - `scripts/` : migrations et données de démonstration (`version-demo.ts` : à augmenter quand les données de démonstration changent)

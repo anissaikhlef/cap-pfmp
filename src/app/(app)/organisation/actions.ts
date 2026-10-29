@@ -59,7 +59,8 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
   if (v.ordreMission === "oui" && !signatairesOrdreMission.length) return { erreur: "Ordre de mission : cochez qui le signe (la direction, la gestion des PFMP, ou les deux)." };
   const quiVisite = { premiere: v.quiPremiere, derniere: v.quiDerniere, autres: v.quiAutres, examen: v.quiExamen };
   const reglages: Reglages = {
-    // Ce qui se règle ailleurs (barème des frais) est gardé tel quel.
+    // Ce qui se règle ailleurs (barème des frais, agents, tenues, langues, veille…) est gardé tel quel.
+    ...ctx.etab.reglages,
     frais: ctx.etab.reglages.frais, agents: ctx.etab.reglages.agents, academie: ctx.etab.reglages.academie, tenues: ctx.etab.reglages.tenues, langues: ctx.etab.reglages.langues,
     gestion: v.gestion, quiVisite, visiteurs: Object.values(quiVisite).every((x) => x === "pro") ? "pro" : "equipe", repartition: v.repartition, signature: v.signature,
     signatureModele: v.signatureModele, dernierSignataire: v.dernierSignataire,
@@ -71,6 +72,7 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
       reglesMineurs: v.reglesMineurs === "oui",
     },
     relances: {
+      ...ctx.etab.reglages.relances,
       convention, absences, piecesMax: v.relancePiecesMax,
       eleveQuotidien: v.eleveQuotidien === "oui", eleveRechercheJours: v.eleveRechercheJours,
       entrepriseIntervalle: v.entrepriseIntervalle, entrepriseMax: v.entrepriseMax,

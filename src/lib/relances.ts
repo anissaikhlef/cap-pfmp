@@ -16,7 +16,7 @@ import { referentDe } from "./requetes";
 import { articlesDesFormations, prevenirPourLesTailles } from "./tenues";
 import { taillesManquantes } from "./tenues-def";
 import { destinatairesDesManques, manquesDesEleves, sansArret } from "./manques";
-import { rappelTousLesNJours, rentreeDe } from "./regles";
+import { anneeDExamen, rappelTousLesNJours, rentreeDe } from "./regles";
 import { estJourOuvre, jourDeRelance, ouvertureFinDeStage, piecesManquantes, relanceCyclique, relanceHebdomadaireDue, tachesEleve, texteJour } from "./regles";
 import { completerReglages, type Reglages, type Signataire } from "@/db/schema";
 
@@ -230,6 +230,7 @@ export async function relancesDuJour(etab: Etab, opts: { classes?: string[]; use
   n += await relancerTailles(ctx, etabC, conds, journal, jour, base);
   n += await rappelerManques(ctx, etabC, conds, journal, jour, base);
   if (opts.campagne ?? !opts.classes) n += await relancerCampagne(ctx, etabC, journal, appels, equipe, cycle, base);
+  if (opts.campagne ?? !opts.classes) n += await rappelerEcheances(ctx, etabC, journal, jour, base);
   n += await appels.envoyer(ctx);
   return n;
 }
@@ -255,6 +256,37 @@ async function equipeDuStage(equipe: (typeof schema.users.$inferSelect)[], e: El
 }
 
 type Journal = Awaited<ReturnType<typeof journalDesRelances>>;
+
+/**
+ * Cap Veille, calendrier des échéances officielles (décision d'Anissa) : un rappel aux jours réglés avant chaque échéance
+ * retenue, au DDFPT, à la direction et aux professeurs référents des classes concernées (classes d'examen, ou toutes).
+ */
+async function rappelerEcheances(ctx: Expediteur, etab: EtabC, journal: Journal, jour: string, base: string) {
+  const jours = etab.reglages.relances.echeances;
+  if (!jours.length) return 0;
+  const liste = (await db.select().from(schema.echeances).where(and(eq(schema.echeances.etablissementId, etab.id), eq(schema.echeances.statut, "retenue"), gte(schema.echeances.date, jour))))
+    .filter((e) => jourDeRelance(jour, jours.map((k) => ajouterJours(e.date, -k))));
+  if (!liste.length) return 0;
+  const equipe = await equipeDuLycee(etab.id);
+  const classes = await db.select().from(schema.classes).where(and(eq(schema.classes.etablissementId, etab.id), eq(schema.classes.anneeScolaire, etab.anneeScolaire)));
+  let n = 0;
+  for (const e of liste) {
+    const cle = `echeance:${e.id}:${jour}`;
+    if (journal.fait(cle)) continue;
+    const referents = new Set(classes.filter((c) => e.concerne === "toutes" || anneeDExamen(c)).map((c) => c.referentId).filter(Boolean));
+    const dest = equipe.filter((u) => u.roles.includes("gestionnaire") || u.roles.includes("direction") || referents.has(u.id));
+    const dans = ecartJours(jour, e.date);
+    for (const u of dest) {
+      await envoyer(ctx, {
+        canal: "mail", destinataire: u.email, sujet: `Échéance dans ${dans} jour(s) : ${e.titre}`,
+        corps: `Bonjour ${u.prenom},\n\nRappel du calendrier des échéances : ${e.titre}, le ${dateLongue(e.date)} (dans ${dans} jour${dans > 1 ? "s" : ""}), pour ${e.concerne === "examen" ? "les classes d'examen" : "toutes les classes"}.\n\n${base}/veille#echeances\n\n${etab.nom}`,
+      });
+      n++;
+    }
+    await journal.noter("echeance", cle, { destinataires: dest.length });
+  }
+  return n;
+}
 
 /**
  * Cap Admin, jours de stage manquants (décision d'Anissa), à l'élève, à ses parents, à son référent et au DDFPT :
