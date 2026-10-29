@@ -1,6 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { completerReglages } from "@/db/schema";
@@ -41,9 +41,11 @@ export async function traduireTextes(etabBrut: Etab, langue: string, textes: str
       verifier: (x) => { const v = Reponse.safeParse(x).data; return v && v.traductions.length === manquants.length ? v : null; },
       exemple: () => ({ traductions: manquants.map(() => "") }),
     });
-    // Sans IA (démonstration) : rien n'est traduit, le texte reste en français.
-    if (r.ok && !r.simule) {
-      const lignes = manquants.map((p, i) => ({ etablissementId: etab.id, cle: p.cle, langue, texte: r.valeur.traductions[i] })).filter((l) => l.texte.trim());
+    // Sans IA (démonstration) : rien n'est traduit, le texte reste en français. Pour les parcours de test seulement,
+    // une traduction fictive (« [Arabe] … ») montre le chemin complet.
+    const fictive = r.ok && r.simule && process.env.CAP_PFMP_TRADUCTION_FICTIVE === "oui";
+    if (r.ok && (!r.simule || fictive)) {
+      const lignes = manquants.map((p, i) => ({ etablissementId: etab.id, cle: p.cle, langue, texte: fictive ? `[${langue}] ${p.texte}` : r.valeur.traductions[i] })).filter((l) => l.texte.trim());
       if (lignes.length) await db.insert(schema.traductions).values(lignes).onConflictDoNothing();
       lignes.forEach((l) => deja.set(l.cle, l.texte));
     }
@@ -82,7 +84,7 @@ export async function messagePourLaFamille(etabId: string, eleveId: string, dest
   // Seulement pour les parents (l'élève, scolarisé en France, lit le français).
   const [parent] = await db.select({ id: schema.users.id }).from(schema.responsables)
     .innerJoin(schema.users, eq(schema.users.id, schema.responsables.userId))
-    .where(and(eq(schema.responsables.eleveId, e.id), eq(schema.users.email, destinataire))).limit(1);
+    .where(and(eq(schema.responsables.eleveId, e.id), or(eq(schema.users.email, destinataire), eq(schema.users.telephone, destinataire)))).limit(1);
   if (!parent) return null;
   const [etab] = await db.select().from(schema.etablissements).where(eq(schema.etablissements.id, etabId)).limit(1);
   const t = etab ? await traduirePourLaFamille(etab, e, [m.sujet ?? "", m.corps]) : null;

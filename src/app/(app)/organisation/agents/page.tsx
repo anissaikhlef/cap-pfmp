@@ -4,6 +4,7 @@ import { AGENTS, LIBELLES_FORMULES, LISTE_AGENTS, aLAgent, euros, formuleDe } fr
 import { iaBranchee } from "@/lib/ia";
 import { reglagesPlateforme, usageDuMois } from "@/lib/plateforme";
 import { Formulaire } from "@/components/Formulaire";
+import { languesDuLycee } from "@/lib/langues";
 import { Entete } from "@/components/ui";
 import { enregistrerAgents } from "../actions";
 
@@ -60,6 +61,9 @@ export default async function Agents() {
             <label className="f" htmlFor="compteRenduApres">Compte rendu non fait, à partir de (jours après la visite)<input id="compteRenduApres" name="compteRenduApres" type="number" min={0} max={30} defaultValue={r.relances.compteRenduApres} /></label>
             <label className="f" htmlFor="ordreMissionAvant">Ordre de mission non signé, à partir de (jours avant la visite)<input id="ordreMissionAvant" name="ordreMissionAvant" type="number" min={0} max={30} defaultValue={r.relances.ordreMissionAvant} /></label>
           </div>
+          <h3>Langues des familles</h3>
+          <p className="sub" style={{ margin: 0 }}>Pour une famille qui ne lit pas le français, les messages aux parents et l&apos;espace « Mon enfant » sont traduits, avec le français dessous. La langue s&apos;indique sur la fiche de l&apos;élève, ou les parents la choisissent. Langues proposées : {languesDuLycee([]).map((l) => l.libelle).join(", ")}.</p>
+          <label className="f" htmlFor="langues">Autres langues de vos familles (une par ligne)<textarea id="langues" name="langues" rows={3} defaultValue={r.langues.join("\n")} placeholder={"Ex. Soninké\nTigrigna"} /></label>
           <h3>Option SMS</h3>
           <label className="check"><input type="checkbox" name="sms" defaultChecked={r.agents.sms} /> Le lycée prend l&apos;option SMS (payante) : la personne qui valide un mail peut l&apos;envoyer aussi par SMS. Sans l&apos;option, Cap Admin n&apos;envoie que des mails.</label>
         </div>

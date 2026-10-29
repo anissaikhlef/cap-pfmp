@@ -183,6 +183,13 @@
       "when": 1793307155918,
       "tag": "0025_cap_admin_rappels",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793308069491,
+      "tag": "0026_langues_familles",
+      "breakpoints": true
     }
   ]
 }

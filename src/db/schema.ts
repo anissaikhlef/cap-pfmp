@@ -106,6 +106,8 @@ export type Reglages = {
   academie: string;
   /** Tenues et matériel : les membres de l'équipe que le DDFPT désigne pour la distribution (en plus de la gestion des PFMP et de la direction). */
   tenues: { distributeurs: string[] };
+  /** Langues des familles ajoutées par le lycée, en plus de la liste de Cap PFMP (src/lib/langues.ts). */
+  langues: string[];
 };
 
 /** Les agents IA de Cap PFMP. */
@@ -133,6 +135,7 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   agents: { veille: false, entreprises: false, sansStageJours: 60, absencesMail: 2, sms: false },
   academie: "",
   tenues: { distributeurs: [] },
+  langues: [],
 };
 
 /** Réglages enregistrés complétés par les valeurs par défaut : un lycée créé avant l'ajout d'un réglage le reçoit ainsi. */
@@ -392,6 +395,8 @@ export const eleves = pgTable("eleves", {
   /** Visa du chef d'établissement sur l'attestation récapitulative (seule la direction vise). */
   visaRecapLe: timestamp("visa_recap_le", { withTimezone: true }),
   visaRecapParId: uuid("visa_recap_par_id").references((): AnyPgColumn => users.id, { onDelete: "set null" }),
+  /** Langue de la famille (code de src/lib/langues.ts) : messages aux parents et espace « Mon enfant » traduits ; vide : le français. */
+  langueFamille: text("langue_famille"),
   /** Tailles pour la tenue professionnelle (haut, bas, pointure…), indiquées par l'élève, sa famille ou l'équipe. */
   tailles: jsonb("tailles").$type<Tailles>().notNull().default({}),
   taillesLe: timestamp("tailles_le", { withTimezone: true }),
@@ -800,6 +805,16 @@ export const arretsRappels = pgTable("arrets_rappels", {
   parId: uuid("par_id").references(() => users.id, { onDelete: "set null" }),
   le: timestamp("le", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [uniqueIndex("arrets_rappels_idx").on(t.eleveId, t.cible)]);
+
+/** Traductions déjà faites pour les familles (textes sans noms ni coordonnées), pour ne pas traduire deux fois le même texte. */
+export const traductions = pgTable("traductions", {
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  /** Empreinte de la langue et du texte français (repères à la place des noms). */
+  cle: text("cle").notNull(),
+  langue: text("langue").notNull(),
+  texte: text("texte").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.etablissementId, t.cle] })]);
 
 /* ------------------------------------------------------------------ */
 /* Tenues professionnelles et matériel (décisions d'Anissa)             */

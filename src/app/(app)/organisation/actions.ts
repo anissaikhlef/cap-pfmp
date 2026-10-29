@@ -60,7 +60,7 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
   const quiVisite = { premiere: v.quiPremiere, derniere: v.quiDerniere, autres: v.quiAutres, examen: v.quiExamen };
   const reglages: Reglages = {
     // Ce qui se règle ailleurs (barème des frais) est gardé tel quel.
-    frais: ctx.etab.reglages.frais, agents: ctx.etab.reglages.agents, academie: ctx.etab.reglages.academie, tenues: ctx.etab.reglages.tenues,
+    frais: ctx.etab.reglages.frais, agents: ctx.etab.reglages.agents, academie: ctx.etab.reglages.academie, tenues: ctx.etab.reglages.tenues, langues: ctx.etab.reglages.langues,
     gestion: v.gestion, quiVisite, visiteurs: Object.values(quiVisite).every((x) => x === "pro") ? "pro" : "equipe", repartition: v.repartition, signature: v.signature,
     signatureModele: v.signatureModele, dernierSignataire: v.dernierSignataire,
     ordreMission: v.ordreMission === "oui", signatairesOrdreMission: signatairesOrdreMission.length ? [...signatairesOrdreMission] : ["direction"],
@@ -217,7 +217,9 @@ export async function enregistrerAgents(_: Etat, fd: FormData): Promise<Etat> {
   const agents = { veille: fd.get("veille") === "on", entreprises: fd.get("entreprises") === "on", sms: fd.get("sms") === "on", sansStageJours, absencesMail };
   const avant = ctx.etab.reglages.agents;
   const relances = { ...ctx.etab.reglages.relances, sansStageIntervalle, visiteNonPriseAvant, compteRenduApres, ordreMissionAvant };
-  await db.update(schema.etablissements).set({ reglages: { ...ctx.etab.reglages, agents, relances } }).where(eq(schema.etablissements.id, ctx.etab.id));
+  // Langues ajoutées par le lycée (une par ligne), en plus de la liste de Cap PFMP.
+  const langues = [...new Set(String(fd.get("langues") ?? "").split(/\n/).map((l) => l.trim().slice(0, 40)).filter((l) => l.length >= 2))].slice(0, 20);
+  await db.update(schema.etablissements).set({ reglages: { ...ctx.etab.reglages, agents, relances, langues } }).where(eq(schema.etablissements.id, ctx.etab.id));
   await journaliser(ctx, "agents_choisis", "etablissement", ctx.etab.id, { avant, apres: agents });
   revalidatePath("/", "layout");
   const change = avant.veille !== agents.veille || avant.entreprises !== agents.entreprises;

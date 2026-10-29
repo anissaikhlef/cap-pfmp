@@ -8,7 +8,7 @@ import { useEffect } from "react";
  */
 const SELECTEUR = "h1, h2, h3, p, li, label, .meta, .name, .sub, .msg, .note, summary";
 
-export function TraductionPage({ eleveId, langue, droiteAGauche }: { eleveId: string; langue: string; droiteAGauche: boolean }) {
+export function TraductionPage({ eleveId, langue, droiteAGauche, demonstration = false }: { eleveId: string; langue: string; droiteAGauche: boolean; demonstration?: boolean }) {
   useEffect(() => {
     const zone = document.getElementById(`eleve-${eleveId}`);
     if (!zone) return;
@@ -16,7 +16,9 @@ export function TraductionPage({ eleveId, langue, droiteAGauche }: { eleveId: st
     let enCours = false;
     const texteDe = (el: Element) => (el.textContent ?? "").replace(/\s+/g, " ").trim();
     // Un élément dont un descendant sera lui-même traduit n'est pas traduit en entier (pas de doublon).
-    const cibles = () => [...zone.querySelectorAll(SELECTEUR)].filter((el) => !el.querySelector(SELECTEUR) && texteDe(el).length > 1 && !el.closest("textarea, select, pre"));
+    // Ni les champs (listes, zones de texte), ni le choix de la langue, ni cette note.
+    const cibles = () => [...zone.querySelectorAll(SELECTEUR)].filter((el) => !el.querySelector(SELECTEUR) && !el.querySelector("select, textarea, input")
+      && texteDe(el).length > 1 && !el.closest("textarea, select, pre, [data-sans-traduction]"));
     const appliquer = () => {
       for (const el of cibles()) {
         const t = memoire.get(texteDe(el));
@@ -48,5 +50,10 @@ export function TraductionPage({ eleveId, langue, droiteAGauche }: { eleveId: st
     obs.observe(zone, { childList: true, subtree: true, characterData: true });
     return () => { obs.disconnect(); clearTimeout(minuterie); };
   }, [eleveId, langue, droiteAGauche]);
-  return <p className="note" lang="fr">Affichage en {langue}, avec le français dessous.</p>;
+  return (
+    <p className="note" lang="fr" data-sans-traduction="">
+      Affichage en {langue}, avec le français dessous.
+      {demonstration && " En démonstration, sans IA, les textes restent en français : la traduction se fera avec l'IA, dans la version en service."}
+    </p>
+  );
 }

@@ -583,3 +583,8 @@ Anissa : « des cases que les élèves doivent remplir : taille haut, bas et poi
 14. **CV déposé, même en photo ou scanné** (« la meilleure solution pour respecter le RGPD ») : Cap PFMP lit le texte sur son propre serveur, retire le nom et les coordonnées, et l'IA ne reçoit que ce texte.
 15. **Nouvelles entreprises pour le lycée**, autour des communes où habitent les élèves (la commune seulement, jamais l'adresse) ; le mail de prise de contact est validé par le DDFPT.
 16. **Démarches sans réponse** : un rappel à l'élève, puis au référent si l'entreprise n'a toujours pas répondu, aux jours que chaque lycée règle.
+
+### Mise en œuvre (29 octobre 2026)
+
+- Les rappels des jours manquants, de l'élève en difficulté et des retards de l'équipe sont des messages automatiques (texte fixe) ; seuls les mails aux familles préparés par Cap Admin passent par « Mails à valider ».
+- La traduction ne concerne que les parents : l'élève, scolarisé en France, reçoit ses messages en français. Sans IA (démonstration), les textes restent en français.
