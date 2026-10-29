@@ -1,11 +1,23 @@
 import type { Horaires, Tuteur } from "@/db/schema";
 import { JOURS } from "@/lib/dates";
-import { heuresHebdo, fmtHeures, plagesDuJour, texteJour, type ResultatRegle } from "@/lib/regles";
+import { heuresHebdo, heuresProposees, fmtHeures, plagesDuJour, texteJour, type ResultatRegle } from "@/lib/regles";
+import type { Reglages } from "@/db/schema";
 
-/** Horaires de la semaine : matin et après-midi pour chaque jour (une seule plage suffit), ou repos. */
-export function ChampsHoraires({ h }: { h?: Horaires | null }) {
-  const heure = (name: string, valeur: string | undefined, label: string) => (
+/**
+ * Horaires de la semaine : matin et après-midi pour chaque jour (une seule plage suffit), ou repos. Selon le réglage du
+ * lycée, chaque heure se choisit dans une liste de demi-heures, ou se tape à la minute près. Une heure déjà saisie qui
+ * n'est pas une demi-heure (ex. 8 h 15) reste proposée telle quelle.
+ */
+export function ChampsHoraires({ h, saisie }: { h?: Horaires | null; saisie: Reglages["horaires"] }) {
+  const liste = heuresProposees(saisie.debut, saisie.fin);
+  const heure = (name: string, valeur: string | undefined, label: string) => saisie.saisie === "libre" ? (
     <input className="inp" type="time" name={name} defaultValue={valeur ?? ""} aria-label={label} style={{ minWidth: 92 }} />
+  ) : (
+    <select className="inp" name={name} defaultValue={valeur ?? ""} aria-label={label} style={{ minWidth: 92 }}>
+      <option value="">—</option>
+      {valeur && !liste.includes(valeur) && <option value={valeur}>{valeur.replace(":", " h ")}</option>}
+      {liste.map((x) => <option key={x} value={x}>{x.replace(":", " h ")}</option>)}
+    </select>
   );
   return (
     <div className="panel tbl">

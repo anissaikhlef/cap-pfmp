@@ -2,7 +2,7 @@
 // règles des mineurs, CV et lettre de motivation, pièces de l'allocation de stage, relances automatiques.
 // Données de démonstration fraîches (npm run db:seed), application lancée avec CAP_PFMP_DATE_DU_JOUR=2026-10-26.
 import { writeFileSync } from "node:fs";
-import { BASE, D, OUT, ok, visible, session, fin, browser } from "./outils.mjs";
+import { BASE, D, OUT, ok, visible, session, fin, browser, heure } from "./outils.mjs";
 
 const pdf = `${OUT}/lettre.pdf`;
 writeFileSync(pdf, "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
@@ -142,9 +142,9 @@ const ficheInes = martin.url();
 await martin.selectOption("#s-ent", { label: "Atlas Sûreté (Issy-les-Moulineaux)" });
 for (let i = 0; i < 5; i++) {
   await martin.uncheck(`input[name=repos_${i}]`);
-  await martin.fill(`input[name=debut_${i}]`, "08:30");
-  await martin.fill(`input[name=fin_${i}]`, "12:00");
-  if (i < 4) { await martin.fill(`input[name=debut2_${i}]`, "13:00"); await martin.fill(`input[name=fin2_${i}]`, "16:30"); }
+  await heure(martin, `debut_${i}`, "08:30");
+  await heure(martin, `fin_${i}`, "12:00");
+  if (i < 4) { await heure(martin, `debut2_${i}`, "13:00"); await heure(martin, `fin2_${i}`, "16:30"); }
 }
 await martin.click("button:has-text('Enregistrer le stage')");
 ok(await visible(martin.getByText("Stage enregistré")), "enregistre des horaires en deux plages");
@@ -154,7 +154,7 @@ ok(t.includes("08:30 – 12:00 · 13:00 – 16:30") && t.includes("31 h 30 par s
 ok(t.includes("Élève mineur : 8 h de travail par jour au maximum") && !t.includes("Non respecté : Élève mineur"), "les règles des mineurs sont respectées");
 ok(t.includes("Tuteur : K. Ferhat"), "le tuteur de la fiche entreprise est désigné par défaut");
 await martin.click("summary:has-text('Modifier le lieu ou les horaires')");
-for (let i = 0; i < 4; i++) { await martin.fill(`input[name=fin_${i}]`, "15:00"); await martin.fill(`input[name=debut2_${i}]`, ""); await martin.fill(`input[name=fin2_${i}]`, ""); }
+for (let i = 0; i < 4; i++) { await heure(martin, `fin_${i}`, "15:00"); await heure(martin, `debut2_${i}`, ""); await heure(martin, `fin2_${i}`, ""); }
 await martin.click("button:has-text('Enregistrer le stage')");
 await visible(martin.getByText("Stage"));
 await martin.goto(ficheInes);

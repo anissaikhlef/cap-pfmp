@@ -819,3 +819,16 @@ export function rappelTousLesNJours(depuis: string, jour: string, n: number, der
 
 /** La rentrée, pour le rappel des jours toujours pas rattrapés : le 1er septembre de l'année scolaire (ou le jour ouvré suivant). */
 export const rentreeDe = (anneeScolaire: string) => `${anneeScolaire.slice(0, 4)}-09-01`;
+
+/* ------------------- Saisie des horaires du stage par demi-heures (décision d'Anissa) ------------------- */
+
+/** Les heures proposées, de demi-heure en demi-heure, de `debut` à `fin` compris (« 08:00 », « 08:30 »…). */
+export function heuresProposees(debut: string, fin: string): string[] {
+  const min = (h: string) => { const [a, b] = h.split(":").map(Number); return a * 60 + b; };
+  const res: string[] = [];
+  for (let m = Math.ceil(min(debut) / 30) * 30; m <= min(fin) && m < 24 * 60; m += 30) res.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  return res;
+}
+
+/** Une heure de demi-heure (« 08:00 », « 08:30 »), pour la plage proposée par le lycée. */
+export const estDemiHeure = (h: string) => /^([01]\d|2[0-3]):(00|30)$/.test(h);

@@ -1,7 +1,7 @@
 // Lot 1 : vie scolaire, rattrapages, absences en stage, heures de face à face et choix des visites par les professeurs.
 // Données de démonstration fraîches (npm run db:seed), application lancée avec CAP_PFMP_DATE_DU_JOUR=2026-10-26.
 import { writeFileSync } from "node:fs";
-import { BASE, D, OUT, ok, visible, session, fin, browser } from "./outils.mjs";
+import { BASE, D, OUT, ok, visible, session, fin, browser, heure } from "./outils.mjs";
 
 const pdf = `${OUT}/certificat.pdf`;
 writeFileSync(pdf, "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
@@ -103,8 +103,8 @@ ok(await visible(benali.getByText("Rattrapage programmé")), "la référente pro
 ok(await visible(benali.locator(".chip", { hasText: "Rattrapage PFMP 1 · 2 nov." })), "le rattrapage devient une période de l'élève");
 await benali.selectOption("#s-ent", { label: "Héliance Sécurité incendie (Montrouge)" });
 for (let i = 0; i < 5; i++) {
-  await benali.fill(`input[name=debut_${i}]`, "08:00");
-  await benali.fill(`input[name=fin_${i}]`, i === 4 ? "12:00" : "15:00");
+  await heure(benali, `debut_${i}`, "08:00");
+  await heure(benali, `fin_${i}`, i === 4 ? "12:00" : "15:00");
   await benali.uncheck(`input[name=repos_${i}]`);
 }
 await benali.click("button:has-text('Enregistrer le stage')");

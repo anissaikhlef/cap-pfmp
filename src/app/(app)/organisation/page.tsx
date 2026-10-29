@@ -3,9 +3,12 @@ import { contexte } from "@/lib/auth";
 import { Formulaire } from "@/components/Formulaire";
 import { Entete } from "@/components/ui";
 import { adresseDuSite } from "@/lib/liens";
+import { heuresProposees } from "@/lib/regles";
 import { enregistrerOrganisation } from "./actions";
 
 export const metadata = { title: "Organisation" };
+
+const TOUTES_LES_HEURES = heuresProposees("00:00", "23:30");
 
 function Choix({ nom, valeur, options }: { nom: string; valeur: string; options: [string, string, string?][] }) {
   return (
@@ -122,6 +125,22 @@ export default async function Organisation() {
             ["oui", "Aussi consultable sans compte, avec un lien public", "Pour le site du lycée ou les mails aux entreprises. Aucun nom d'élève n'y figure."],
           ]} />
           {r.calendrierPublic && <p className="sub" style={{ margin: 0 }}>Lien public : <a href={`/pfmp/${ctx.etab.id}`}>{`${base}/pfmp/${ctx.etab.id}`}</a></p>}
+        </div>
+        <div className="panel pad section" id="saisie-horaires">
+          <h2>Saisie des horaires du stage</h2>
+          <Choix nom="saisieHoraires" valeur={r.horaires.saisie} options={[
+            ["demi_heure", "Par demi-heures", "Chaque heure se choisit dans une liste : 8 h 00, 8 h 30, 9 h 00…"],
+            ["libre", "Saisie libre, à la minute près", "Chaque heure se tape librement (ex. 8 h 15)."],
+          ]} />
+          <div className="actions">
+            <label className="f" htmlFor="horairesDebut">Heures proposées, de
+              <select id="horairesDebut" name="horairesDebut" defaultValue={r.horaires.debut}>{TOUTES_LES_HEURES.map((x) => <option key={x} value={x}>{x.replace(":", " h ")}</option>)}</select>
+            </label>
+            <label className="f" htmlFor="horairesFin">à
+              <select id="horairesFin" name="horairesFin" defaultValue={r.horaires.fin}>{TOUTES_LES_HEURES.map((x) => <option key={x} value={x}>{x.replace(":", " h ")}</option>)}</select>
+            </label>
+          </div>
+          <p className="sub" style={{ margin: 0 }}>Toute la journée par défaut (de 0 h 00 à 23 h 30), pour les stages de nuit ou en horaires décalés.</p>
         </div>
         <div className="panel pad section">
           <h2>Règles de stage</h2>

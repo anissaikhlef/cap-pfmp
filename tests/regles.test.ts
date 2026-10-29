@@ -70,3 +70,13 @@ describe("dates", () => {
   it("compte les jours d'écart", () => expect(ecartJours("2026-10-26", "2026-11-16")).toBe(21));
   it("lundi = 0, dimanche = 6", () => { expect(jourSemaine("2026-10-26")).toBe(0); expect(jourSemaine("2026-11-01")).toBe(6); });
 });
+
+describe("horaires du stage par demi-heures (décision d'Anissa)", async () => {
+  const { heuresProposees, estDemiHeure } = await import("@/lib/regles");
+  it("de demi-heure en demi-heure, dans la plage du lycée", () => {
+    expect(heuresProposees("08:00", "09:30")).toEqual(["08:00", "08:30", "09:00", "09:30"]);
+    expect(heuresProposees("00:00", "23:30")).toHaveLength(48);
+    expect(heuresProposees("06:15", "07:00")).toEqual(["06:30", "07:00"]);
+    expect(estDemiHeure("08:30") && !estDemiHeure("08:15")).toBe(true);
+  });
+});

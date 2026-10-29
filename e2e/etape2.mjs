@@ -1,5 +1,5 @@
 // Étape 2 : entreprises, démarches, saisie du stage et règles.
-import { BASE, D, OUT, ok, visible, session, fin } from "./outils.mjs";
+import { BASE, D, OUT, ok, visible, session, fin, heure } from "./outils.mjs";
 
 // Élève sans stage : démarches et suggestions
 const ines = await session("ines.haddad");
@@ -27,8 +27,8 @@ const fiche = martin.url();
 ok((await martin.textContent("main")).includes("Boulangerie du coin"), "le référent voit les démarches de l'élève");
 await martin.selectOption("#s-ent", { label: "Atlas Sûreté (Issy-les-Moulineaux)" });
 for (let i = 0; i < 5; i++) {
-  await martin.fill(`input[name=debut_${i}]`, "08:00");
-  await martin.fill(`input[name=fin_${i}]`, i === 4 ? "12:00" : "15:00");
+  await heure(martin, `debut_${i}`, "08:00");
+  await heure(martin, `fin_${i}`, i === 4 ? "12:00" : "15:00");
   await martin.uncheck(`input[name=repos_${i}]`);
 }
 await martin.click("button:has-text('Enregistrer le stage')");
@@ -42,7 +42,7 @@ await martin.screenshot({ path: `${OUT}/e2-fiche.png`, fullPage: true });
 
 // Horaires de nuit : règle enfreinte
 await martin.click("summary:has-text('Modifier le lieu ou les horaires')");
-await martin.fill("input[name=fin_0]", "23:00");
+await heure(martin, "fin_0", "23:00");
 await martin.click("button:has-text('Enregistrer le stage')");
 await martin.waitForURL(/msg=/);
 await martin.goto(fiche);

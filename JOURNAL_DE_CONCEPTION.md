@@ -590,3 +590,12 @@ Anissa : « des cases que les élèves doivent remplir : taille haut, bas et poi
 - La traduction ne concerne que les parents : l'élève, scolarisé en France, reçoit ses messages en français. Sans IA (démonstration), les textes restent en français.
 - Cap Veille, « appliquer en un clic » : seules quelques règles des stages peuvent changer ainsi (durées hebdomadaires, travail de nuit, repos, dimanche, règles des mineurs) ; le reste d'un texte officiel se décide et se fait à la main. Les pages qu'un lycée fait lire doivent être des sites officiels (ministère, Légifrance, Éduscol, sites des académies).
 - Cap Partenaires : la lecture d'un CV en photo se fait sur le serveur de Cap PFMP (reconnaissance de caractères en français, fournie avec l'application, sans téléchargement ni envoi à l'extérieur). Un PDF scanné sans texte : l'élève dépose plutôt une photo nette, ou colle le texte.
+
+## 30 octobre 2026 : horaires du stage par demi-heures
+
+Anissa : « il faut modifier les horaires de stage : un intervalle de 30 minutes, par exemple de 8 h à 8 h 30, de 8 h 30 à 9 h ».
+
+- Les heures de début et de fin du stage (matin et après-midi, chaque jour) se choisissent dans une liste de demi-heures. Seulement pour les horaires du stage, pas pour les visites.
+- Chaque lycée choisit la plage proposée dans « Organisation » ; par défaut, toute la journée (de 0 h 00 à 23 h 30), pour les stages de nuit ou en horaires décalés.
+- En option, le lycée peut revenir à la saisie libre, à la minute près ; par défaut, la liste de demi-heures.
+- Une heure déjà saisie qui ne tombe pas sur une demi-heure reste affichée telle quelle, jusqu'à ce qu'on la change.

@@ -30,3 +30,10 @@ export async function fin() {
   console.log(erreurs.length ? `\n${erreurs.length} PROBLÈME(S)\n- ${erreurs.join("\n- ")}` : "\nTout est bon.");
   process.exit(erreurs.length ? 1 : 0);
 }
+
+/** Une heure des horaires du stage : liste de demi-heures (réglage par défaut) ou saisie libre, selon le lycée. */
+export async function heure(p, nom, valeur) {
+  const el = p.locator(`[name=${nom}]`).first();
+  if ((await el.evaluate((e) => e.tagName)) === "SELECT") await el.selectOption(valeur);
+  else await el.fill(valeur);
+}

@@ -2,7 +2,7 @@
 // mails d'accueil et de remerciement, dépôt de l'attestation par lien personnel, sans compte.
 // Données de démonstration fraîches (npm run db:seed), application lancée avec CAP_PFMP_DATE_DU_JOUR=2026-10-26.
 import { writeFileSync } from "node:fs";
-import { BASE, D, OUT, ok, visible, session, fin, browser } from "./outils.mjs";
+import { BASE, D, OUT, ok, visible, session, fin, browser, heure } from "./outils.mjs";
 
 const pdf = `${OUT}/attestation-entreprise.pdf`;
 writeFileSync(pdf, "%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n");
@@ -79,8 +79,8 @@ ok((await option.textContent()).includes("écartée") && await option.evaluate((
 await martin.evaluate(() => { for (const o of document.querySelectorAll("#s-ent option")) o.disabled = false; });
 await martin.selectOption("#s-ent", { label: "Évent'Sûr (Paris 15e) · écartée" });
 for (let i = 0; i < 5; i++) {
-  await martin.fill(`input[name=debut_${i}]`, "08:00");
-  await martin.fill(`input[name=fin_${i}]`, i === 4 ? "12:00" : "15:00");
+  await heure(martin, `debut_${i}`, "08:00");
+  await heure(martin, `fin_${i}`, i === 4 ? "12:00" : "15:00");
   await martin.uncheck(`input[name=repos_${i}]`);
 }
 await martin.click("button:has-text('Enregistrer le stage')");

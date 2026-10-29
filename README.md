@@ -114,6 +114,7 @@ node e2e/cap-admin.mjs
 node e2e/langues.mjs
 node e2e/veille.mjs
 node e2e/partenaires.mjs
+node e2e/horaires.mjs
 node e2e/mobile.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
 ```
 

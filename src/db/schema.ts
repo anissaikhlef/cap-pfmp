@@ -117,6 +117,11 @@ export type Reglages = {
   langues: string[];
   /** Cap Veille : les pages de son académie que le lycée fait lire chaque semaine (alertes directes, sans relecture par l'administration). */
   veillePages: string[];
+  /**
+   * Saisie des horaires du stage (décision d'Anissa) : une liste de demi-heures (8 h 00, 8 h 30…) dans la plage choisie
+   * par le lycée, ou, en option, la saisie libre à la minute près.
+   */
+  horaires: { saisie: "demi_heure" | "libre"; debut: string; fin: string };
 };
 
 /** Les agents IA de Cap PFMP. */
@@ -146,6 +151,7 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   tenues: { distributeurs: [] },
   langues: [],
   veillePages: [],
+  horaires: { saisie: "demi_heure", debut: "00:00", fin: "23:30" },
 };
 
 /** Réglages enregistrés complétés par les valeurs par défaut : un lycée créé avant l'ajout d'un réglage le reçoit ainsi. */
@@ -173,6 +179,7 @@ export function completerReglages(r: Partial<Reglages> | null | undefined): Regl
     relances: { ...REGLAGES_PAR_DEFAUT.relances, ...(r?.relances ?? {}) },
     agents: { ...REGLAGES_PAR_DEFAUT.agents, ...(r?.agents ?? {}) },
     tenues: { ...REGLAGES_PAR_DEFAUT.tenues, ...(r?.tenues ?? {}) },
+    horaires: { ...REGLAGES_PAR_DEFAUT.horaires, ...(r?.horaires ?? {}) },
   };
 }
 

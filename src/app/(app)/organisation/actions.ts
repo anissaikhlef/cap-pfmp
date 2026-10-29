@@ -28,6 +28,9 @@ const Schema = z.object({
   heuresMax: z.coerce.number().min(1).max(48),
   nuitDebut: heure,
   nuitFin: heure,
+  saisieHoraires: z.enum(["demi_heure", "libre"]).default("demi_heure"),
+  horairesDebut: z.string().regex(/^([01]\d|2[0-3]):(00|30)$/, "Heures proposées : une demi-heure").default("00:00"),
+  horairesFin: z.string().regex(/^([01]\d|2[0-3]):(00|30)$/, "Heures proposées : une demi-heure").default("23:30"),
   dimancheInterdit: z.enum(["oui", "non"]),
   joursReposConsecutifs: z.coerce.number().int().min(0).max(3),
   reglesMineurs: z.enum(["oui", "non"]),
@@ -51,6 +54,7 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
   if (!p.success) return { erreur: p.error.issues[0]?.message ?? "Valeurs invalides." };
   const v = p.data;
   if (v.heuresMin > v.heuresMax) return { erreur: "La durée minimale dépasse la durée maximale." };
+  if (v.horairesDebut >= v.horairesFin) return { erreur: "Heures proposées pour les horaires du stage : la première doit précéder la dernière." };
   const jours = [v.relanceConvention, v.relanceAbsences].map(lireJours);
   if (jours.some((j) => j === null)) return { erreur: "Relances : indiquez des nombres de jours entre 1 et 60, séparés par des virgules (ex. 7, 3)." };
   const [convention, absences] = jours as number[][];
@@ -66,6 +70,7 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
     signatureModele: v.signatureModele, dernierSignataire: v.dernierSignataire,
     ordreMission: v.ordreMission === "oui", signatairesOrdreMission: signatairesOrdreMission.length ? [...signatairesOrdreMission] : ["direction"],
     compteRendu: v.compteRendu === "oui", calendrierPublic: v.calendrierPublic === "oui",
+    horaires: { saisie: v.saisieHoraires, debut: v.horairesDebut, fin: v.horairesFin },
     regles: {
       heuresMin: v.heuresMin, heuresMax: v.heuresMax, nuitDebut: v.nuitDebut, nuitFin: v.nuitFin,
       dimancheInterdit: v.dimancheInterdit === "oui", joursReposConsecutifs: v.joursReposConsecutifs,

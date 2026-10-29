@@ -111,7 +111,7 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
                 </select>
               </label>
               <p className="sub" style={{ margin: 0 }}>L&apos;entreprise n&apos;est pas dans la liste ? <a href="/entreprises/nouvelle">Ajoutez-la à l&apos;annuaire</a>.</p>
-              <ChampsHoraires h={d.stage?.horaires} />
+              <ChampsHoraires h={d.stage?.horaires} saisie={ctx.etab.reglages.horaires} />
               <ChampsTuteur t={d.stage ? d.stage.tuteur : undefined} parDefaut={d.entreprise ? { nom: d.entreprise.tuteurNom, fonction: d.entreprise.tuteurFonction, telephone: d.entreprise.telephone } : null} />
               {d.stage && Object.keys(d.stage.signatures).length > 0 && <p className="note">Changer d&apos;entreprise, d&apos;horaires ou de tuteur efface les signatures déjà recueillies.</p>}
             </Formulaire>
