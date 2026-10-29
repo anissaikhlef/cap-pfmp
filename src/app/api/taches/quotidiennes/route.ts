@@ -4,6 +4,7 @@ import { db, schema } from "@/db";
 import { relancesDuJour } from "@/lib/relances";
 import { mailsDuJour } from "@/lib/agent-administratif";
 import { veilleDeLaSemaine } from "@/lib/agent-veille";
+import { alertesDuDdfpt } from "@/lib/point";
 
 /**
  * Tâche quotidienne (à appeler chaque matin par un planificateur) :
@@ -24,6 +25,8 @@ export async function GET(req: Request) {
     total += await relancesDuJour(e, { base });
     // Agent 1, Cap Admin : les mails du jour, qui attendent la validation d'une personne.
     mails += (await mailsDuJour(e)).prepares;
+    // Cap Admin pour le DDFPT : retards de l'équipe, et le lundi le point de la semaine.
+    total += await alertesDuDdfpt(e, base);
   }
   // Agent 2, Cap Veille : une fois par semaine, la lecture des sources officielles (alertes à relire par l'administration).
   const veille = await veilleDeLaSemaine();

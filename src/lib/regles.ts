@@ -783,3 +783,39 @@ export function regrouperPfmp(pfmp: LignePfmp[], lignes: number): LignePfmp[] {
     entreprise: reste.map((p) => p.entreprise.split("\n")[0]).join(" ; "), jours: reste.reduce((t, p) => t + p.jours, 0),
   }];
 }
+
+/* ------------------- Cap Admin : jours de stage manquants (décision d'Anissa) ------------------- */
+
+/** Les jours ouvrés (du lundi au vendredi) d'une période : les jours de stage d'un élève qui n'a pas de lieu de stage. */
+export function joursOuvres(debut: string, fin: string): number {
+  let n = 0;
+  for (let d = debut; d <= fin; d = ajouterJours(d, 1)) if (jourSemaine(d) < 5) n++;
+  return n;
+}
+
+export type ManqueStage = { libelle: string; jours: number };
+/**
+ * Les jours de stage manquants d'un élève, sur toutes ses années : pour chaque stage terminé, les jours prévus moins les
+ * jours effectués ; pour chaque période terminée sans lieu de stage, tous ses jours ouvrés ; moins les jours effectués en
+ * rattrapage. Le total n'est jamais négatif.
+ */
+export function joursManquants(
+  stages: { libelle: string; prevus: number; effectues: number; rattrapage: boolean }[],
+  sansStage: { libelle: string; debut: string; fin: string }[],
+): { total: number; detail: ManqueStage[]; rattrapes: number } {
+  const detail: ManqueStage[] = [];
+  for (const s of stages) if (!s.rattrapage && s.prevus > s.effectues) detail.push({ libelle: s.libelle, jours: s.prevus - s.effectues });
+  for (const p of sansStage) detail.push({ libelle: `${p.libelle} (sans lieu de stage)`, jours: joursOuvres(p.debut, p.fin) });
+  const rattrapes = stages.filter((s) => s.rattrapage).reduce((t, s) => t + s.effectues, 0);
+  return { total: Math.max(0, detail.reduce((t, x) => t + x.jours, 0) - rattrapes), detail, rattrapes };
+}
+
+/** Un rappel tous les `n` jours à partir de `depuis` (jours ouvrés seulement) ; `derniers` : les jours des rappels déjà envoyés. */
+export function rappelTousLesNJours(depuis: string, jour: string, n: number, derniers: string[]): boolean {
+  if (n <= 0 || jour < depuis || !estJourOuvre(jour)) return false;
+  const dernier = derniers.filter((d) => d <= jour).sort().pop();
+  return !dernier || ecartJours(dernier, jour) >= n;
+}
+
+/** La rentrée, pour le rappel des jours toujours pas rattrapés : le 1er septembre de l'année scolaire (ou le jour ouvré suivant). */
+export const rentreeDe = (anneeScolaire: string) => `${anneeScolaire.slice(0, 4)}-09-01`;

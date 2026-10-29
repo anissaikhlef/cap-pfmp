@@ -81,6 +81,12 @@ export type Reglages = {
     attestationAvant: number;
     /** Tailles de la tenue pas encore indiquées : jours avant la date limite de la saisie (élève et famille). */
     tailles: number[];
+    /** Élève qui n'est pas en stage alors que sa période a commencé : un rappel tous les N jours (0 : jamais). */
+    sansStageIntervalle: number;
+    /** Alertes au DDFPT : visite que personne n'a prise N jours avant le début du stage, compte rendu non fait N jours après la visite, ordre de mission non signé N jours avant la visite. */
+    visiteNonPriseAvant: number;
+    compteRenduApres: number;
+    ordreMissionAvant: number;
   };
   /**
    * Agents IA (décision d'Anissa : « l'agent 1 est obligatoire, le 2 et le 3, c'est le lycée qui sélectionne ce qu'il veut ») :
@@ -93,6 +99,8 @@ export type Reglages = {
     sansStageJours: number;
     /** Cap Admin propose un mail à la famille à partir de ce nombre d'absences non justifiées pendant un stage (0 : jamais). */
     absencesMail: number;
+    /** Option SMS, choisie (et payée) par le lycée : la personne qui valide un mail peut l'envoyer aussi par SMS. Sinon, que des mails. */
+    sms: boolean;
   };
   /** L'académie du lycée (ex. « VERSAILLES »), reportée sur l'attestation récapitulative des PFMP. */
   academie: string;
@@ -121,8 +129,8 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   calendrierPublic: false,
   frais: { kilometrique: [], repas: 0, nuitees: [], consignes: "" },
   regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2, reglesMineurs: true },
-  relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1, attestationAvant: 2, tailles: [7, 2] },
-  agents: { veille: false, entreprises: false, sansStageJours: 60, absencesMail: 2 },
+  relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1, attestationAvant: 2, tailles: [7, 2], sansStageIntervalle: 2, visiteNonPriseAvant: 7, compteRenduApres: 2, ordreMissionAvant: 3 },
+  agents: { veille: false, entreprises: false, sansStageJours: 60, absencesMail: 2, sms: false },
   academie: "",
   tenues: { distributeurs: [] },
 };
@@ -777,6 +785,21 @@ export const modelesRecapitulatifs = pgTable("modeles_recapitulatifs", {
   deposeLe: timestamp("depose_le", { withTimezone: true }).notNull().defaultNow(),
   deposeParId: uuid("depose_par_id").references(() => users.id, { onDelete: "set null" }),
 });
+
+/**
+ * Rappels des jours de stage manquants arrêtés (décision d'Anissa) : par le DDFPT ou le référent, avec la raison écrite
+ * librement ; pour l'élève et sa famille (cible « famille ») ou pour la personne elle-même (cible : son identifiant).
+ * Le rappel reste arrêté jusqu'à ce qu'il soit réactivé.
+ */
+export const arretsRappels = pgTable("arrets_rappels", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  eleveId: uuid("eleve_id").notNull().references(() => eleves.id, { onDelete: "cascade" }),
+  cible: text("cible").notNull(),
+  raison: text("raison").notNull(),
+  parId: uuid("par_id").references(() => users.id, { onDelete: "set null" }),
+  le: timestamp("le", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex("arrets_rappels_idx").on(t.eleveId, t.cible)]);
 
 /* ------------------------------------------------------------------ */
 /* Tenues professionnelles et matériel (décisions d'Anissa)             */

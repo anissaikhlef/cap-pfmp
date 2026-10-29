@@ -15,6 +15,8 @@ import { campagneDe, relancerEntreprise, reponsesCampagne } from "./campagne";
 import { referentDe } from "./requetes";
 import { articlesDesFormations, prevenirPourLesTailles } from "./tenues";
 import { taillesManquantes } from "./tenues-def";
+import { destinatairesDesManques, manquesDesEleves, sansArret } from "./manques";
+import { rappelTousLesNJours, rentreeDe } from "./regles";
 import { estJourOuvre, jourDeRelance, ouvertureFinDeStage, piecesManquantes, relanceCyclique, relanceHebdomadaireDue, tachesEleve, texteJour } from "./regles";
 import { completerReglages, type Reglages, type Signataire } from "@/db/schema";
 
@@ -226,6 +228,7 @@ export async function relancesDuJour(etab: Etab, opts: { classes?: string[]; use
   n += await relancerAbsences(ctx, etabC, lignes.map((l) => l.s.id), eleves, journal, jour, base);
   if (R.eleveQuotidien) n += await rappelerEleves(ctx, etabC, conds, journal, jour, base);
   n += await relancerTailles(ctx, etabC, conds, journal, jour, base);
+  n += await rappelerManques(ctx, etabC, conds, journal, jour, base);
   if (opts.campagne ?? !opts.classes) n += await relancerCampagne(ctx, etabC, journal, appels, equipe, cycle, base);
   n += await appels.envoyer(ctx);
   return n;
@@ -252,6 +255,66 @@ async function equipeDuStage(equipe: (typeof schema.users.$inferSelect)[], e: El
 }
 
 type Journal = Awaited<ReturnType<typeof journalDesRelances>>;
+
+/**
+ * Cap Admin, jours de stage manquants (décision d'Anissa), à l'élève, à ses parents, à son référent et au DDFPT :
+ * - l'élève n'est pas en stage alors que sa période a commencé : un rappel tous les N jours ;
+ * - des jours manquent et ne sont pas rattrapés : à la fin du stage concerné, au début de chaque nouvelle période,
+ *   et à la rentrée suivante.
+ * Le DDFPT ou le référent arrête un rappel (pour la famille, pour lui-même) jusqu'à ce qu'il le réactive.
+ */
+async function rappelerManques(ctx: Expediteur, etab: EtabC, conds: SQL[], journal: Journal, jour: string, base: string) {
+  const eleves = (await db.select({ e: schema.eleves }).from(schema.eleves)
+    .innerJoin(schema.classes, eq(schema.classes.id, schema.eleves.classeId))
+    .where(and(...conds, eq(schema.eleves.archive, false)))).map((x) => x.e);
+  if (!eleves.length) return 0;
+  const bilans = await manquesDesEleves(etab.id, eleves, jour);
+  const periodes = await db.select({ p: schema.periodes, c: schema.classes }).from(schema.periodes)
+    .innerJoin(schema.classes, eq(schema.classes.id, schema.periodes.classeId)).where(and(...conds, isNull(schema.periodes.eleveId)));
+  const intervalle = etab.reglages.relances.sansStageIntervalle;
+  let n = 0;
+  for (const e of eleves) {
+    const b = bilans.get(e.id)!;
+    const envois: { cle: string; famille: (eleve: boolean) => { sujet: string; corps: string }; equipe: { sujet: string; corps: string } }[] = [];
+    const fiche = `${base}/eleves/${e.id}`;
+    const arreter = `Vous pouvez arrêter ce rappel, en indiquant la raison, sur la fiche de l'élève : ${fiche}`;
+    const p = b.sansStageEnCours;
+    if (p && rappelTousLesNJours(p.debut, jour, intervalle, journal.dates(`sansstage:${e.id}:${p.id}`))) {
+      envois.push({
+        cle: `sansstage:${e.id}:${p.id}:${jour}`,
+        famille: (eleve) => ({
+          sujet: `${eleve ? "Vous n'êtes" : `${e.prenom} n'est`} pas en stage`,
+          corps: `${eleve ? "Votre période de stage" : `La période de stage de ${e.prenom} ${e.nom}`} (« ${p.libelle} ») a commencé le ${dateLongue(p.debut)}, et ${eleve ? "vous n'avez" : "il n'y a"} pas encore de lieu de stage. Chaque jour sans stage manque pour le diplôme.\n\nContactez dès que possible le professeur référent ou le DDFPT : ils ${eleve ? "vous aideront" : "l'aideront"} à trouver une entreprise.\n\nDans Cap PFMP, rubrique ${espace(eleve, base)}`,
+        }),
+        equipe: { sujet: `${e.prenom} ${e.nom} n'est pas en stage`, corps: `${e.prenom} ${e.nom} n'est pas en stage alors que la période « ${p.libelle} » a commencé le ${dateLongue(p.debut)}. Ce rappel revient tous les ${intervalle} jours.\n\n${arreter}` },
+      });
+    }
+    const dates = [...periodes.filter(({ p: x }) => x.classeId === e.classeId && concerneLEleve(x, e)).map(({ p: x }) => x.debut), rentreeDe(etab.anneeScolaire), ...b.finsAvecManque.map((f) => ajouterJours(f, 1))];
+    if (b.total > 0 && jourDeRelance(jour, dates)) {
+      const detail = b.detail.map((x) => `- ${x.libelle} : ${x.jours} jour(s)`).join("\n") + (b.rattrapes ? `\n- déjà rattrapés : ${b.rattrapes} jour(s)` : "");
+      envois.push({
+        cle: `manques:${e.id}:${jour}`,
+        famille: (eleve) => ({
+          sujet: `Jours de stage à rattraper${eleve ? "" : ` pour ${e.prenom}`}`,
+          corps: `${eleve ? "Il vous manque" : `Il manque à ${e.prenom} ${e.nom}`} ${b.total} jour(s) de stage, pas encore rattrapés :\n${detail}\n\nCes jours comptent pour le diplôme : le professeur référent proposera une période de rattrapage. N'hésitez pas à le contacter.\n\nDans Cap PFMP, rubrique ${espace(eleve, base)}`,
+        }),
+        equipe: { sujet: `${e.prenom} ${e.nom} : ${b.total} jour(s) de stage à rattraper`, corps: `Il manque à ${e.prenom} ${e.nom} ${b.total} jour(s) de stage, pas encore rattrapés :\n${detail}\n\nPour programmer un rattrapage ou ${arreter.charAt(0).toLowerCase()}${arreter.slice(1)}` },
+      });
+    }
+    if (!envois.length) continue;
+    const dest = sansArret(await destinatairesDesManques(e), b.arrets);
+    for (const x of envois) {
+      if (journal.fait(x.cle)) continue;
+      for (const d of dest) {
+        const t = d.famille ? x.famille(!!d.eleve) : x.equipe;
+        await envoyer(ctx, { canal: "mail", destinataire: d.email, eleveId: e.id, sujet: t.sujet, corps: `Bonjour ${d.prenom},\n\n${t.corps}\n\n${etab.nom}` });
+        n++;
+      }
+      await journal.noter("eleve", x.cle, { destinataires: dest.length });
+    }
+  }
+  return n;
+}
 
 /**
  * Tenue professionnelle : tant que les tailles d'un élève ne sont pas indiquées, l'élève et sa famille sont relancés

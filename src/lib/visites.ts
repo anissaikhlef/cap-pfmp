@@ -22,7 +22,7 @@ export async function visiteursPossibles(ctx: Contexte) {
  * de la période dans l'année de la classe (première, dernière, autres) et les classes d'examen. Un rattrapage suit la
  * période qu'il rattrape.
  */
-export async function reglesDesPeriodes(ctx: Contexte, periodeIds: string[]): Promise<Map<string, QuiVisite>> {
+export async function reglesDesPeriodes(ctx: Pick<Contexte, "etab">, periodeIds: string[]): Promise<Map<string, QuiVisite>> {
   const res = new Map<string, QuiVisite>();
   if (!periodeIds.length) return res;
   const cibles = await db.select({ p: schema.periodes, c: schema.classes }).from(schema.periodes)

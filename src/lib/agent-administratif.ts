@@ -1,6 +1,6 @@
 import "server-only";
 import { concerneLEleve } from "./periodes";
-import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { completerReglages, type Reglages } from "@/db/schema";
@@ -13,6 +13,8 @@ import { adresseDuSite } from "./liens";
 import { masquer, remettre, type Masque } from "./anonymisation";
 import { envoyer } from "./messages";
 import { referentDe } from "./requetes";
+import { grilleEtQuestions } from "./modeles-documents";
+import { rentreeDe } from "./regles";
 
 /**
  * Agent 1, obligatoire : Cap Admin, l'agent administratif. Il repère les situations qui demandent un mail et le rédige ;
@@ -165,7 +167,86 @@ export async function mailsDuJour(etabBrut: Etab, opts: { classes?: string[] } =
       deja.add(cle);
     }
   }
+  // 3. Élève en difficulté (décision d'Anissa) : réponse « non » à l'appel au tuteur, compte rendu de visite défavorable,
+  // souci signalé sur l'entreprise. Le référent et le DDFPT sont prévenus d'abord ; le mail à la famille, préparé par
+  // Cap Admin, attend dans « Mails à valider » qu'ils décident de l'envoyer.
+  prepares += await difficultes(etab, conds, deja, base, MAX_PAR_PASSAGE - prepares);
   return { prepares };
+}
+
+type Situation = { cle: string; e: Eleve; classe: string; entreprise: string; quoi: string };
+
+async function difficultes(etab: Etab, conds: SQL[], deja: Set<string>, base: string, reste: number): Promise<number> {
+  if (reste <= 0) return 0;
+  const { grille } = await grilleEtQuestions(etab.id);
+  const situations: Situation[] = [];
+  const visites = await db.select({ v: schema.visites, e: schema.eleves, c: schema.classes, ent: schema.entreprises }).from(schema.visites)
+    .innerJoin(schema.stages, eq(schema.stages.id, schema.visites.stageId))
+    .innerJoin(schema.eleves, eq(schema.eleves.id, schema.stages.eleveId))
+    .innerJoin(schema.periodes, eq(schema.periodes.id, schema.stages.periodeId))
+    .innerJoin(schema.classes, eq(schema.classes.id, schema.periodes.classeId))
+    .innerJoin(schema.entreprises, eq(schema.entreprises.id, schema.stages.entrepriseId))
+    .where(and(...conds, eq(schema.eleves.archive, false)));
+  for (const { v, e, c, ent } of visites) {
+    const non = v.appel?.reponses.filter((r) => r.reponse === "non") ?? [];
+    if (non.length) situations.push({ cle: `difficulte:appel:${v.id}`, e, classe: c.libelle, entreprise: ent.nom, quoi: `lors de l'appel au tuteur du ${dateLongue(v.appel!.date)}, réponse « non » à : ${non.map((r) => `« ${r.question} »`).join(", ")}${v.appel!.commentaire ? ` (commentaire : ${v.appel!.commentaire})` : ""}` });
+    const cr = v.compteRendu;
+    if (cr) {
+      const faibles = (cr.evaluations ?? []).filter((x) => grille.find((g) => g.critere === x.critere)?.niveaux[0] === x.niveau);
+      if (faibles.length || cr.adequation === "non") {
+        situations.push({ cle: `difficulte:cr:${v.id}`, e, classe: c.libelle, entreprise: ent.nom, quoi: `compte rendu de la visite du ${dateLongue(cr.date)} : ${[
+          ...faibles.map((x) => `${x.critere} : ${x.niveau}`), ...(cr.adequation === "non" ? ["activités sans rapport avec la formation"] : []),
+        ].join(" ; ")}` });
+      }
+    }
+  }
+  const soucis = await db.select({ s: schema.soucisEntreprises, e: schema.eleves, c: schema.classes, ent: schema.entreprises }).from(schema.soucisEntreprises)
+    .innerJoin(schema.eleves, eq(schema.eleves.id, schema.soucisEntreprises.eleveId))
+    .innerJoin(schema.classes, eq(schema.classes.id, schema.eleves.classeId))
+    .innerJoin(schema.entreprises, eq(schema.entreprises.id, schema.soucisEntreprises.entrepriseId))
+    .where(and(...conds, eq(schema.soucisEntreprises.etablissementId, etab.id), gte(schema.soucisEntreprises.createdAt, new Date(`${rentreeDe(etab.anneeScolaire)}T00:00:00Z`))));
+  for (const { s: x, e, c, ent } of soucis) situations.push({ cle: `difficulte:souci:${x.id}`, e, classe: c.libelle, entreprise: ent.nom, quoi: `souci signalé sur l'entreprise : ${x.description}` });
+
+  const alertees = new Set((await db.select({ cle: schema.journal.entiteId }).from(schema.journal)
+    .where(and(eq(schema.journal.etablissementId, etab.id), eq(schema.journal.action, "cap_admin_difficulte")))).map((x) => x.cle));
+  const equipe = await db.select().from(schema.users).where(and(eq(schema.users.etablissementId, etab.id), eq(schema.users.actif, true)));
+  let prepares = 0;
+  for (const x of situations) {
+    if (alertees.has(x.cle) || prepares >= reste) continue;
+    const { dest, aLEleve, prevenir } = await famille(x.e);
+    if (dest.length && !deja.has(x.cle)) {
+      const quoi = masquer(x.quoi, masquesEleve(x.e));
+      const r = await demanderIA(etab, {
+        agent: "administratif", objet: "Mail : élève en difficulté en stage", consignes: CONSIGNES,
+        demande: `Rédige un mail ${aLEleve ? "à [ÉLÈVE] (en le tutoyant, en commençant par « Bonjour [ÉLÈVE], »)" : "à la famille de [ÉLÈVE]"}, en ${x.classe}, en stage chez ${x.entreprise}. Le lycée a relevé une difficulté (${quoi}). Sans dramatiser ni accuser, propose un rendez-vous avec le professeur référent de la classe pour faire le point et trouver des solutions. Signe : ${etab.nom}.`,
+        schema: SCHEMA_MAIL, verifier: verifierMail,
+        exemple: () => ({
+          sujet: `Stage de [ÉLÈVE] : faisons le point`,
+          corps: `${aLEleve ? "Bonjour [ÉLÈVE]," : "Madame, Monsieur,"}\n\n${aLEleve ? "Pendant ton stage" : "Pendant son stage"} chez ${x.entreprise}, le lycée a relevé une difficulté que nous souhaitons regarder ${aLEleve ? "avec toi" : "avec vous"}.\n\nLe professeur référent de la classe propose un rendez-vous pour faire le point et trouver ensemble des solutions. ${aLEleve ? "Réponds" : "Répondez"} simplement à ce message pour convenir d'un moment.\n\nBien cordialement,\n\n${etab.nom}`,
+        }),
+      });
+      if (!r.ok) return prepares;
+      prepares += await enregistrer(etab, {
+        eleveId: x.e.id, cle: x.cle, priorite: 1, destinataires: dest, prevenir, simule: r.simule,
+        motif: `À envoyer seulement si vous le décidez. ${x.e.prenom} ${x.e.nom} (${x.classe}), chez ${x.entreprise} : ${x.quoi}.`,
+        sujet: remettreEleve(r.valeur.sujet, x.e), corps: remettreEleve(r.valeur.corps, x.e),
+      });
+      deja.add(x.cle);
+    }
+    // Le référent et le DDFPT d'abord (à défaut de DDFPT, la direction).
+    const ref = await referentDe(x.e);
+    const ddfpt = equipe.filter((u) => u.roles.includes("gestionnaire"));
+    const pour = [...equipe.filter((u) => u.id === ref), ...(ddfpt.length ? ddfpt : equipe.filter((u) => u.roles.includes("direction")))];
+    for (const u of pour.filter((u, i) => pour.findIndex((y) => y.id === u.id) === i)) {
+      await envoyer({ etab }, {
+        canal: "mail", destinataire: u.email, eleveId: x.e.id, sujet: `Cap Admin : ${x.e.prenom} ${x.e.nom} en difficulté en stage`,
+        corps: `Bonjour ${u.prenom},\n\nCap Admin signale une difficulté pour ${x.e.prenom} ${x.e.nom} (${x.classe}), en stage chez ${x.entreprise} : ${x.quoi}.\n\n${dest.length ? `Un mail à la famille est préparé dans « Mails à valider » : envoyez-le seulement si vous le décidez. ${base}/mails-a-valider` : "Aucun responsable n'a de compte : contactez la famille directement si besoin."}\nFiche de l'élève : ${base}/eleves/${x.e.id}\n\n${etab.nom}`,
+      });
+    }
+    await db.insert(schema.journal).values({ etablissementId: etab.id, action: "cap_admin_difficulte", entite: "eleve", entiteId: x.cle, details: { eleveId: x.e.id, prevenus: pour.length } });
+    alertees.add(x.cle);
+  }
+  return prepares;
 }
 
 /** Un mail demandé par une personne de l'équipe, pour la famille d'un élève ou son tuteur de stage. */
@@ -234,10 +315,20 @@ export async function mailsAValiderPour(ctx: Contexte) {
 }
 
 /** Envoie un mail validé (texte éventuellement modifié), avec la mention de l'agent et de la personne qui l'a relu. */
-export async function envoyerMailValide(ctx: Contexte, m: MailAValider, texte: { sujet: string; corps: string }) {
+export async function envoyerMailValide(ctx: Contexte, m: MailAValider, texte: { sujet: string; corps: string }, sms = false): Promise<{ sms: number }> {
   const mention = `\n\n—\nMessage préparé avec Cap Admin, l'agent administratif de Cap PFMP, et relu par ${ctx.user.prenom} ${ctx.user.nom}.`;
   for (const d of m.destinataires) {
     await envoyer(ctx, { canal: "mail", destinataire: d.email, sujet: texte.sujet, corps: texte.corps + mention, eleveId: m.eleveId, entrepriseId: m.entrepriseId });
+  }
+  // Option SMS du lycée (décision d'Anissa) : un SMS court, en plus du mail, à chaque destinataire qui a un numéro.
+  let n = 0;
+  if (sms && ctx.etab.reglages.agents.sms && m.destinataires.length) {
+    const comptes = await db.select({ email: schema.users.email, telephone: schema.users.telephone }).from(schema.users)
+      .where(and(eq(schema.users.etablissementId, ctx.etab.id), inArray(schema.users.email, m.destinataires.map((d) => d.email))));
+    for (const c of comptes.filter((x) => x.telephone)) {
+      await envoyer(ctx, { canal: "sms", destinataire: c.telephone!, corps: `${ctx.etab.nom} : ${texte.sujet}. Le détail vous a été envoyé par mail.`.slice(0, 300), eleveId: m.eleveId });
+      n++;
+    }
   }
   // Aucun responsable n'a de compte : le professeur référent et le DDFPT sont prévenus (sauf la personne qui envoie).
   const eleve = m.destinataires.map((d) => d.nom).join(", ");
@@ -249,4 +340,5 @@ export async function envoyerMailValide(ctx: Contexte, m: MailAValider, texte: {
   }
   await db.update(schema.mailsAValider).set({ statut: "envoye", sujet: texte.sujet, corps: texte.corps, traiteParId: ctx.user.id, traiteLe: new Date() })
     .where(and(eq(schema.mailsAValider.id, m.id), eq(schema.mailsAValider.etablissementId, ctx.etab.id)));
+  return { sms: n };
 }

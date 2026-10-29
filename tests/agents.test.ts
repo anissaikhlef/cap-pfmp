@@ -117,3 +117,29 @@ describe("Cap Veille : lecture des sources officielles chaque semaine", () => {
     expect(t).not.toMatch(/Menu|x\(\)/);
   });
 });
+
+describe("Cap Admin : jours de stage manquants (décision d'Anissa)", async () => {
+  const { joursManquants, joursOuvres, rappelTousLesNJours, rentreeDe } = await import("@/lib/regles");
+  it("les jours ouvrés d'une période", () => {
+    expect(joursOuvres("2026-10-19", "2026-10-25")).toBe(5);
+    expect(joursOuvres("2026-10-19", "2026-11-13")).toBe(20);
+  });
+  it("les jours manquants : absences, période sans stage, moins les rattrapages", () => {
+    const m = joursManquants([
+      { libelle: "PFMP 1", prevus: 15, effectues: 10, rattrapage: false },
+      { libelle: "PFMP 2", prevus: 20, effectues: 20, rattrapage: false },
+      { libelle: "Rattrapage", prevus: 5, effectues: 3, rattrapage: true },
+    ], [{ libelle: "PFMP 3", debut: "2026-10-19", fin: "2026-10-23" }]);
+    expect(m.detail).toEqual([{ libelle: "PFMP 1", jours: 5 }, { libelle: "PFMP 3 (sans lieu de stage)", jours: 5 }]);
+    expect(m.total).toBe(7);
+    expect(joursManquants([{ libelle: "R", prevus: 5, effectues: 5, rattrapage: true }], []).total).toBe(0);
+  });
+  it("un rappel tous les deux jours ouvrés", () => {
+    expect(rappelTousLesNJours("2026-10-19", "2026-10-19", 2, [])).toBe(true);
+    expect(rappelTousLesNJours("2026-10-19", "2026-10-20", 2, ["2026-10-19"])).toBe(false);
+    expect(rappelTousLesNJours("2026-10-19", "2026-10-21", 2, ["2026-10-19"])).toBe(true);
+    expect(rappelTousLesNJours("2026-10-19", "2026-10-24", 2, [])).toBe(false);
+    expect(rappelTousLesNJours("2026-10-19", "2026-10-19", 0, [])).toBe(false);
+    expect(rentreeDe("2026-2027")).toBe("2026-09-01");
+  });
+});

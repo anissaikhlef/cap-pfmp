@@ -176,6 +176,13 @@
       "when": 1793234605360,
       "tag": "0024_tenues",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1793307155918,
+      "tag": "0025_cap_admin_rappels",
+      "breakpoints": true
     }
   ]
 }

@@ -26,10 +26,10 @@ export async function validerMail(fd: FormData) {
   const t = Texte.safeParse({ sujet: fd.get("sujet") ?? m.sujet, corps: fd.get("corps") ?? m.corps });
   if (!t.success) revenirAvec(fd, t.error.issues[0].message, "err");
   const modifie = t.data.sujet !== m.sujet || t.data.corps !== m.corps;
-  await envoyerMailValide(ctx, m, t.data);
-  await journaliser(ctx, "mail_agent_envoye", "mail_a_valider", m.id, { modifie });
+  const { sms } = await envoyerMailValide(ctx, m, t.data, fd.get("sms") === "oui");
+  await journaliser(ctx, "mail_agent_envoye", "mail_a_valider", m.id, { modifie, sms });
   revalidatePath("/", "layout");
-  revenirAvec(fd, `Mail envoyé à ${m.destinataires.map((d) => d.nom).join(", ")}${modifie ? ", avec vos modifications" : ""}.`);
+  revenirAvec(fd, `Mail envoyé à ${m.destinataires.map((d) => d.nom).join(", ")}${modifie ? ", avec vos modifications" : ""}${sms ? `, et ${sms} SMS` : ""}.`);
 }
 
 /** « Ne pas envoyer » : le mail est écarté ; l'agent ne le proposera plus. */

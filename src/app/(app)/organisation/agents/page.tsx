@@ -50,6 +50,18 @@ export default async function Agents() {
             <label className="f" htmlFor="sansStageJours">Mail à la famille d&apos;un élève toujours sans stage, à partir de (jours avant la période, 60 pour 2 mois, 0 pour jamais ; si aucun responsable n&apos;a de compte, le mail part à l&apos;élève et son référent et le DDFPT sont prévenus)<input id="sansStageJours" name="sansStageJours" type="number" min={0} max={120} defaultValue={r.agents.sansStageJours} /></label>
             <label className="f" htmlFor="absencesMail">Mail à la famille à partir de (absences non justifiées pendant un stage, 0 pour jamais)<input id="absencesMail" name="absencesMail" type="number" min={0} max={10} defaultValue={r.agents.absencesMail} /></label>
           </div>
+          <h3>Jours de stage manquants</h3>
+          <p className="sub" style={{ margin: 0 }}>L&apos;élève, ses parents, le référent et le DDFPT sont prévenus : à la fin d&apos;un stage avec des jours manquants, au début de chaque nouvelle période et à la rentrée, tant qu&apos;ils ne sont pas rattrapés. Le DDFPT ou le référent peut arrêter un rappel sur la fiche de l&apos;élève.</p>
+          <label className="f" htmlFor="sansStageIntervalle">Élève pas en stage alors que sa période a commencé : un rappel tous les (jours, 0 pour jamais)<input id="sansStageIntervalle" name="sansStageIntervalle" type="number" min={0} max={14} defaultValue={r.relances.sansStageIntervalle} /></label>
+          <h3>Alertes au DDFPT</h3>
+          <p className="sub" style={{ margin: 0 }}>Le DDFPT reçoit une alerte ; les rappels aux professeurs sont prêts dans le « Point de la semaine », qu&apos;il envoie en un clic.</p>
+          <div className="grid2">
+            <label className="f" htmlFor="visiteNonPriseAvant">Visite que personne n&apos;a prise, à partir de (jours avant le début du stage)<input id="visiteNonPriseAvant" name="visiteNonPriseAvant" type="number" min={0} max={30} defaultValue={r.relances.visiteNonPriseAvant} /></label>
+            <label className="f" htmlFor="compteRenduApres">Compte rendu non fait, à partir de (jours après la visite)<input id="compteRenduApres" name="compteRenduApres" type="number" min={0} max={30} defaultValue={r.relances.compteRenduApres} /></label>
+            <label className="f" htmlFor="ordreMissionAvant">Ordre de mission non signé, à partir de (jours avant la visite)<input id="ordreMissionAvant" name="ordreMissionAvant" type="number" min={0} max={30} defaultValue={r.relances.ordreMissionAvant} /></label>
+          </div>
+          <h3>Option SMS</h3>
+          <label className="check"><input type="checkbox" name="sms" defaultChecked={r.agents.sms} /> Le lycée prend l&apos;option SMS (payante) : la personne qui valide un mail peut l&apos;envoyer aussi par SMS. Sans l&apos;option, Cap Admin n&apos;envoie que des mails.</label>
         </div>
         <div className="panel pad section">
           <h2>Données des élèves</h2>

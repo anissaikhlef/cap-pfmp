@@ -551,3 +551,35 @@ Anissa : « des cases que les élèves doivent remplir : taille haut, bas et poi
 6. **Qui distribue** : toute personne que le DDFPT désigne (par exemple l'agent comptable ou le magasinier), en plus de la gestion des PFMP et de la direction.
 7. **Article manquant** le jour de la distribution : l'élève signe pour ce qu'il a reçu ; le reste lui est remis plus tard, avec une nouvelle signature.
 8. **Donnés, pas prêtés** : « à ma connaissance », la tenue et le matériel sont donnés à l'élève, qui les garde (pas de restitution).
+
+## 29 octobre 2026 : audit des trois agents IA et ce qui manquait
+
+À la demande d'Anissa (« pour les trois IA, fais un audit de ce qu'ils font pour me proposer ce que j'ai oublié »), seize propositions ; Anissa les garde toutes, avec ces précisions.
+
+### Cap Admin
+
+1. **Jours ou semaines de stage manquants**, dans toutes les classes (« n'attends pas l'année d'examen ») : l'élève, ses parents, le DDFPT et le professeur référent sont prévenus.
+   - Élève qui n'est pas en stage alors que sa période a commencé : un rappel tous les deux jours.
+   - Le DDFPT ou le référent peut arrêter ce rappel, en écrivant librement la raison : l'élève et sa famille ne le reçoivent plus ; il peut aussi l'arrêter pour lui-même. Le rappel reste arrêté jusqu'à ce que le DDFPT ou le référent le réactive.
+   - Jours non rattrapés : un rappel au début de chaque nouvelle période de PFMP de l'année, et au début de l'année scolaire suivante s'ils ne sont toujours pas rattrapés.
+2. **Élève en difficulté** (réponse « non » à l'appel au tuteur, compte rendu de visite défavorable, souci signalé sur l'entreprise) : le référent et le DDFPT sont prévenus d'abord ; ils décident ensuite s'il faut écrire à la famille.
+3. **Visites non prises, comptes rendus non faits, ordres de mission non signés** : le DDFPT reçoit une alerte, et un outil préparé lui permet de faire les rappels aux professeurs.
+4. **Point de la semaine** : un mail le lundi au DDFPT, avec le lien vers une page « Point de la semaine ».
+5. **SMS** : seulement si le lycée choisit l'option SMS (sinon, que des mails) ; la personne qui valide coche « envoyer aussi par SMS », mail par mail.
+6. **Langue de la famille** : indiquée par le DDFPT ou le référent sur la fiche de l'élève, ou choisie par les parents ; tous les messages à la famille et l'espace « Mon enfant » sont traduits, avec le français dessous ; une liste des langues les plus courantes, et le lycée peut en ajouter.
+
+### Cap Veille
+
+7. **Site de l'académie** : les pages sont indiquées par l'administration de Cap PFMP pour chaque académie (alertes relues avant publication) et par chaque lycée pour lui-même (alertes directes).
+8. **Calendrier des échéances officielles** : Cap Veille propose les dates trouvées dans les textes, le DDFPT en ajoute et corrige si erreur ; les rappels vont au DDFPT, à la direction et aux professeurs référents concernés, aux jours que chaque lycée règle.
+9. **Comparaison** d'un nouveau texte avec tous les documents du lycée dans Cap PFMP (convention, attestation, livret, ordre de mission, compte rendu de visite, fichier de l'académie).
+10. **Appliquer en un clic** un changement proposé : le DDFPT propose, la direction valide.
+
+### Cap Partenaires
+
+11. **Propositions pour toute une classe** : lancées par le DDFPT ou le référent ; le référent les relit avant que les élèves les voient.
+12. **Lettre de motivation** : relue, et l'élève est guidé par des questions, sans que l'agent écrive à sa place.
+13. **Préparation de l'appel et de l'entretien** : une fiche, et un entraînement par écrit ou à l'oral, au choix de l'élève. L'oral passe par un service de reconnaissance vocale hébergé en Europe, que le lycée paie s'il le veut ; sinon, seulement l'écrit.
+14. **CV déposé, même en photo ou scanné** (« la meilleure solution pour respecter le RGPD ») : Cap PFMP lit le texte sur son propre serveur, retire le nom et les coordonnées, et l'IA ne reçoit que ce texte.
+15. **Nouvelles entreprises pour le lycée**, autour des communes où habitent les élèves (la commune seulement, jamais l'adresse) ; le mail de prise de contact est validé par le DDFPT.
+16. **Démarches sans réponse** : un rappel à l'élève, puis au référent si l'entreprise n'a toujours pas répondu, aux jours que chaque lycée règle.

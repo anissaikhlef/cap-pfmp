@@ -16,6 +16,8 @@ const PRIORITES: Record<number, [string, "bad" | "warn" | "muted"]> = { 1: ["Urg
 
 export default async function MailsAValider() {
   const ctx = await contexte({ roles: ["direction", "gestionnaire", "professeur"] });
+  // Option SMS du lycée (décision d'Anissa) : sinon, que des mails.
+  const sms = ctx.etab.reglages.agents.sms;
   const mails = await mailsAValiderPour(ctx);
   const gestion = gereToutLEtablissement(ctx);
   const peutPreparer = gestion || (await classesGerees(ctx)).length > 0;
@@ -51,13 +53,14 @@ export default async function MailsAValider() {
                   <p className="sub" style={{ margin: 0 }}>Préparé par {agent.nom} le {dateCourte(m.createdAt.toISOString().slice(0, 10))}{m.simule ? " · texte d'exemple (agent en démonstration)" : ""}.</p>
                 </div>
                 <div className="actions">
-                  <form action={validerMail}><ChampRetour /><input type="hidden" name="id" value={m.id} /><button className="btn small primary">Envoyer</button></form>
+                  <form action={validerMail} className="actions"><ChampRetour /><input type="hidden" name="id" value={m.id} />{sms && <label className="check"><input type="checkbox" name="sms" value="oui" /> aussi par SMS</label>}<button className="btn small primary">Envoyer</button></form>
                   <details>
                     <summary className="btn small">Modifier</summary>
                     <form action={validerMail} className="stack" style={{ minWidth: "min(560px, 80vw)" }}>
                       <ChampRetour /><input type="hidden" name="id" value={m.id} />
                       <label className="f" htmlFor={`sujet-${m.id}`}>Sujet<input id={`sujet-${m.id}`} name="sujet" defaultValue={m.sujet} maxLength={200} /></label>
                       <label className="f" htmlFor={`corps-${m.id}`}>Texte<textarea id={`corps-${m.id}`} name="corps" defaultValue={m.corps} rows={12} maxLength={5000} /></label>
+                      {sms && <label className="check"><input type="checkbox" name="sms" value="oui" /> aussi par SMS</label>}
                       <button className="btn small primary">Enregistrer et envoyer</button>
                     </form>
                   </details>

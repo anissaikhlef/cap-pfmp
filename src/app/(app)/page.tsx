@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { contexte } from "@/lib/auth";
-import { a, estGestionnaire, idsElevesReferent, peutAdministrer, peutSignerOrdreMission } from "@/lib/acces";
+import { a, estGestionnaire, gereToutLEtablissement, idsElevesReferent, peutAdministrer, peutSignerOrdreMission } from "@/lib/acces";
 import { elevesSuivis, classesAvecPeriodes, texteperiode, periodeDeReference } from "@/lib/requetes";
 import { STATUTS, problemes, type Statut } from "@/lib/regles";
 import { aujourdhui, dateLongue } from "@/lib/dates";
@@ -100,7 +100,10 @@ export default async function Accueil() {
       <div className="panel pad section">
         <div className="actions" style={{ justifyContent: "space-between" }}>
           <h2>À faire</h2>
-          <form action={envoyerRelancesDuJour}><ChampRetour /><button className="btn small">Envoyer les relances du jour</button></form>
+          <div className="actions">
+            {gereToutLEtablissement(ctx) && <Link className="btn small" href="/point-de-la-semaine">Point de la semaine</Link>}
+            <form action={envoyerRelancesDuJour}><ChampRetour /><button className="btn small">Envoyer les relances du jour</button></form>
+          </div>
         </div>
         {aFaire.length === 0 ? <p className="sub" style={{ margin: 0 }}>Rien en attente.</p> : (
           <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 4 }}>

@@ -75,7 +75,10 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
       eleveQuotidien: v.eleveQuotidien === "oui", eleveRechercheJours: v.eleveRechercheJours,
       entrepriseIntervalle: v.entrepriseIntervalle, entrepriseMax: v.entrepriseMax,
       accueilAvant: v.accueilAvant, remerciementApres: v.remerciementApres, attestationAvant: v.attestationAvant,
-      tailles: ctx.etab.reglages.relances.tailles,
+      // Réglés ailleurs (tenues, Cap Admin) : gardés tels quels.
+      tailles: ctx.etab.reglages.relances.tailles, sansStageIntervalle: ctx.etab.reglages.relances.sansStageIntervalle,
+      visiteNonPriseAvant: ctx.etab.reglages.relances.visiteNonPriseAvant, compteRenduApres: ctx.etab.reglages.relances.compteRenduApres,
+      ordreMissionAvant: ctx.etab.reglages.relances.ordreMissionAvant,
     },
   };
   await db.update(schema.etablissements).set({ nom: v.nom, anneeScolaire: v.anneeScolaire, reglages }).where(eq(schema.etablissements.id, ctx.etab.id));
@@ -204,11 +207,17 @@ export async function enregistrerAgents(_: Etat, fd: FormData): Promise<Etat> {
   const p = z.object({
     sansStageJours: z.coerce.number().int().min(0, "Élèves sans stage : entre 0 et 120 jours").max(120, "Élèves sans stage : entre 0 et 120 jours"),
     absencesMail: z.coerce.number().int().min(0, "Absences : entre 0 et 10").max(10, "Absences : entre 0 et 10"),
+    sansStageIntervalle: z.coerce.number().int().min(0, "Élève pas en stage : entre 0 et 14 jours").max(14, "Élève pas en stage : entre 0 et 14 jours"),
+    visiteNonPriseAvant: z.coerce.number().int().min(0, "Visite non prise : entre 0 et 30 jours").max(30, "Visite non prise : entre 0 et 30 jours"),
+    compteRenduApres: z.coerce.number().int().min(0, "Compte rendu : entre 0 et 30 jours").max(30, "Compte rendu : entre 0 et 30 jours"),
+    ordreMissionAvant: z.coerce.number().int().min(0, "Ordre de mission : entre 0 et 30 jours").max(30, "Ordre de mission : entre 0 et 30 jours"),
   }).safeParse(Object.fromEntries(fd));
   if (!p.success) return { erreur: p.error.issues[0]?.message ?? "Valeurs invalides." };
-  const agents = { veille: fd.get("veille") === "on", entreprises: fd.get("entreprises") === "on", ...p.data };
+  const { sansStageIntervalle, visiteNonPriseAvant, compteRenduApres, ordreMissionAvant, sansStageJours, absencesMail } = p.data;
+  const agents = { veille: fd.get("veille") === "on", entreprises: fd.get("entreprises") === "on", sms: fd.get("sms") === "on", sansStageJours, absencesMail };
   const avant = ctx.etab.reglages.agents;
-  await db.update(schema.etablissements).set({ reglages: { ...ctx.etab.reglages, agents } }).where(eq(schema.etablissements.id, ctx.etab.id));
+  const relances = { ...ctx.etab.reglages.relances, sansStageIntervalle, visiteNonPriseAvant, compteRenduApres, ordreMissionAvant };
+  await db.update(schema.etablissements).set({ reglages: { ...ctx.etab.reglages, agents, relances } }).where(eq(schema.etablissements.id, ctx.etab.id));
   await journaliser(ctx, "agents_choisis", "etablissement", ctx.etab.id, { avant, apres: agents });
   revalidatePath("/", "layout");
   const change = avant.veille !== agents.veille || avant.entreprises !== agents.entreprises;

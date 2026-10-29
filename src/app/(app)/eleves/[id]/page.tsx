@@ -6,6 +6,7 @@ import { a, estReferentDe, gereLesAcces, peutGererEleve, peutVoirEleve } from "@
 import { ResumeStage, statutDossier } from "@/components/ResumeStage";
 import { BlocPresenceEleve } from "@/components/absences";
 import { BlocRattrapages } from "@/components/rattrapages";
+import { BlocManques } from "@/components/manques";
 import { NotesEleve } from "@/components/notes";
 import { BlocCandidature } from "@/components/candidature";
 import { BlocAllocation } from "@/components/allocation";
@@ -43,6 +44,7 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
         {dl.stage && <BlocConvention ctx={ctx} stageId={dl.stage.id} />}
         {dl.stage && <BlocFinDeStage ctx={ctx} stageId={dl.stage.id} />}
         <BlocPresenceEleve ctx={ctx} eleve={e} />
+        <BlocManques ctx={ctx} eleve={e} />
         <BlocRattrapages eleveId={e.id} periodes={dl.periodes} peutGerer={await estReferentDe(ctx, e)} />
         <BlocCandidature ctx={ctx} eleve={e} />
         <BlocCapPartenaires ctx={ctx} eleve={e} chercheUnStage={!!dl.periode && !dl.stage} pourEleve={false} />
@@ -124,6 +126,7 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
       {d.stage && <BlocConvention ctx={ctx} stageId={d.stage.id} />}
       {d.stage && <BlocFinDeStage ctx={ctx} stageId={d.stage.id} />}
       <BlocPresenceEleve ctx={ctx} eleve={e} />
+      <BlocManques ctx={ctx} eleve={e} />
       <BlocRattrapages eleveId={e.id} periodes={d.periodes} peutGerer />
       <NotesEleve ctx={ctx} eleve={e} />
       <BlocCandidature ctx={ctx} eleve={e} />
