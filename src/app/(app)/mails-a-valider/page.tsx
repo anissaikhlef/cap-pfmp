@@ -45,7 +45,7 @@ export default async function MailsAValider() {
                 <div className="main" style={{ width: "100%" }}>
                   <div className="name"><Pill ton={ton}>{prio}</Pill> {m.sujet}</div>
                   <div className="meta">
-                    {e ? <Link href={`/eleves/${e.id}`}>{e.prenom} {e.nom}</Link> : null}{c ? ` · ${c.libelle}` : ""} · à {m.destinataires.map((d) => `${d.nom} (${d.email})`).join(", ")}
+                    {e ? <Link href={`/eleves/${e.id}`}>{e.prenom} {e.nom}</Link> : null}{c ? ` · ${c.libelle}` : ""} · à {m.destinataires.length ? m.destinataires.map((d) => `${d.nom} (${d.email})`).join(", ") : "adresse à indiquer"}
                   </div>
                   <div className="meta">Pourquoi : {m.motif}</div>
                   {m.prevenir.length > 0 && <div className="meta">À l&apos;envoi, seront aussi prévenus : {m.prevenir.map((d) => d.nom).join(", ")}</div>}
@@ -53,11 +53,12 @@ export default async function MailsAValider() {
                   <p className="sub" style={{ margin: 0 }}>Préparé par {agent.nom} le {dateCourte(m.createdAt.toISOString().slice(0, 10))}{m.simule ? " · texte d'exemple (agent en démonstration)" : ""}.</p>
                 </div>
                 <div className="actions">
-                  <form action={validerMail} className="actions"><ChampRetour /><input type="hidden" name="id" value={m.id} />{sms && <label className="check"><input type="checkbox" name="sms" value="oui" /> aussi par SMS</label>}<button className="btn small primary">Envoyer</button></form>
+                  <form action={validerMail} className="actions"><ChampRetour /><input type="hidden" name="id" value={m.id} />{!m.destinataires.length && <label className="f">Adresse mail de l&apos;entreprise<input name="a" type="email" required /></label>}{sms && <label className="check"><input type="checkbox" name="sms" value="oui" /> aussi par SMS</label>}<button className="btn small primary">Envoyer</button></form>
                   <details>
                     <summary className="btn small">Modifier</summary>
                     <form action={validerMail} className="stack" style={{ minWidth: "min(560px, 80vw)" }}>
                       <ChampRetour /><input type="hidden" name="id" value={m.id} />
+                      {!m.destinataires.length && <label className="f" htmlFor={`a-${m.id}`}>Adresse mail de l&apos;entreprise<input id={`a-${m.id}`} name="a" type="email" required /></label>}
                       <label className="f" htmlFor={`sujet-${m.id}`}>Sujet<input id={`sujet-${m.id}`} name="sujet" defaultValue={m.sujet} maxLength={200} /></label>
                       <label className="f" htmlFor={`corps-${m.id}`}>Texte<textarea id={`corps-${m.id}`} name="corps" defaultValue={m.corps} rows={12} maxLength={5000} /></label>
                       {sms && <label className="check"><input type="checkbox" name="sms" value="oui" /> aussi par SMS</label>}

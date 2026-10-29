@@ -7,7 +7,7 @@ import { ResumeStage, statutDossier } from "@/components/ResumeStage";
 import { BlocPresenceEleve } from "@/components/absences";
 import { BlocRattrapages } from "@/components/rattrapages";
 import { BlocManques } from "@/components/manques";
-import { ChoixLangue } from "@/components/langue";
+import { ChoixCommune, ChoixLangue } from "@/components/langue";
 import { NotesEleve } from "@/components/notes";
 import { BlocCandidature } from "@/components/candidature";
 import { BlocAllocation } from "@/components/allocation";
@@ -46,7 +46,7 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
         {dl.stage && <BlocFinDeStage ctx={ctx} stageId={dl.stage.id} />}
         <BlocPresenceEleve ctx={ctx} eleve={e} />
         <BlocManques ctx={ctx} eleve={e} />
-        {(await estReferentDe(ctx, e)) && <div className="panel pad section"><ChoixLangue eleve={e} ajoutees={ctx.etab.reglages.langues} /></div>}
+        {(await estReferentDe(ctx, e)) && <div className="panel pad section"><ChoixLangue eleve={e} ajoutees={ctx.etab.reglages.langues} /><ChoixCommune eleve={e} /></div>}
         <BlocRattrapages eleveId={e.id} periodes={dl.periodes} peutGerer={await estReferentDe(ctx, e)} />
         <BlocCandidature ctx={ctx} eleve={e} />
         <BlocCapPartenaires ctx={ctx} eleve={e} chercheUnStage={!!dl.periode && !dl.stage} pourEleve={false} />
@@ -129,7 +129,7 @@ export default async function FicheEleve({ params, searchParams }: { params: Pro
       {d.stage && <BlocFinDeStage ctx={ctx} stageId={d.stage.id} />}
       <BlocPresenceEleve ctx={ctx} eleve={e} />
       <BlocManques ctx={ctx} eleve={e} />
-      {(gereLesAcces(ctx) || (await estReferentDe(ctx, e))) && <div className="panel pad section" id="langue"><ChoixLangue eleve={e} ajoutees={ctx.etab.reglages.langues} /></div>}
+      {(gereLesAcces(ctx) || (await estReferentDe(ctx, e))) && <div className="panel pad section" id="langue"><ChoixLangue eleve={e} ajoutees={ctx.etab.reglages.langues} /><ChoixCommune eleve={e} /></div>}
       <BlocRattrapages eleveId={e.id} periodes={d.periodes} peutGerer />
       <NotesEleve ctx={ctx} eleve={e} />
       <BlocCandidature ctx={ctx} eleve={e} />

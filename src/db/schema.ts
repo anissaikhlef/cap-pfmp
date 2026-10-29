@@ -89,6 +89,9 @@ export type Reglages = {
     ordreMissionAvant: number;
     /** Échéances officielles du calendrier (Cap Veille) : rappels ces nombres de jours avant la date. */
     echeances: number[];
+    /** Entreprise contactée sans réponse : rappel à l'élève N jours après, puis au référent N jours plus tard (0 : jamais). */
+    demarcheEleve: number;
+    demarcheReferent: number;
   };
   /**
    * Agents IA (décision d'Anissa : « l'agent 1 est obligatoire, le 2 et le 3, c'est le lycée qui sélectionne ce qu'il veut ») :
@@ -103,6 +106,8 @@ export type Reglages = {
     absencesMail: number;
     /** Option SMS, choisie (et payée) par le lycée : la personne qui valide un mail peut l'envoyer aussi par SMS. Sinon, que des mails. */
     sms: boolean;
+    /** Option payante de Cap Partenaires : l'entraînement à l'entretien à l'oral (reconnaissance vocale hébergée en Europe). Sinon, par écrit. */
+    oral: boolean;
   };
   /** L'académie du lycée (ex. « VERSAILLES »), reportée sur l'attestation récapitulative des PFMP. */
   academie: string;
@@ -135,8 +140,8 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   calendrierPublic: false,
   frais: { kilometrique: [], repas: 0, nuitees: [], consignes: "" },
   regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2, reglesMineurs: true },
-  relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1, attestationAvant: 2, tailles: [7, 2], sansStageIntervalle: 2, visiteNonPriseAvant: 7, compteRenduApres: 2, ordreMissionAvant: 3, echeances: [15, 3] },
-  agents: { veille: false, entreprises: false, sansStageJours: 60, absencesMail: 2, sms: false },
+  relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1, attestationAvant: 2, tailles: [7, 2], sansStageIntervalle: 2, visiteNonPriseAvant: 7, compteRenduApres: 2, ordreMissionAvant: 3, echeances: [15, 3], demarcheEleve: 7, demarcheReferent: 7 },
+  agents: { veille: false, entreprises: false, sansStageJours: 60, absencesMail: 2, sms: false, oral: false },
   academie: "",
   tenues: { distributeurs: [] },
   langues: [],
@@ -400,6 +405,8 @@ export const eleves = pgTable("eleves", {
   /** Visa du chef d'établissement sur l'attestation récapitulative (seule la direction vise). */
   visaRecapLe: timestamp("visa_recap_le", { withTimezone: true }),
   visaRecapParId: uuid("visa_recap_par_id").references((): AnyPgColumn => users.id, { onDelete: "set null" }),
+  /** Commune où habite l'élève (jamais son adresse) : Cap Partenaires cherche des entreprises proches de chez lui. */
+  commune: text("commune"),
   /** Langue de la famille (code de src/lib/langues.ts) : messages aux parents et espace « Mon enfant » traduits ; vide : le français. */
   langueFamille: text("langue_famille"),
   /** Tailles pour la tenue professionnelle (haut, bas, pointure…), indiquées par l'élève, sa famille ou l'équipe. */
@@ -1055,12 +1062,25 @@ export const suitesVeille = pgTable("suites_veille", {
 /** Propositions de Cap Partenaires pour un élève : lieux de stage, ou relecture de son CV (la dernière de chaque sorte compte). */
 export type PropositionEntreprise = { nom: string; ville: string | null; domaine: string | null; raison: string; entrepriseId: string | null; source: "annuaire" | "public" | "bonne_boite" };
 export type RelectureCv = { pointsForts: string[]; aAmeliorer: string[]; conseil: string };
+/** Lettre de motivation : l'élève est guidé par des questions, sans que l'agent écrive à sa place (décision d'Anissa). */
+export type GuideLettre = { plan: string[]; conseils: string[]; questions: string[] };
+/** Préparer l'appel et l'entretien : ce qu'il faut dire au téléphone, et les questions possibles avec des pistes. */
+export type FicheEntretien = { entreprise: string; telephone: string[]; questions: { question: string; piste: string }[] };
+export type EchangeEntretien = { role: "tuteur" | "eleve"; texte: string };
+export type TypeSuggestion = "entreprises" | "cv" | "lettre" | "lettre_guide" | "entretien_fiche" | "entretien";
 export const suggestionsIa = pgTable("suggestions_ia", {
   id: uuid("id").primaryKey().defaultRandom(),
   etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
   eleveId: uuid("eleve_id").notNull().references(() => eleves.id, { onDelete: "cascade" }),
-  type: text("type").$type<"entreprises" | "cv">().notNull(),
-  contenu: jsonb("contenu").$type<{ entreprises?: PropositionEntreprise[]; conseil?: string; cv?: RelectureCv }>().notNull(),
+  type: text("type").$type<TypeSuggestion>().notNull(),
+  contenu: jsonb("contenu").$type<{
+    entreprises?: PropositionEntreprise[]; conseil?: string; cv?: RelectureCv; guide?: GuideLettre; fiche?: FicheEntretien;
+    echanges?: EchangeEntretien[]; bilan?: string; oral?: boolean;
+  }>().notNull(),
+  /** Propositions lancées pour toute une classe : le référent les relit avant que l'élève les voie (décision d'Anissa). */
+  aRelire: boolean("a_relire").notNull().default(false),
+  relueLe: timestamp("relue_le", { withTimezone: true }),
+  relueParId: uuid("relue_par_id").references(() => users.id, { onDelete: "set null" }),
   simule: boolean("simule").notNull().default(false),
   parId: uuid("par_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

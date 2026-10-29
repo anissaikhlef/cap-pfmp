@@ -229,6 +229,7 @@ export async function relancesDuJour(etab: Etab, opts: { classes?: string[]; use
   if (R.eleveQuotidien) n += await rappelerEleves(ctx, etabC, conds, journal, jour, base);
   n += await relancerTailles(ctx, etabC, conds, journal, jour, base);
   n += await rappelerManques(ctx, etabC, conds, journal, jour, base);
+  n += await relancerDemarches(ctx, etabC, conds, journal, jour, base);
   if (opts.campagne ?? !opts.classes) n += await relancerCampagne(ctx, etabC, journal, appels, equipe, cycle, base);
   if (opts.campagne ?? !opts.classes) n += await rappelerEcheances(ctx, etabC, journal, jour, base);
   n += await appels.envoyer(ctx);
@@ -256,6 +257,53 @@ async function equipeDuStage(equipe: (typeof schema.users.$inferSelect)[], e: El
 }
 
 type Journal = Awaited<ReturnType<typeof journalDesRelances>>;
+
+/**
+ * Cap Partenaires, démarches sans réponse (décision d'Anissa) : N jours après le contact, un rappel à l'élève pour relancer
+ * l'entreprise (avec ce qu'il peut dire) ; si elle n'a toujours pas répondu N jours plus tard, son référent est prévenu.
+ * Plus de rappel une fois que l'élève a un stage.
+ */
+async function relancerDemarches(ctx: Expediteur, etab: EtabC, conds: SQL[], journal: Journal, jour: string, base: string) {
+  const { demarcheEleve: j1, demarcheReferent: j2 } = etab.reglages.relances;
+  if (j1 <= 0 && j2 <= 0) return 0;
+  const rows = await db.select({ d: schema.demarches, e: schema.eleves }).from(schema.demarches)
+    .innerJoin(schema.eleves, eq(schema.eleves.id, schema.demarches.eleveId))
+    .innerJoin(schema.classes, eq(schema.classes.id, schema.eleves.classeId))
+    .where(and(...conds, eq(schema.demarches.reponse, "attente"), eq(schema.eleves.archive, false)));
+  if (!rows.length) return 0;
+  const ids = [...new Set(rows.map((r) => r.e.id))];
+  const avecStage = new Set((await db.select({ id: schema.stages.eleveId }).from(schema.stages)
+    .innerJoin(schema.periodes, eq(schema.periodes.id, schema.stages.periodeId))
+    .where(and(inArray(schema.stages.eleveId, ids), gte(schema.periodes.fin, jour)))).map((x) => x.id));
+  let n = 0;
+  for (const { d, e } of rows) {
+    if (avecStage.has(e.id)) continue;
+    if (j1 > 0 && jour >= ajouterJours(d.date, j1) && !journal.fait(`demarche:${d.id}:eleve`) && e.userId) {
+      const [u] = await db.select().from(schema.users).where(and(eq(schema.users.id, e.userId), eq(schema.users.actif, true))).limit(1);
+      if (u) {
+        await envoyer(ctx, {
+          canal: "mail", destinataire: u.email, eleveId: e.id, sujet: `Relance ${d.entrepriseNom}`,
+          corps: `Bonjour ${u.prenom},\n\nTu as contacté ${d.entrepriseNom} le ${dateLongue(d.date)}, et tu n'as pas encore de réponse. C'est le moment de la relancer, par téléphone ou en passant la voir.\n\nTu peux dire : « Bonjour, je suis ${e.prenom} ${e.nom}, élève au ${etab.nom}. Je vous ai contactés le ${dateLongue(d.date)} pour un stage. Je voulais savoir si vous aviez pu étudier ma demande. »\n\nNote sa réponse dans « Mon stage » : ${base}/mon-stage\n\n${etab.nom}`,
+        });
+        await journal.noter("demarche", `demarche:${d.id}:eleve`);
+        n++;
+      }
+    }
+    if (j2 > 0 && jour >= ajouterJours(d.date, Math.max(j1, 0) + j2) && !journal.fait(`demarche:${d.id}:referent`)) {
+      const refId = await referentDe(e);
+      const [ref] = refId ? await db.select().from(schema.users).where(and(eq(schema.users.id, refId), eq(schema.users.actif, true))).limit(1) : [];
+      if (ref) {
+        await envoyer(ctx, {
+          canal: "mail", destinataire: ref.email, eleveId: e.id, sujet: `${e.prenom} ${e.nom} : ${d.entrepriseNom} n'a pas répondu`,
+          corps: `Bonjour ${ref.prenom},\n\n${e.prenom} ${e.nom} a contacté ${d.entrepriseNom} le ${dateLongue(d.date)} et n'a toujours pas de réponse${j1 > 0 ? ", malgré le rappel de le relancer" : ""}. Un coup de pouce de votre part peut l'aider.\n\nFiche de l'élève : ${base}/eleves/${e.id}\n\n${etab.nom}`,
+        });
+        await journal.noter("demarche", `demarche:${d.id}:referent`);
+        n++;
+      }
+    }
+  }
+  return n;
+}
 
 /**
  * Cap Veille, calendrier des échéances officielles (décision d'Anissa) : un rappel aux jours réglés avant chaque échéance

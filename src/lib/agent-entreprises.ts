@@ -44,7 +44,7 @@ const SCHEMA_LIEUX = {
 const Lieux = z.object({ raisons: z.array(z.object({ numero: z.number().int(), raison: z.string().trim().min(3).max(400) })), conseil: z.string().trim().min(3).max(800) });
 
 /** Propose des lieux de stage à un élève et enregistre la proposition (la dernière s'affiche). */
-export async function proposerLieux(ctx: Contexte, e: Eleve): Promise<{ ok: true; n: number } | { ok: false; erreur: string }> {
+export async function proposerLieux(ctx: Contexte, e: Eleve, o: { aRelire?: boolean } = {}): Promise<{ ok: true; n: number } | { ok: false; erreur: string }> {
   const d = await dossierStage(ctx, e);
   if (!d.periode || !d.classe) return { ok: false, erreur: "Aucune période de stage à venir pour cet élève." };
   if (d.stage) return { ok: false, erreur: "Cet élève a déjà un lieu de stage pour sa période." };
@@ -76,7 +76,7 @@ export async function proposerLieux(ctx: Contexte, e: Eleve): Promise<{ ok: true
     nom: c.nom, ville: c.ville, domaine: c.domaine, entrepriseId: c.id, source: c.source,
     raison: r.valeur.raisons.find((x) => x.numero === i + 1)?.raison ?? `${c.raisons.join(". ")}.`,
   }));
-  await db.insert(schema.suggestionsIa).values({ etablissementId: ctx.etab.id, eleveId: e.id, type: "entreprises", contenu: { entreprises, conseil: r.valeur.conseil }, simule: r.simule, parId: ctx.user.id });
+  await db.insert(schema.suggestionsIa).values({ etablissementId: ctx.etab.id, eleveId: e.id, type: "entreprises", contenu: { entreprises, conseil: r.valeur.conseil }, simule: r.simule, parId: ctx.user.id, aRelire: !!o.aRelire });
   return { ok: true, n: entreprises.length };
 }
 
@@ -111,5 +111,10 @@ export async function dernieresSuggestions(etabId: string, eleveId: string) {
   const rows = await db.select().from(schema.suggestionsIa)
     .where(and(eq(schema.suggestionsIa.etablissementId, etabId), eq(schema.suggestionsIa.eleveId, eleveId)))
     .orderBy(desc(schema.suggestionsIa.createdAt)).limit(20);
-  return { lieux: rows.find((x) => x.type === "entreprises") ?? null, cv: rows.find((x) => x.type === "cv") ?? null };
+  const t = (type: string) => rows.find((x) => x.type === type) ?? null;
+  return {
+    lieux: t("entreprises"), cv: t("cv"), lettre: t("lettre"), guide: t("lettre_guide"), fiche: t("entretien_fiche"), entretien: t("entretien"),
+    // Pour l'élève : seulement des propositions relues par le référent quand elles ont été lancées pour la classe.
+    lieuxRelus: rows.find((x) => x.type === "entreprises" && (!x.aRelire || x.relueLe)) ?? null,
+  };
 }

@@ -8,7 +8,7 @@ import { BlocConvention, BlocFinDeStage, DossierEleve } from "@/components/conve
 import { BlocPresenceEleve } from "@/components/absences";
 import { BlocAllocation } from "@/components/allocation";
 import { BlocTenue } from "@/components/tenue";
-import { ChoixLangue } from "@/components/langue";
+import { ChoixCommune, ChoixLangue } from "@/components/langue";
 import { TraductionPage } from "@/components/TraductionPage";
 import { droiteAGauche, libelleLangue } from "@/lib/langues";
 import { iaBranchee } from "@/lib/ia";
@@ -34,6 +34,7 @@ export default async function MonEnfant() {
         <div key={e.id} className="section" id={`eleve-${e.id}`}>
           <h2>{e.prenom} {e.nom}</h2>
           <ChoixLangue eleve={e} ajoutees={ctx.etab.reglages.langues} pourParent />
+          <ChoixCommune eleve={e} />
           {libelleLangue(e.langueFamille, ctx.etab.reglages.langues) && <TraductionPage eleveId={e.id} langue={libelleLangue(e.langueFamille, ctx.etab.reglages.langues)!} droiteAGauche={droiteAGauche(e.langueFamille)} demonstration={!iaBranchee()} />}
           <ResumeStage d={d} statut={statut} />
           {d.stage && <BlocConvention ctx={ctx} stageId={d.stage.id} />}

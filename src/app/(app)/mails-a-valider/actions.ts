@@ -26,6 +26,13 @@ export async function validerMail(fd: FormData) {
   const t = Texte.safeParse({ sujet: fd.get("sujet") ?? m.sujet, corps: fd.get("corps") ?? m.corps });
   if (!t.success) revenirAvec(fd, t.error.issues[0].message, "err");
   const modifie = t.data.sujet !== m.sujet || t.data.corps !== m.corps;
+  // Mail à une nouvelle entreprise (Cap Partenaires) : la personne qui valide indique son adresse.
+  if (!m.destinataires.length) {
+    const email = z.string().trim().email().safeParse(fd.get("a")).data;
+    if (!email) revenirAvec(fd, "Indiquez l'adresse mail de l'entreprise.", "err");
+    m.destinataires = [{ email, nom: m.motif.match(/« (.+?) »/)?.[1] ?? email }];
+    await db.update(schema.mailsAValider).set({ destinataires: m.destinataires }).where(eq(schema.mailsAValider.id, m.id));
+  }
   const { sms } = await envoyerMailValide(ctx, m, t.data, fd.get("sms") === "oui");
   await journaliser(ctx, "mail_agent_envoye", "mail_a_valider", m.id, { modifie, sms });
   revalidatePath("/", "layout");

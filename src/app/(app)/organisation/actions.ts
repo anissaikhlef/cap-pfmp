@@ -213,12 +213,14 @@ export async function enregistrerAgents(_: Etat, fd: FormData): Promise<Etat> {
     visiteNonPriseAvant: z.coerce.number().int().min(0, "Visite non prise : entre 0 et 30 jours").max(30, "Visite non prise : entre 0 et 30 jours"),
     compteRenduApres: z.coerce.number().int().min(0, "Compte rendu : entre 0 et 30 jours").max(30, "Compte rendu : entre 0 et 30 jours"),
     ordreMissionAvant: z.coerce.number().int().min(0, "Ordre de mission : entre 0 et 30 jours").max(30, "Ordre de mission : entre 0 et 30 jours"),
+    demarcheEleve: z.coerce.number().int().min(0, "Démarches : entre 0 et 30 jours").max(30, "Démarches : entre 0 et 30 jours"),
+    demarcheReferent: z.coerce.number().int().min(0, "Démarches : entre 0 et 30 jours").max(30, "Démarches : entre 0 et 30 jours"),
   }).safeParse(Object.fromEntries(fd));
   if (!p.success) return { erreur: p.error.issues[0]?.message ?? "Valeurs invalides." };
-  const { sansStageIntervalle, visiteNonPriseAvant, compteRenduApres, ordreMissionAvant, sansStageJours, absencesMail } = p.data;
-  const agents = { veille: fd.get("veille") === "on", entreprises: fd.get("entreprises") === "on", sms: fd.get("sms") === "on", sansStageJours, absencesMail };
+  const { sansStageIntervalle, visiteNonPriseAvant, compteRenduApres, ordreMissionAvant, demarcheEleve, demarcheReferent, sansStageJours, absencesMail } = p.data;
+  const agents = { veille: fd.get("veille") === "on", entreprises: fd.get("entreprises") === "on", sms: fd.get("sms") === "on", oral: fd.get("oral") === "on", sansStageJours, absencesMail };
   const avant = ctx.etab.reglages.agents;
-  const relances = { ...ctx.etab.reglages.relances, sansStageIntervalle, visiteNonPriseAvant, compteRenduApres, ordreMissionAvant };
+  const relances = { ...ctx.etab.reglages.relances, sansStageIntervalle, visiteNonPriseAvant, compteRenduApres, ordreMissionAvant, demarcheEleve, demarcheReferent };
   // Langues ajoutées par le lycée (une par ligne), en plus de la liste de Cap PFMP.
   const langues = [...new Set(String(fd.get("langues") ?? "").split(/\n/).map((l) => l.trim().slice(0, 40)).filter((l) => l.length >= 2))].slice(0, 20);
   await db.update(schema.etablissements).set({ reglages: { ...ctx.etab.reglages, agents, relances, langues } }).where(eq(schema.etablissements.id, ctx.etab.id));

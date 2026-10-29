@@ -64,6 +64,13 @@ export default async function Agents() {
           <h3>Langues des familles</h3>
           <p className="sub" style={{ margin: 0 }}>Pour une famille qui ne lit pas le français, les messages aux parents et l&apos;espace « Mon enfant » sont traduits, avec le français dessous. La langue s&apos;indique sur la fiche de l&apos;élève, ou les parents la choisissent. Langues proposées : {languesDuLycee([]).map((l) => l.libelle).join(", ")}.</p>
           <label className="f" htmlFor="langues">Autres langues de vos familles (une par ligne)<textarea id="langues" name="langues" rows={3} defaultValue={r.langues.join("\n")} placeholder={"Ex. Soninké\nTigrigna"} /></label>
+          <h3>Démarches sans réponse (Cap Partenaires)</h3>
+          <div className="grid2">
+            <label className="f" htmlFor="demarcheEleve">Rappel à l&apos;élève pour relancer l&apos;entreprise (jours après le contact, 0 pour jamais)<input id="demarcheEleve" name="demarcheEleve" type="number" min={0} max={30} defaultValue={r.relances.demarcheEleve} /></label>
+            <label className="f" htmlFor="demarcheReferent">Puis le référent est prévenu (jours après le rappel, 0 pour jamais)<input id="demarcheReferent" name="demarcheReferent" type="number" min={0} max={30} defaultValue={r.relances.demarcheReferent} /></label>
+          </div>
+          <h3>Option oral (Cap Partenaires)</h3>
+          <label className="check"><input type="checkbox" name="oral" defaultChecked={r.agents.oral} /> Le lycée prend l&apos;option payante de l&apos;entraînement à l&apos;entretien à l&apos;oral (reconnaissance vocale hébergée en Europe). Sans l&apos;option, l&apos;entraînement se fait par écrit.</label>
           <h3>Option SMS</h3>
           <label className="check"><input type="checkbox" name="sms" defaultChecked={r.agents.sms} /> Le lycée prend l&apos;option SMS (payante) : la personne qui valide un mail peut l&apos;envoyer aussi par SMS. Sans l&apos;option, Cap Admin n&apos;envoie que des mails.</label>
         </div>

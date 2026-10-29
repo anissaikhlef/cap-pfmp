@@ -40,6 +40,8 @@ export async function liensPour(ctx: Contexte): Promise<Lien[]> {
   if (gestion || a(ctx, "direction", "gestionnaire", "professeur")) l.push({ href: "/listes", libelle: "Listes" });
   // Tenues et matériel : la gestion des PFMP, les personnes désignées pour la distribution, les référents des classes concernées.
   if (peutDistribuer(ctx) || (a(ctx, "professeur") && (await classesDesTenues(ctx)).length)) l.push({ href: "/tenues", libelle: "Tenues" });
+  // Cap Partenaires pour l'équipe : propositions pour une classe, à relire ; nouvelles entreprises (DDFPT).
+  if (aLAgent(ctx.etab.reglages, "entreprises") && a(ctx, "direction", "gestionnaire", "professeur")) l.push({ href: "/partenaires", libelle: "Cap Partenaires" });
   if (peutAdministrer(ctx) && aLAgent(ctx.etab.reglages, "veille")) l.push({ href: "/veille", libelle: "Veille" });
   if (a(ctx, "admin")) l.push({ href: "/admin", libelle: "Administration" });
   if (a(ctx, "vie_scolaire")) l.push({ href: "/vie-scolaire", libelle: "Vie scolaire" });
