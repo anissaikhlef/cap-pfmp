@@ -5,6 +5,8 @@
 import { execFileSync } from "node:child_process";
 import { BASE, ok, session, fin, visible } from "./outils.mjs";
 
+// Les alertes de veille sont communes à tous les lycées (elles restent d'un essai à l'autre) : titres propres à cet essai.
+const essai = Date.now().toString(36);
 const sql = (q) => execFileSync("psql", [process.env.DATABASE_URL, "-Atc", q]).toString().trim();
 
 /* ------------------- L'administration : pages des académies, alerte d'une académie ------------------- */
@@ -27,23 +29,25 @@ const nouvelle = async (titre, academie) => {
   await admin.click("button:has-text(\"Préparer l'alerte\")");
   await visible(admin.getByText("Cap Veille a préparé l'alerte"));
 };
-await nouvelle("Circulaire PFMP de l'académie de Versailles", "Versailles");
-const brouillon = admin.locator(".panel.agent-ia", { hasText: "Pour l'académie de VERSAILLES seulement" });
+await nouvelle(`Circulaire PFMP de l'académie de Versailles ${essai}`, "Versailles");
+// Un brouillon : son titre est dans la case « Titre ».
+const brouillonDe = (titre) => admin.locator(".panel.agent-ia").filter({ has: admin.locator(`input[name=titre][value="${titre}"]`) });
+const brouillon = brouillonDe(`Circulaire PFMP de l'académie de Versailles ${essai}`);
 ok(await brouillon.count() === 1, "une alerte pour une seule académie");
 await brouillon.locator("textarea[name=echeances]").fill("2027-04-15 | Envoi des attestations récapitulatives à l'académie | examen");
 await brouillon.locator("button:has-text('Enregistrer les corrections')").click();
 await visible(admin.getByText("Alerte corrigée"));
-await admin.locator(".panel.agent-ia", { hasText: "Pour l'académie de VERSAILLES seulement" }).locator("button:has-text(\"Publier l'alerte\")").click();
+await brouillonDe(`Circulaire PFMP de l'académie de Versailles ${essai}`).locator("button:has-text(\"Publier l'alerte\")").click();
 ok(await visible(admin.getByText("Alerte publiée")), "l'administration publie l'alerte, avec son échéance");
-await nouvelle("Circulaire PFMP de l'académie de Paris", "Paris");
-await admin.locator(".panel.agent-ia", { hasText: "Pour l'académie de PARIS seulement" }).locator("button:has-text(\"Publier l'alerte\")").click();
+await nouvelle(`Circulaire PFMP de l'académie de Paris ${essai}`, "Paris");
+await brouillonDe(`Circulaire PFMP de l'académie de Paris ${essai}`).locator("button:has-text(\"Publier l'alerte\")").click();
 await visible(admin.getByText("Alerte publiée"));
 
 /* ------------------- Le lycée : alertes de son académie, calendrier des échéances ------------------- */
 const ddfpt = await session("ddfpt");
 await ddfpt.goto(BASE + "/veille");
 let t = await ddfpt.textContent("main");
-ok(t.includes("Circulaire PFMP de l'académie de Versailles") && t.includes("académie de VERSAILLES") && !t.includes("Circulaire PFMP de l'académie de Paris"), "le lycée ne reçoit que les alertes de son académie");
+ok(t.includes(`Circulaire PFMP de l'académie de Versailles ${essai}`) && t.includes("académie de VERSAILLES") && !t.includes(`Circulaire PFMP de l'académie de Paris ${essai}`), "le lycée ne reçoit que les alertes de son académie");
 const proposee = ddfpt.locator("#echeances .row", { hasText: "Envoi des attestations récapitulatives" });
 ok((await proposee.textContent()).includes("Proposée par Cap Veille") && (await proposee.textContent()).includes("15 avril 2027"), "l'échéance du texte est proposée au calendrier du lycée");
 await proposee.locator("input[name=date]").fill("2027-04-14");
@@ -73,22 +77,23 @@ await ddfpt.click("#echeances form:has(#v-pages) button:has-text('Enregistrer')"
 ok(await visible(ddfpt.getByText("Réglages de la veille enregistrés")), "le lycée choisit les pages de son académie à lire chaque semaine");
 
 /* ------------------- Comparer avec les documents du lycée ------------------- */
-const alerte = ddfpt.locator(".panel.agent-ia", { hasText: "Circulaire PFMP de l'académie de Versailles" });
+const alerte = ddfpt.locator(".panel.agent-ia", { hasText: `Circulaire PFMP de l'académie de Versailles ${essai}` });
 await alerte.locator("button:has-text('Comparer avec nos documents')").click();
 ok(await visible(ddfpt.getByText(/Cap Veille a trouvé \d+ écart\(s\) avec vos documents/)), "Cap Veille compare le texte avec les documents du lycée");
-ok((await ddfpt.locator(".panel.agent-ia", { hasText: "Circulaire PFMP de l'académie de Versailles" }).textContent()).includes("Comparaison avec vos documents"), "et montre les écarts");
+ok((await ddfpt.locator(".panel.agent-ia", { hasText: `Circulaire PFMP de l'académie de Versailles ${essai}` }).textContent()).includes("Comparaison avec vos documents"), "et montre les écarts");
 
 /* ------------------- Appliquer en un clic : le DDFPT propose, la direction valide ------------------- */
-sql(`insert into alertes_veille (titre, source, resume, propositions, changements, publiee_le) values ('Durée maximale des PFMP', 'https://www.legifrance.gouv.fr/exemple', 'Exemple de test : la durée hebdomadaire maximale passe à 32 heures pour les élèves en PFMP.', '[]', '[{"libelle": "Durée hebdomadaire maximale portée à 32 heures", "cible": "regles.heuresMax", "valeur": "32"}]', now())`);
+sql(`insert into alertes_veille (titre, source, resume, propositions, changements, publiee_le) values ('Durée maximale des PFMP ${essai}', 'https://www.legifrance.gouv.fr/exemple', 'Exemple de test : la durée hebdomadaire maximale passe à 32 heures pour les élèves en PFMP.', '[]', '[{"libelle": "Durée hebdomadaire maximale portée à 32 heures", "cible": "regles.heuresMax", "valeur": "32"}]', now())`);
 await ddfpt.goto(BASE + "/veille");
-let changement = ddfpt.locator(".row", { hasText: "Durée hebdomadaire maximale portée à 32 heures" });
+const ligneChangement = (p) => p.locator(".panel.agent-ia", { hasText: `Durée maximale des PFMP ${essai}` }).locator(".row", { hasText: "Durée hebdomadaire maximale portée à 32 heures" });
+let changement = ligneChangement(ddfpt);
 ok((await changement.textContent()).includes("aujourd'hui 35, proposé 32"), "le changement montre la valeur actuelle et la valeur proposée");
 await changement.locator("button:has-text(\"Proposer d'appliquer\")").click();
 ok(await visible(ddfpt.getByText("Changement proposé : la direction le valide")), "le DDFPT propose de l'appliquer");
-ok((await ddfpt.locator(".row", { hasText: "Durée hebdomadaire maximale portée à 32 heures" }).textContent()).includes("en attente de la direction"), "le DDFPT ne peut pas valider lui-même");
+ok((await ligneChangement(ddfpt).textContent()).includes("en attente de la direction"), "le DDFPT ne peut pas valider lui-même");
 const dir = await session("direction");
 await dir.goto(BASE + "/veille");
-changement = dir.locator(".row", { hasText: "Durée hebdomadaire maximale portée à 32 heures" });
+changement = ligneChangement(dir);
 await changement.locator("button:has-text('Valider et appliquer')").click();
 ok(await visible(dir.getByText("Changement appliqué : Durée hebdomadaire maximale du stage (heures) = 32")), "la direction valide : le réglage change aussitôt");
 await dir.goto(BASE + "/organisation");

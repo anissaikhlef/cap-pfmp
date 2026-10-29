@@ -44,7 +44,7 @@ await martin.screenshot({ path: `${OUT}/e2-fiche.png`, fullPage: true });
 await martin.click("summary:has-text('Modifier le lieu ou les horaires')");
 await martin.fill("input[name=fin_0]", "23:00");
 await martin.click("button:has-text('Enregistrer le stage')");
-await visible(martin.getByText("Stage"));
+await martin.waitForURL(/msg=/);
 await martin.goto(fiche);
 ok((await martin.textContent("main")).includes("Non respecté : Aucun horaire de nuit"), "détecte un horaire de nuit");
 await martin.goto(BASE + "/eleves?statut=hors_regles");
