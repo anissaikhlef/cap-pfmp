@@ -34,6 +34,7 @@ export default async function Organisation() {
           <Link className="btn" href="/organisation/agents">Agents IA</Link>
           <Link className="btn" href="/organisation/formations">Pôles et formations</Link>
           <Link className="btn" href="/organisation/recapitulatif">Attestation récapitulative</Link>
+          <Link className="btn" href="/organisation/tenues">Tenues et matériel</Link>
         </div>
       </Entete>
       <Formulaire action={enregistrerOrganisation} bouton="Enregistrer l'organisation">

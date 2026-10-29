@@ -7,6 +7,7 @@ import { ResumeStage, statutDossier } from "@/components/ResumeStage";
 import { BlocConvention, BlocFinDeStage, DossierEleve } from "@/components/convention";
 import { BlocPresenceEleve } from "@/components/absences";
 import { BlocAllocation } from "@/components/allocation";
+import { BlocTenue } from "@/components/tenue";
 
 export const metadata = { title: "Mon enfant" };
 
@@ -32,6 +33,7 @@ export default async function MonEnfant() {
           {d.stage && <BlocConvention ctx={ctx} stageId={d.stage.id} />}
           {d.stage && <BlocFinDeStage ctx={ctx} stageId={d.stage.id} />}
           <BlocPresenceEleve ctx={ctx} eleve={e} />
+          <BlocTenue ctx={ctx} eleve={e} />
           <BlocAllocation ctx={ctx} eleve={e} />
           <h3>Documents</h3>
           <DossierEleve ctx={ctx} eleveId={e.id} />

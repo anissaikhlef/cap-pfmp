@@ -79,6 +79,8 @@ export type Reglages = {
      * alors son lien, pour les remplir avec l'élève encore présent (0 : à partir du dernier jour, sans ce mail).
      */
     attestationAvant: number;
+    /** Tailles de la tenue pas encore indiquées : jours avant la date limite de la saisie (élève et famille). */
+    tailles: number[];
   };
   /**
    * Agents IA (décision d'Anissa : « l'agent 1 est obligatoire, le 2 et le 3, c'est le lycée qui sélectionne ce qu'il veut ») :
@@ -94,6 +96,8 @@ export type Reglages = {
   };
   /** L'académie du lycée (ex. « VERSAILLES »), reportée sur l'attestation récapitulative des PFMP. */
   academie: string;
+  /** Tenues et matériel : les membres de l'équipe que le DDFPT désigne pour la distribution (en plus de la gestion des PFMP et de la direction). */
+  tenues: { distributeurs: string[] };
 };
 
 /** Les agents IA de Cap PFMP. */
@@ -117,9 +121,10 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   calendrierPublic: false,
   frais: { kilometrique: [], repas: 0, nuitees: [], consignes: "" },
   regles: { heuresMin: 25, heuresMax: 35, nuitDebut: "22:00", nuitFin: "06:00", dimancheInterdit: true, joursReposConsecutifs: 2, reglesMineurs: true },
-  relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1, attestationAvant: 2 },
+  relances: { convention: [7, 3], absences: [2, 7], piecesMax: 3, eleveQuotidien: true, eleveRechercheJours: 30, entrepriseIntervalle: 3, entrepriseMax: 5, accueilAvant: 3, remerciementApres: 1, attestationAvant: 2, tailles: [7, 2] },
   agents: { veille: false, entreprises: false, sansStageJours: 60, absencesMail: 2 },
   academie: "",
+  tenues: { distributeurs: [] },
 };
 
 /** Réglages enregistrés complétés par les valeurs par défaut : un lycée créé avant l'ajout d'un réglage le reçoit ainsi. */
@@ -146,6 +151,7 @@ export function completerReglages(r: Partial<Reglages> | null | undefined): Regl
     regles: { ...REGLAGES_PAR_DEFAUT.regles, ...(r?.regles ?? {}) },
     relances: { ...REGLAGES_PAR_DEFAUT.relances, ...(r?.relances ?? {}) },
     agents: { ...REGLAGES_PAR_DEFAUT.agents, ...(r?.agents ?? {}) },
+    tenues: { ...REGLAGES_PAR_DEFAUT.tenues, ...(r?.tenues ?? {}) },
   };
 }
 
@@ -378,6 +384,10 @@ export const eleves = pgTable("eleves", {
   /** Visa du chef d'établissement sur l'attestation récapitulative (seule la direction vise). */
   visaRecapLe: timestamp("visa_recap_le", { withTimezone: true }),
   visaRecapParId: uuid("visa_recap_par_id").references((): AnyPgColumn => users.id, { onDelete: "set null" }),
+  /** Tailles pour la tenue professionnelle (haut, bas, pointure…), indiquées par l'élève, sa famille ou l'équipe. */
+  tailles: jsonb("tailles").$type<Tailles>().notNull().default({}),
+  taillesLe: timestamp("tailles_le", { withTimezone: true }),
+  taillesParId: uuid("tailles_par_id").references((): AnyPgColumn => users.id, { onDelete: "set null" }),
   archive: boolean("archive").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [index("eleves_etab_idx").on(t.etablissementId), index("eleves_classe_idx").on(t.classeId)]);
@@ -494,6 +504,8 @@ export type TypeDocument =
   | "cv" | "lettre"
   /** Pièces de l'allocation, gardées pour toute la scolarité. */
   | "rib" | "piece_identite"
+  /** Fiche de remise de la tenue et du matériel, signée par l'élève. */
+  | "remise_tenue"
   | "autre";
 
 export const documents = pgTable("documents", {
@@ -765,6 +777,57 @@ export const modelesRecapitulatifs = pgTable("modeles_recapitulatifs", {
   deposeLe: timestamp("depose_le", { withTimezone: true }).notNull().defaultNow(),
   deposeParId: uuid("depose_par_id").references(() => users.id, { onDelete: "set null" }),
 });
+
+/* ------------------------------------------------------------------ */
+/* Tenues professionnelles et matériel (décisions d'Anissa)             */
+/* ------------------------------------------------------------------ */
+
+/** Ce que l'élève indique pour sa tenue : la taille du haut, du bas, sa pointure, ses gants, sa ceinture. */
+export type Mesure = "haut" | "bas" | "pointure" | "gants" | "ceinture";
+export type Tailles = Partial<Record<Mesure, string>>;
+export type CategorieArticle = "tenue" | "protection" | "materiel";
+
+/** Les articles remis aux élèves d'une formation, choisis par le DDFPT dans la liste préremplie ou ajoutés. */
+export const articlesFormation = pgTable("articles_formation", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  formationId: uuid("formation_id").notNull().references(() => formations.id, { onDelete: "cascade" }),
+  /** L'article de la liste préremplie (vide : ajouté par le lycée). */
+  code: text("code"),
+  libelle: text("libelle").notNull(),
+  categorie: text("categorie").$type<CategorieArticle>().notNull(),
+  /** La taille à demander à l'élève (vide : taille unique ou sans taille). */
+  mesure: text("mesure").$type<Mesure>(),
+  /** Nombre remis à chaque élève (ex. 2 polos). */
+  quantite: integer("quantite").notNull().default(1),
+}, (t) => [index("articles_formation_idx").on(t.formationId)]);
+
+/** Saisie des tailles d'une classe, ouverte par le DDFPT avec une date limite (relances avant cette date). */
+export const campagnesTenues = pgTable("campagnes_tenues", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  classeId: uuid("classe_id").notNull().references(() => classes.id, { onDelete: "cascade" }),
+  dateLimite: date("date_limite").notNull(),
+  ouverteLe: timestamp("ouverte_le", { withTimezone: true }).notNull().defaultNow(),
+  ouverteParId: uuid("ouverte_par_id").references(() => users.id, { onDelete: "set null" }),
+}, (t) => [uniqueIndex("campagnes_tenues_classe_idx").on(t.classeId)]);
+
+/** Un article remis, tel qu'il était le jour de la remise. */
+export type ArticleRemis = { articleId: string; libelle: string; taille: string | null; quantite: number };
+
+/** Une remise signée par l'élève, le jour même, sur l'appareil de la personne qui distribue ; un article manquant est remis plus tard. */
+export const remisesTenues = pgTable("remises_tenues", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  etablissementId: uuid("etablissement_id").notNull().references(() => etablissements.id, { onDelete: "cascade" }),
+  eleveId: uuid("eleve_id").notNull().references(() => eleves.id, { onDelete: "cascade" }),
+  campagneId: uuid("campagne_id").notNull().references(() => campagnesTenues.id, { onDelete: "cascade" }),
+  articles: jsonb("articles").$type<ArticleRemis[]>().notNull(),
+  /** Image de la signature de l'élève. */
+  signatureCle: text("signature_cle").notNull(),
+  remiseLe: timestamp("remise_le", { withTimezone: true }).notNull().defaultNow(),
+  remiseParId: uuid("remise_par_id").references(() => users.id, { onDelete: "set null" }),
+  documentId: uuid("document_id").references(() => documents.id, { onDelete: "set null" }),
+}, (t) => [index("remises_tenues_eleve_idx").on(t.eleveId)]);
 
 /* ------------------------------------------------------------------ */
 /* Campagne de rentrée et messages sortants                             */

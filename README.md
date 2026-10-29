@@ -32,6 +32,7 @@ Projet porté par Anissa Ikhlef. Le cahier des charges décrit l'ensemble du pro
 | Pôles et visites | Plusieurs pôles de formation par lycée, leurs formations (voie scolaire) et spécialités ; dates de PFMP propres à une spécialité dans une même classe, visibles dans le calendrier ; qui visite quoi selon le lycée (première période, dernière, autres, classes d'examen) ; le professeur prend sa visite (premier arrivé, premier servi), indique sur place, à distance ou à décider, et voit aussitôt les coordonnées de l'entreprise ; Cap Veille avec Légifrance et le bulletin du jeudi | Fait |
 | Listes | Neuf listes exportables en fichier Excel (.xlsx) et en PDF, par année et par classe (RIB, lieux de stage, élèves sans stage, conventions, attestations et livrets, absences, visites, entreprises, bilan) ; le DDFPT et la direction exportent tout, le professeur les listes de ses classes sauf les RIB | Fait |
 | Attestation récapitulative | Pour les classes d'examen : le fichier Excel de l'académie, déposé par chaque lycée (cases reconnues d'après leurs intitulés, corrigeables), rempli avec les PFMP effectuées et attestées de tout le cycle de chaque élève ; même attestation au format Cap PFMP en Excel et en PDF ; numéro de candidat, durée du cycle, dérogation ; visa par la direction seule | Fait |
+| Tenues et matériel | Liste préremplie (tenues, protections, matériel), articles cochés par formation ; saisie des tailles par classe avec date limite et relances (élève, famille, ou l'équipe pour un élève sans compte) ; fichier de commande (total par taille, détail par élève) ; remise signée au doigt le jour même par l'élève, sur l'appareil d'une personne désignée par le DDFPT ; remise partielle ; fiche PDF dans les documents de l'élève ; liste des remises | Fait |
 | Rendez-vous | Prise de rendez-vous en ligne pour la visite de stage : le professeur propose ses créneaux et la forme de la visite (sur place, à distance, ou au choix de l'entreprise) ; l'entreprise choisit avec un lien personnel, sans compte, ou donne ses disponibilités ; confirmation par mail, avec le lien de visio pour une visite à distance | Fait |
 
 Les décisions de conception d'Anissa Ikhlef sont consignées, avec leur date, dans [JOURNAL_DE_CONCEPTION.md](JOURNAL_DE_CONCEPTION.md).
@@ -104,6 +105,7 @@ node e2e/agents.mjs
 node e2e/poles.mjs
 node e2e/listes.mjs
 node e2e/recapitulatif.mjs
+node e2e/tenues.mjs
 node e2e/mobile.mjs   # chaque parcours suppose des données de démo fraîches (npm run db:seed)
 ```
 
@@ -149,6 +151,7 @@ Les parcours sont écrits pour le 26 octobre 2026 : lancez l'application avec `C
 - `src/lib/legifrance.ts` : Légifrance pour Cap Veille ; `src/lib/specialites.ts` : nom de la spécialité dans le libellé des périodes
 - `src/lib/listes-def.ts` (pur, testé) et `src/lib/listes.ts` : les listes exportables et qui peut les exporter ; `src/lib/tableau-pdf.ts` : une liste en PDF ; `src/lib/xlsx.ts` (pur, testé) : une liste en fichier Excel .xlsx, sans bibliothèque
 - `src/lib/xlsx-modele.ts` (testé) : lit le fichier Excel de l'académie, repère ses cases et le remplit sans toucher à sa mise en page ni à ses formules ; `src/lib/recapitulatif.ts` : l'attestation récapitulative des PFMP (qui la prépare, ce qui compte, fichiers de l'académie et Cap PFMP)
+- `src/lib/tenues-def.ts` (pur, testé) : liste préremplie des articles, tailles, totaux de la commande, ce qui reste à remettre ; `src/lib/tenues.ts` : saisie des tailles, fichiers de commande et de remises, remise signée et sa fiche PDF
 - `src/lib/auth.ts` : connexion, sessions, mots de passe
 - `src/app/(app)/` : les écrans, chacun avec ses actions serveur
 - `scripts/` : migrations et données de démonstration (`version-demo.ts` : à augmenter quand les données de démonstration changent)

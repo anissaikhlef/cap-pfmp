@@ -13,6 +13,8 @@ import { piecesAllocation } from "./allocations";
 import { candidaturesDe } from "./candidatures";
 import { campagneDe, relancerEntreprise, reponsesCampagne } from "./campagne";
 import { referentDe } from "./requetes";
+import { articlesDesFormations, prevenirPourLesTailles } from "./tenues";
+import { taillesManquantes } from "./tenues-def";
 import { estJourOuvre, jourDeRelance, ouvertureFinDeStage, piecesManquantes, relanceCyclique, relanceHebdomadaireDue, tachesEleve, texteJour } from "./regles";
 import { completerReglages, type Reglages, type Signataire } from "@/db/schema";
 
@@ -223,6 +225,7 @@ export async function relancesDuJour(etab: Etab, opts: { classes?: string[]; use
   n += await relancerPieces(ctx, etabC, [...eleves.values()], journal, jour, base);
   n += await relancerAbsences(ctx, etabC, lignes.map((l) => l.s.id), eleves, journal, jour, base);
   if (R.eleveQuotidien) n += await rappelerEleves(ctx, etabC, conds, journal, jour, base);
+  n += await relancerTailles(ctx, etabC, conds, journal, jour, base);
   if (opts.campagne ?? !opts.classes) n += await relancerCampagne(ctx, etabC, journal, appels, equipe, cycle, base);
   n += await appels.envoyer(ctx);
   return n;
@@ -249,6 +252,34 @@ async function equipeDuStage(equipe: (typeof schema.users.$inferSelect)[], e: El
 }
 
 type Journal = Awaited<ReturnType<typeof journalDesRelances>>;
+
+/**
+ * Tenue professionnelle : tant que les tailles d'un élève ne sont pas indiquées, l'élève et sa famille sont relancés
+ * aux jours réglés avant la date limite de la saisie.
+ */
+async function relancerTailles(ctx: Expediteur, etab: EtabC, conds: SQL[], journal: Journal, jour: string, base: string) {
+  const jours = etab.reglages.relances.tailles;
+  if (!jours.length) return 0;
+  const saisies = await db.select({ t: schema.campagnesTenues, c: schema.classes }).from(schema.campagnesTenues)
+    .innerJoin(schema.classes, eq(schema.classes.id, schema.campagnesTenues.classeId))
+    .where(and(...conds, gte(schema.campagnesTenues.dateLimite, jour)));
+  const aRelancer = saisies.filter(({ t }) => jourDeRelance(jour, jours.map((k) => ajouterJours(t.dateLimite, -k))));
+  if (!aRelancer.length) return 0;
+  const articles = await articlesDesFormations(etab.id, aRelancer.map(({ c }) => c.formationId).filter((x): x is string => !!x));
+  let n = 0;
+  for (const { t, c } of aRelancer) {
+    const liste = c.formationId ? articles.get(c.formationId) ?? [] : [];
+    const eleves = await db.select().from(schema.eleves).where(and(eq(schema.eleves.classeId, c.id), eq(schema.eleves.archive, false)));
+    for (const e of eleves) {
+      const cle = `${t.id}:${e.id}:tailles:${jour}`;
+      if (!taillesManquantes(liste, e.tailles).length || journal.fait(cle)) continue;
+      const envoyes = await prevenirPourLesTailles(ctx, e, t.dateLimite, true, base);
+      if (envoyes) await journal.noter("eleve", cle, { destinataires: envoyes });
+      n += envoyes;
+    }
+  }
+  return n;
+}
 
 /**
  * 3. Pièces de l'allocation (RIB, pièce d'identité) : les familles des élèves qui ont un stage cette année,

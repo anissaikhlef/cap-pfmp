@@ -8,6 +8,7 @@ import { BlocConvention, BlocFinDeStage, DossierEleve } from "@/components/conve
 import { BlocPresenceEleve } from "@/components/absences";
 import { BlocCandidature } from "@/components/candidature";
 import { BlocAllocation } from "@/components/allocation";
+import { BlocTenue } from "@/components/tenue";
 import { BlocCarnetEleve } from "@/components/carnet";
 import { BlocCapPartenaires } from "@/components/agents";
 import { contacterSuggestion } from "../eleves/stage-actions";
@@ -60,6 +61,7 @@ export default async function MonStage() {
         </>
       )}
       {(d.stage || !d.periode) && <BlocCandidature ctx={ctx} eleve={e} />}
+      <BlocTenue ctx={ctx} eleve={e} pourEleve />
       <BlocAllocation ctx={ctx} eleve={e} />
       <div className="section"><h2>Mes documents</h2><DossierEleve ctx={ctx} eleveId={e.id} /></div>
     </>

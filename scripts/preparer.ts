@@ -10,6 +10,7 @@ import { execFileSync } from "node:child_process";
 import { VERSION_DONNEES_DEMO } from "./version-demo";
 import * as schema from "../src/db/schema";
 import { installerModeleAcademie } from "./modele-academie";
+import { installerTenuesDemo } from "./demo-tenues";
 
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL manquant : renseignez l'adresse de la base de données.");
@@ -32,7 +33,8 @@ async function main() {
 
 /**
  * Ajouts à la démonstration sans la recharger, pour garder ce qu'Anissa y a saisi : le fichier de l'académie pour
- * l'attestation récapitulative des PFMP, et l'académie du lycée, là où ils manquent encore (rien n'est remplacé).
+ * l'attestation récapitulative des PFMP, l'académie du lycée et les articles de tenue, là où ils manquent encore
+ * (rien n'est remplacé).
  */
 async function completerLaDemo(pool: Pool) {
   const db = drizzle(pool, { schema });
@@ -46,6 +48,15 @@ async function completerLaDemo(pool: Pool) {
     where entrainement_de_id is null and not (reglages ? 'academie')
   `);
   if (rows.length) console.log(`Démonstration complétée : fichier de l'académie déposé pour ${rows.length} lycée(s).`);
+  // Tenues et matériel : les articles des formations de la sécurité, s'il n'y en a aucun dans le lycée.
+  const { rows: sans } = await db.execute(sql`
+    select e.id from etablissements e where e.entrainement_de_id is null
+    and not exists (select 1 from articles_formation a where a.etablissement_id = e.id)
+  `);
+  for (const r of sans) {
+    const n = await installerTenuesDemo(db, String(r.id));
+    if (n) console.log(`Démonstration complétée : ${n} article(s) de tenue et de matériel.`);
+  }
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

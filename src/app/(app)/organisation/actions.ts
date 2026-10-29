@@ -60,7 +60,7 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
   const quiVisite = { premiere: v.quiPremiere, derniere: v.quiDerniere, autres: v.quiAutres, examen: v.quiExamen };
   const reglages: Reglages = {
     // Ce qui se règle ailleurs (barème des frais) est gardé tel quel.
-    frais: ctx.etab.reglages.frais, agents: ctx.etab.reglages.agents, academie: ctx.etab.reglages.academie,
+    frais: ctx.etab.reglages.frais, agents: ctx.etab.reglages.agents, academie: ctx.etab.reglages.academie, tenues: ctx.etab.reglages.tenues,
     gestion: v.gestion, quiVisite, visiteurs: Object.values(quiVisite).every((x) => x === "pro") ? "pro" : "equipe", repartition: v.repartition, signature: v.signature,
     signatureModele: v.signatureModele, dernierSignataire: v.dernierSignataire,
     ordreMission: v.ordreMission === "oui", signatairesOrdreMission: signatairesOrdreMission.length ? [...signatairesOrdreMission] : ["direction"],
@@ -75,6 +75,7 @@ export async function enregistrerOrganisation(_: Etat, fd: FormData): Promise<Et
       eleveQuotidien: v.eleveQuotidien === "oui", eleveRechercheJours: v.eleveRechercheJours,
       entrepriseIntervalle: v.entrepriseIntervalle, entrepriseMax: v.entrepriseMax,
       accueilAvant: v.accueilAvant, remerciementApres: v.remerciementApres, attestationAvant: v.attestationAvant,
+      tailles: ctx.etab.reglages.relances.tailles,
     },
   };
   await db.update(schema.etablissements).set({ nom: v.nom, anneeScolaire: v.anneeScolaire, reglages }).where(eq(schema.etablissements.id, ctx.etab.id));

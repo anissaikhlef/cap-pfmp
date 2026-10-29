@@ -538,3 +538,16 @@ Anissa montre le fichier Excel de son académie (« Attestation de PFMP ou de du
 - **Ce qui compte** : « déjà effectué et attesté » : seules les PFMP terminées dont l'attestation de stage est validée, sur tout le cycle de l'élève (toutes ses années). Jours : ceux que l'entreprise a déclarés dans l'attestation en ligne, sinon les jours prévus moins les absences ; 1 semaine = 5 jours. Une PFMP terminée sans attestation validée est signalée, comme un numéro de candidat manquant.
 - **Semaines attendues** : « bac pro 3 ans : 20 semaines, bac pro 2 ans : 15 semaines, CAP : 12 semaines » ; modifiables par formation (« Pôles et formations »), avec la durée du cycle ; la durée d'un élève peut différer de celle de sa formation. Les élèves à qui il manque des semaines figurent sur la page de garde, avec la dérogation.
 - **Démonstration** : le modèle d'Anissa, vierge (« ce n'est pas un fichier confidentiel »), est déposé pour le lycée de démonstration, sans recharger les données qu'Anissa y a saisies.
+
+## 29 octobre 2026 : tenues professionnelles et matériel
+
+Anissa : « des cases que les élèves doivent remplir : taille haut, bas et pointure pour préparer leurs tenues professionnelles, en XS, S, M, L, XL, XXL ou bien 34, 36, 38… », et « une case où l'élève signe qu'il a reçu sa tenue, sa boîte à outils ou tout autre équipement mis à disposition ».
+
+1. **Selon la formation** : « c'est différent en fonction des formations, les tenues sont différentes ». Une liste préremplie, « le max d'infos » (polo, pantalon, blouse, parka, ceinture, chaussures…, protections et matériel) ; « chaque DDFPT sélectionne selon les besoins de la formation », et peut ajouter ce qui manque.
+2. **Deux fichiers** : un fichier pour que le DDFPT passe la commande (le total par article et par taille, et le détail élève par élève, en Excel et en PDF), et un autre après la signature des élèves (qui a reçu quoi, quand, et ce qui reste à remettre).
+3. **Qui indique les tailles** : l'élève ou ses parents ; le professeur référent ou le DDFPT peut aussi les saisir pour un élève qui n'a pas de compte.
+4. **Saisie** : le DDFPT l'ouvre pour une ou plusieurs classes, avec une date limite ; l'élève et sa famille sont prévenus, puis relancés avant la date limite tant que les tailles manquent (jours réglables, 7 et 2 jours par défaut).
+5. **Signature** : « il signe le jour à la remise », au doigt, sur le téléphone ou la tablette de la personne qui distribue. La fiche de remise (articles, tailles, date, signature, personne qui a remis) est rangée dans les documents de l'élève.
+6. **Qui distribue** : toute personne que le DDFPT désigne (par exemple l'agent comptable ou le magasinier), en plus de la gestion des PFMP et de la direction.
+7. **Article manquant** le jour de la distribution : l'élève signe pour ce qu'il a reçu ; le reste lui est remis plus tard, avec une nouvelle signature.
+8. **Donnés, pas prêtés** : « à ma connaissance », la tenue et le matériel sont donnés à l'élève, qui les garde (pas de restitution).

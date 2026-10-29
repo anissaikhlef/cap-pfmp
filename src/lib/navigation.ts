@@ -2,6 +2,7 @@ import "server-only";
 import type { Contexte } from "./auth";
 import { a, estGestionnaire, idsElevesReferent, peutAdministrer, peutSignerOrdreMission } from "./acces";
 import { aLAgent } from "./agents";
+import { classesDesTenues, peutDistribuer } from "./tenues";
 
 export type Lien = { href: string; libelle: string };
 
@@ -37,6 +38,8 @@ export async function liensPour(ctx: Contexte): Promise<Lien[]> {
   }
   // Listes à exporter (Excel, PDF) : la gestion des PFMP toutes, le professeur celles de ses classes.
   if (gestion || a(ctx, "direction", "gestionnaire", "professeur")) l.push({ href: "/listes", libelle: "Listes" });
+  // Tenues et matériel : la gestion des PFMP, les personnes désignées pour la distribution, les référents des classes concernées.
+  if (peutDistribuer(ctx) || (a(ctx, "professeur") && (await classesDesTenues(ctx)).length)) l.push({ href: "/tenues", libelle: "Tenues" });
   if (peutAdministrer(ctx) && aLAgent(ctx.etab.reglages, "veille")) l.push({ href: "/veille", libelle: "Veille" });
   if (a(ctx, "admin")) l.push({ href: "/admin", libelle: "Administration" });
   if (a(ctx, "vie_scolaire")) l.push({ href: "/vie-scolaire", libelle: "Vie scolaire" });

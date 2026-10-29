@@ -38,13 +38,25 @@ function couper(f: PDFFont, texte: string, taille: number, largeur: number, max:
   return garde.length ? garde : [""];
 }
 
-export async function tableauPdf(t: Tableau, pied: string): Promise<Uint8Array> {
+/** Une liste en PDF, ou plusieurs (chacune à partir d'une nouvelle page). */
+export async function tableauPdf(t: Tableau | Tableau[], pied: string): Promise<Uint8Array> {
+  const tableaux = Array.isArray(t) ? t : [t];
   const doc = await PDFDocument.create();
-  doc.setTitle(t.titre);
+  doc.setTitle(tableaux[0].titre);
   doc.setCreator("Cap PFMP");
   doc.setProducer("Cap PFMP");
   const police = await doc.embedFont(StandardFonts.Helvetica);
   const gras = await doc.embedFont(StandardFonts.HelveticaBold);
+  for (const x of tableaux) dessiner(doc, x, police, gras);
+  const pages = doc.getPages();
+  pages.forEach((p, i) => {
+    const texte = lisible(police, `${pied} · page ${i + 1} sur ${pages.length}`);
+    p.drawText(texte, { x: M, y: 16, size: 7.5, font: police, color: GRIS });
+  });
+  return doc.save();
+}
+
+function dessiner(doc: PDFDocument, t: Tableau, police: PDFFont, gras: PDFFont) {
   const taille = 8;
   const interligne = taille * 1.3;
   const utile = L - 2 * M;
@@ -81,10 +93,4 @@ export async function tableauPdf(t: Tableau, pied: string): Promise<Uint8Array> 
     cellules.forEach((c, i) => c.forEach((l, k) => page.drawText(l, { x: xs[i] + 3, y: y - 3 - (k + 1) * interligne + 2, size: taille, font: police, color: NOIR })));
     y -= h;
   });
-  const pages = doc.getPages();
-  pages.forEach((p, i) => {
-    const texte = lisible(police, `${pied} · page ${i + 1} sur ${pages.length}`);
-    p.drawText(texte, { x: M, y: 16, size: 7.5, font: police, color: GRIS });
-  });
-  return doc.save();
 }

@@ -14,6 +14,7 @@ import { ecrireOctets } from "../src/lib/stockage-brut";
 import { REGLAGES_PAR_DEFAUT, type Horaires, type Signatures, type Role } from "../src/db/schema";
 import { VERSION_DONNEES_DEMO } from "./version-demo";
 import { installerModeleAcademie } from "./modele-academie";
+import { installerTenuesDemo } from "./demo-tenues";
 import { QUESTIONS_APPEL } from "../src/lib/modeles";
 
 const NOM_LYCEE = "Lycée professionnel de démonstration";
@@ -411,6 +412,15 @@ async function main() {
   for (const [nom, numero] of [["LAURENT", "0269990001"], ["CISSÉ", "0269990002"], ["MANSOURI", "0269990003"]]) {
     await db.update(schema.eleves).set({ numeroCandidat: numero }).where(and(eq(schema.eleves.etablissementId, E), eq(schema.eleves.nom, nom)));
   }
+
+  // Tenues et matériel : articles des formations de la sécurité ; saisie des tailles ouverte pour la 2nde MS (deux élèves
+  // ont déjà indiqué leurs tailles) ; Nadia BERRADA (vie scolaire) est désignée pour la distribution.
+  await installerTenuesDemo(db, E);
+  await db.insert(schema.campagnesTenues).values({ etablissementId: E, classeId: sec.c.id, dateLimite: "2026-11-06", ouverteParId: direction.id, ouverteLe: new Date("2026-10-19T09:00:00+02:00") });
+  await db.update(schema.eleves).set({ tailles: { haut: "M", bas: "40", ceinture: "M", pointure: "42" }, taillesLe: new Date("2026-10-20T18:00:00+02:00") }).where(and(eq(schema.eleves.etablissementId, E), eq(schema.eleves.nom, "MOREAU")));
+  await db.update(schema.eleves).set({ tailles: { haut: "S", bas: "36", ceinture: "S", pointure: "38" }, taillesLe: new Date("2026-10-21T19:00:00+02:00") }).where(and(eq(schema.eleves.etablissementId, E), eq(schema.eleves.nom, "BENKHELIFA")));
+  const [nadia] = await db.select().from(schema.users).where(eq(schema.users.email, `vie.scolaire@${DOMAINE}`)).limit(1);
+  await db.update(schema.etablissements).set({ reglages: { ...etab.reglages, tenues: { distributeurs: [nadia.id] } } }).where(eq(schema.etablissements.id, E));
 
   // Repère pour scripts/preparer.ts : ces données de démonstration sont à jour.
   await db.insert(schema.journal).values({ etablissementId: E, action: "donnees_demo", entite: "etablissement", entiteId: E, details: { version: VERSION_DONNEES_DEMO } });

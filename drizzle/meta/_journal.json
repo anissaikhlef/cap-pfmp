@@ -169,6 +169,13 @@
       "when": 1793232902062,
       "tag": "0023_attestation_recapitulative",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793234605360,
+      "tag": "0024_tenues",
+      "breakpoints": true
     }
   ]
 }
